@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { streamChat, streamCloudChat, type ChatMessage, type LLMProvider, CLOUD_MODELS } from '@/lib/ollama';
 import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
@@ -32,7 +33,12 @@ interface Props {
 
 export default function Chat({ conversation, onUpdate, model, onModelChange }: Props) {
   const [input, setInput] = useState('');
+  const isMobile = useIsMobile();
   const [provider, setProvider] = useState<LLMProvider>('ollama');
+
+  useEffect(() => {
+    if (isMobile) setProvider('cloud');
+  }, [isMobile]);
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
