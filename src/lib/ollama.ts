@@ -141,6 +141,8 @@ export async function* streamChat(
         const json = JSON.parse(line);
         if (json.message?.content) yield json.message.content;
       } catch {}
+    }
+  }
 }
 
 export async function* streamCloudChat(
