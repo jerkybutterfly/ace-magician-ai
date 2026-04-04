@@ -19,6 +19,53 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface PullProgress {
+  status: string;
+  digest?: string;
+  total?: number;
+  completed?: number;
+}
+
+export async function* pullModel(modelName: string): AsyncGenerator<PullProgress> {
+  const { ollamaUrl } = getSettings();
+  const res = await fetch(`${ollamaUrl}/api/pull`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: modelName, stream: true }),
+  });
+
+  if (!res.ok) throw new Error(`Failed to pull model: ${res.statusText}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        yield JSON.parse(line);
+      } catch {}
+    }
+  }
+}
+
+export async function deleteModel(modelName: string): Promise<void> {
+  const { ollamaUrl } = getSettings();
+  const res = await fetch(`${ollamaUrl}/api/delete`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: modelName }),
+  });
+  if (!res.ok) throw new Error(`Failed to delete model: ${res.statusText}`);
+}
+
 export async function* streamChat(
   model: string,
   messages: ChatMessage[],
