@@ -71,8 +71,12 @@ export async function* streamChat(
   messages: ChatMessage[],
 ): AsyncGenerator<string> {
   const { ollamaUrl, systemPrompt } = getSettings();
-  const allMessages: ChatMessage[] = systemPrompt
-    ? [{ role: 'system', content: systemPrompt }, ...messages]
+  const agentMemory = (await import('./memory')).getAgentMemory();
+  const fullSystemPrompt = agentMemory
+    ? `${systemPrompt}\n\n--- AGENT MEMORY ---\n${agentMemory}`
+    : systemPrompt;
+  const allMessages: ChatMessage[] = fullSystemPrompt
+    ? [{ role: 'system', content: fullSystemPrompt }, ...messages]
     : messages;
 
   const res = await fetch(`${ollamaUrl}/api/chat`, {

@@ -22,6 +22,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/files" element={<Index />} />
             <Route path="/settings" element={<Index />} />
+            <Route path="/memory" element={<Index />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </SidebarProvider>
