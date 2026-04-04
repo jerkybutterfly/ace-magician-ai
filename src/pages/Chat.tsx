@@ -155,8 +155,35 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b shrink-0">
-        <ModelSelector value={model} onChange={onModelChange} />
+      <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b shrink-0 flex-wrap">
+        <Select value={provider} onValueChange={(v) => setProvider(v as LLMProvider)}>
+          <SelectTrigger className="w-[120px] sm:w-[140px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ollama">
+              <span className="flex items-center gap-1.5"><Monitor className="h-3 w-3" /> Ollama (PC)</span>
+            </SelectItem>
+            <SelectItem value="cloud">
+              <span className="flex items-center gap-1.5"><Cloud className="h-3 w-3" /> Cloud AI</span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        {provider === 'ollama' ? (
+          <ModelSelector value={model} onChange={onModelChange} />
+        ) : (
+          <Select value={cloudModel} onValueChange={setCloudModel}>
+            <SelectTrigger className="w-[160px] sm:w-[200px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CLOUD_MODELS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
