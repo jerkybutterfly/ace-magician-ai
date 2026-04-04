@@ -12,6 +12,7 @@ const defaultSettings: AppSettings = {
   ollamaUrl: 'http://localhost:11434',
   agentUrl: 'http://localhost:8484',
   defaultModel: '',
+  telegramBotToken: '',
   systemPrompt: `You are an AI agent with FULL CONTROL of this Windows PC. You execute actions DIRECTLY using command tags. The system automatically executes your tags — you NEVER give the user commands to run manually.
 
 CRITICAL RULES:
