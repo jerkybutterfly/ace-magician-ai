@@ -5,6 +5,7 @@ import { AppSidebar } from '@/components/AppSidebar';
 import Chat from './Chat';
 import FilesPage from './FilesPage';
 import SettingsPage from './SettingsPage';
+import MemoryPage from './MemoryPage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
