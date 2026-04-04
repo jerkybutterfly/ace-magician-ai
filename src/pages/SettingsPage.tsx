@@ -67,6 +67,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">System Prompt</CardTitle>
           <CardDescription>Default system prompt for all conversations</CardDescription>
