@@ -215,5 +215,3 @@ export async function* streamCloudChat(
     }
   }
 }
-  }
-}
