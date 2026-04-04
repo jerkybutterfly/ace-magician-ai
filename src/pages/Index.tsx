@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Routes, Route } from 'react-router-dom';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { useLocation } from 'react-router-dom';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import Chat from './Chat';
 import FilesPage from './FilesPage';
@@ -9,6 +9,7 @@ import { loadConversations, saveConversations, createConversation, type Conversa
 import { getSettings } from '@/lib/settings';
 
 export default function Index() {
+  const location = useLocation();
   const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
   const [currentId, setCurrentId] = useState<string | null>(() => {
     const convos = loadConversations();
@@ -51,6 +52,17 @@ export default function Index() {
 
   const currentConvo = conversations.find((c) => c.id === currentId) ?? null;
 
+  const renderPage = () => {
+    switch (location.pathname) {
+      case '/files':
+        return <FilesPage />;
+      case '/settings':
+        return <SettingsPage />;
+      default:
+        return <Chat conversation={currentConvo} onUpdate={handleUpdateConvo} model={model} onModelChange={setModel} />;
+    }
+  };
+
   return (
     <div className="min-h-screen flex w-full">
       <AppSidebar
@@ -65,7 +77,7 @@ export default function Index() {
           <SidebarTrigger />
         </header>
         <main className="flex-1 flex flex-col overflow-hidden">
-          <Chat conversation={currentConvo} onUpdate={handleUpdateConvo} model={model} onModelChange={setModel} />
+          {renderPage()}
         </main>
       </div>
     </div>
