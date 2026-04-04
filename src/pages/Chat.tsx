@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { streamChat, type ChatMessage } from '@/lib/ollama';
+import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,6 +20,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
+  const [executingTools, setExecutingTools] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -31,7 +33,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const send = async () => {
     if (!input.trim() || !conversation || streaming) return;
     const userMsg: ChatMessage = { role: 'user', content: input.trim() };
-    const updated: Conversation = {
+    let updated: Conversation = {
       ...conversation,
       messages: [...messages, userMsg],
       updatedAt: Date.now(),
@@ -48,14 +50,31 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         full += chunk;
         setStreamedContent(full);
       }
-      const assistantMsg: ChatMessage = { role: 'assistant', content: full };
-      onUpdate({ ...updated, messages: [...updated.messages, assistantMsg], updatedAt: Date.now() });
+
+      // Check if the AI response contains tool commands
+      if (hasToolCommands(full)) {
+        setExecutingTools(true);
+        setStreamedContent(full + '\n\n⏳ Executing commands...');
+        
+        const { processed } = await executeToolCommands(full);
+        
+        // Add the processed response as assistant message
+        const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
+        updated = { ...updated, messages: [...updated.messages, assistantMsg], updatedAt: Date.now() };
+        onUpdate(updated);
+        setExecutingTools(false);
+      } else {
+        const assistantMsg: ChatMessage = { role: 'assistant', content: full };
+        updated = { ...updated, messages: [...updated.messages, assistantMsg], updatedAt: Date.now() };
+        onUpdate(updated);
+      }
     } catch (err) {
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ Error: ${err instanceof Error ? err.message : 'Unknown error'}. Make sure Ollama is running.` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
       setStreaming(false);
       setStreamedContent('');
+      setExecutingTools(false);
     }
   };
 
@@ -81,7 +100,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
               </div>
               <h2 className="text-lg font-semibold mb-1">Local AI Assistant</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Chat with your local Ollama model. Use the terminal in the sidebar to run commands on your PC.
+                Chat with your local AI. It has full access to your files and can run commands on your PC.
               </p>
             </div>
           )}
@@ -90,6 +109,11 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           ))}
           {streaming && streamedContent && (
             <ChatMessageBubble message={{ role: 'assistant', content: streamedContent }} />
+          )}
+          {executingTools && !streamedContent && (
+            <div className="px-6 py-3 text-sm text-muted-foreground animate-pulse">
+              ⏳ Executing file operations...
+            </div>
           )}
           <div ref={scrollRef} />
         </div>
@@ -101,7 +125,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Send a message..."
+            placeholder="Ask about your files, run commands, or just chat..."
             className="resize-none min-h-[44px] max-h-[200px]"
             rows={1}
             disabled={streaming}
