@@ -32,6 +32,8 @@ interface Props {
 
 export default function Chat({ conversation, onUpdate, model, onModelChange }: Props) {
   const [input, setInput] = useState('');
+  const [provider, setProvider] = useState<LLMProvider>('ollama');
+  const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
