@@ -149,20 +149,20 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b shrink-0">
         <ModelSelector value={model} onChange={onModelChange} />
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="max-w-3xl mx-auto">
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="max-w-3xl mx-auto px-2 sm:px-0">
           {visibleMessages.length === 0 && !streaming && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                <Bot className="h-8 w-8 text-primary" />
+            <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center px-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <Bot className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
               </div>
-              <h2 className="text-lg font-semibold mb-1">Local AI Assistant</h2>
-              <p className="text-sm text-muted-foreground max-w-sm">
+              <h2 className="text-base sm:text-lg font-semibold mb-1">Pesto Steve's AI</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
                 Chat with your local AI. It has full access to your files and can run commands on your PC.
               </p>
             </div>
@@ -174,7 +174,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <ChatMessageBubble message={{ role: 'assistant', content: streamedContent }} />
           )}
           {executingTools && !streamedContent && (
-            <div className="px-6 py-3 text-sm text-muted-foreground animate-pulse">
+            <div className="px-4 sm:px-6 py-3 text-sm text-muted-foreground animate-pulse">
               ⏳ Executing file operations...
             </div>
           )}
@@ -182,14 +182,14 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         </div>
       </ScrollArea>
 
-      <div className="border-t p-4">
+      <div className="border-t p-2 sm:p-4 shrink-0">
         <div className="max-w-3xl mx-auto flex gap-2">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about your files, run commands, or just chat..."
-            className="resize-none min-h-[44px] max-h-[200px]"
+            placeholder="Ask anything..."
+            className="resize-none min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] text-sm sm:text-base"
             rows={1}
             disabled={streaming}
           />
@@ -197,7 +197,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             onClick={streaming ? undefined : send}
             disabled={!input.trim() && !streaming}
             size="icon"
-            className="h-[44px] w-[44px] flex-shrink-0"
+            className="h-[40px] w-[40px] sm:h-[44px] sm:w-[44px] flex-shrink-0"
           >
             {streaming ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
           </Button>
