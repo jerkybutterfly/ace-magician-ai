@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2 } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
