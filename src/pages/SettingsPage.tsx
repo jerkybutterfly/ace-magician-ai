@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { getSettings, saveSettings, type AppSettings } from '@/lib/settings';
+import { useState } from 'react';
+import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, type AppSettings } from '@/lib/settings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -59,8 +59,11 @@ export default function SettingsPage() {
           <CardTitle className="text-base">System Prompt</CardTitle>
           <CardDescription>Default system prompt for all conversations</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Textarea value={settings.systemPrompt} onChange={(e) => update('systemPrompt', e.target.value)} rows={4} placeholder="You are a helpful AI assistant..." />
+        <CardContent className="space-y-3">
+          <Textarea value={settings.systemPrompt} onChange={(e) => update('systemPrompt', e.target.value)} rows={6} placeholder="You are a helpful AI assistant..." className="font-mono text-xs" />
+          <Button variant="outline" size="sm" onClick={() => update('systemPrompt', DEFAULT_SYSTEM_PROMPT)}>
+            Reset to Default
+          </Button>
         </CardContent>
       </Card>
 
