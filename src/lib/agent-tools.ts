@@ -62,7 +62,10 @@ async function handleRunCmd(match: RegExpMatchArray): Promise<ToolResult> {
  * Check if an AI response contains tool commands.
  */
 export function hasToolCommands(text: string): boolean {
-  return TOOL_PATTERNS.some(p => p.regex.test(text));
+  return TOOL_PATTERNS.some(({ regex }) => {
+    regex.lastIndex = 0;
+    return regex.test(text);
+  });
 }
 
 /**
@@ -75,7 +78,7 @@ export async function executeToolCommands(text: string): Promise<{ processed: st
   for (const { regex, handler } of TOOL_PATTERNS) {
     // Reset regex lastIndex
     regex.lastIndex = 0;
-    const matches = [...text.matchAll(new RegExp(regex.source, 'g'))];
+    const matches = [...text.matchAll(new RegExp(regex.source, regex.flags))];
     
     for (const match of matches) {
       const result = await handler(match);

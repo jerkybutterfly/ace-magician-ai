@@ -26,6 +26,28 @@ export interface PullProgress {
   completed?: number;
 }
 
+const RUNTIME_EXECUTION_PROMPT = `You are operating inside Pesto Steve's AI.
+
+RUNTIME EXECUTION RULES
+- This interface auto-executes these tags: [LIST_DIR:path], [READ_FILE:path], [WRITE_FILE:path|content], [RUN_CMD:command].
+- For any request that can be advanced with local tools, respond with a short status line plus the required tags.
+- Never tell the user to run commands manually.
+- Never claim you lack access to local files, shell commands, or app launching on this PC.
+- If a task depends on an external website, installer, or app, take the next concrete local step with tags instead of refusing.
+- If a previous answer refused or over-explained, correct yourself by emitting tags now.
+- When you receive [TOOL_RESULTS], analyze them and either continue with more tags or summarize briefly if the task is complete.`;
+
+function getLatestObjective(messages: ChatMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== 'user') continue;
+    if (message.content.startsWith('[TOOL_RESULTS]')) continue;
+    return message.content;
+  }
+
+  return '';
+}
+
 export async function* pullModel(modelName: string): AsyncGenerator<PullProgress> {
   const { ollamaUrl } = getSettings();
   const res = await fetch(`${ollamaUrl}/api/pull`, {
@@ -72,9 +94,15 @@ export async function* streamChat(
 ): AsyncGenerator<string> {
   const { ollamaUrl, systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
-  const fullSystemPrompt = agentMemory
-    ? `${systemPrompt}\n\n--- AGENT MEMORY ---\n${agentMemory}`
-    : systemPrompt;
+  const currentObjective = getLatestObjective(messages);
+  const fullSystemPrompt = [
+    systemPrompt.trim(),
+    RUNTIME_EXECUTION_PROMPT,
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
   const allMessages: ChatMessage[] = fullSystemPrompt
     ? [{ role: 'system', content: fullSystemPrompt }, ...messages]
     : messages;
