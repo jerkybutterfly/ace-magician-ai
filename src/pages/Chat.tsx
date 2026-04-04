@@ -88,6 +88,22 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           continue;
         }
 
+        // Check if AI refused to act (common with small models)
+        const refusalPatterns = /I (cannot|can't|am unable|don't have the capability|unable to)|for security reasons|I'm not able|I do not have/i;
+        if (refusalPatterns.test(full) && round === 1) {
+          // Re-prompt the AI to actually use its tools
+          const assistantMsg: ChatMessage = { role: 'assistant', content: full };
+          currentMessages = [...currentMessages, assistantMsg];
+          const nudge: ChatMessage = {
+            role: 'user',
+            content: `You said you can't do it, but you CAN. You have tool tags: [RUN_CMD:...], [LIST_DIR:...], [READ_FILE:...], [WRITE_FILE:...]. These are auto-executed. Use them NOW to fulfill the original request. Do NOT explain — just act with tags.`,
+          };
+          currentMessages = [...currentMessages, nudge];
+          updated = { ...updated, messages: currentMessages, updatedAt: Date.now() };
+          onUpdate(updated);
+          continue;
+        }
+
         // No tool commands — final response
         const assistantMsg: ChatMessage = { role: 'assistant', content: full };
         updated = { ...updated, messages: [...currentMessages, assistantMsg], updatedAt: Date.now() };
