@@ -3,6 +3,7 @@ export interface AppSettings {
   agentUrl: string;
   defaultModel: string;
   systemPrompt: string;
+  telegramBotToken: string;
 }
 
 const SETTINGS_KEY = 'local-ai-settings';
