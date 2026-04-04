@@ -67,7 +67,7 @@ export default function Index() {
   };
 
   return (
-    <div className="min-h-screen flex w-full">
+    <div className="h-dvh flex w-full overflow-hidden">
       <AppSidebar
         conversations={conversations}
         currentConvoId={currentId}
@@ -75,11 +75,11 @@ export default function Index() {
         onSelectConvo={handleSelectConvo}
         onDeleteConvo={handleDeleteConvo}
       />
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center border-b px-2">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <header className="h-12 flex items-center border-b px-2 shrink-0">
           <SidebarTrigger />
         </header>
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
           {renderPage()}
         </main>
       </div>
