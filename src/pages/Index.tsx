@@ -57,6 +57,8 @@ export default function Index() {
     switch (location.pathname) {
       case '/files':
         return <FilesPage />;
+      case '/memory':
+        return <MemoryPage />;
       case '/settings':
         return <SettingsPage />;
       default:

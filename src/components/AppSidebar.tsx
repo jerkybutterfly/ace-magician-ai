@@ -14,6 +14,7 @@ import type { Conversation } from '@/lib/conversations';
 const navItems = [
   { title: 'Chat', url: '/', icon: MessageSquare },
   { title: 'Files', url: '/files', icon: FolderOpen },
+  { title: 'Memory', url: '/memory', icon: Brain },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
