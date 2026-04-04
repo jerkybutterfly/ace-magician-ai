@@ -9,6 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Square, Bot } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
+const MAX_TOOL_ROUNDS = 5;
+
 interface Props {
   conversation: Conversation | null;
   onUpdate: (convo: Conversation) => void;
@@ -45,28 +47,52 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     setStreamedContent('');
 
     try {
-      let full = '';
-      for await (const chunk of streamChat(model, updated.messages)) {
-        full += chunk;
-        setStreamedContent(full);
-      }
+      let currentMessages = [...updated.messages];
+      let round = 0;
 
-      // Check if the AI response contains tool commands
-      if (hasToolCommands(full)) {
-        setExecutingTools(true);
-        setStreamedContent(full + '\n\n⏳ Executing commands...');
-        
-        const { processed } = await executeToolCommands(full);
-        
-        // Add the processed response as assistant message
-        const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
-        updated = { ...updated, messages: [...updated.messages, assistantMsg], updatedAt: Date.now() };
-        onUpdate(updated);
-        setExecutingTools(false);
-      } else {
+      while (round < MAX_TOOL_ROUNDS) {
+        round++;
+
+        // Stream AI response
+        let full = '';
+        setStreamedContent('');
+        for await (const chunk of streamChat(model, currentMessages)) {
+          full += chunk;
+          setStreamedContent(full);
+        }
+
+        // Check for tool commands
+        if (hasToolCommands(full)) {
+          setExecutingTools(true);
+          setStreamedContent(full + '\n\n⏳ Executing commands...');
+
+          const { processed } = await executeToolCommands(full);
+
+          // Add assistant response with tool results to conversation
+          const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
+          currentMessages = [...currentMessages, assistantMsg];
+
+          // Feed results back as a system message so AI can react
+          const feedbackMsg: ChatMessage = {
+            role: 'user',
+            content: `[TOOL_RESULTS]\nThe commands were executed. Here are the results that were inserted into your previous response:\n${processed}\n[/TOOL_RESULTS]\nAnalyze the results and continue. If more actions are needed, use your tags. If done, summarize what happened.`,
+          };
+          currentMessages = [...currentMessages, feedbackMsg];
+
+          // Update conversation with results so far
+          updated = { ...updated, messages: currentMessages, updatedAt: Date.now() };
+          onUpdate(updated);
+          setExecutingTools(false);
+
+          // Continue loop — AI will see results and can chain more actions
+          continue;
+        }
+
+        // No tool commands — final response
         const assistantMsg: ChatMessage = { role: 'assistant', content: full };
-        updated = { ...updated, messages: [...updated.messages, assistantMsg], updatedAt: Date.now() };
+        updated = { ...updated, messages: [...currentMessages, assistantMsg], updatedAt: Date.now() };
         onUpdate(updated);
+        break;
       }
     } catch (err) {
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ Error: ${err instanceof Error ? err.message : 'Unknown error'}. Make sure Ollama is running.` };
