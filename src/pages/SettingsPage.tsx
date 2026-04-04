@@ -56,6 +56,20 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Telegram Integration</CardTitle>
+          <CardDescription>Control your PC remotely via Telegram bot</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="telegram-token">Bot Token</Label>
+            <Input id="telegram-token" type="password" value={settings.telegramBotToken} onChange={(e) => update('telegramBotToken', e.target.value)} placeholder="123456:ABC-DEF..." />
+            <p className="text-xs text-muted-foreground">Get a token from <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="underline text-primary">@BotFather</a> on Telegram. Pass it to agent.py with <code className="text-xs bg-muted px-1 rounded">--telegram-token YOUR_TOKEN</code></p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">System Prompt</CardTitle>
           <CardDescription>Default system prompt for all conversations</CardDescription>
         </CardHeader>
