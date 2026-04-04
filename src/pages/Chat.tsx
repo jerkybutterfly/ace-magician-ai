@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { streamChat, type ChatMessage } from '@/lib/ollama';
+import { streamChat, streamCloudChat, type ChatMessage, type LLMProvider, CLOUD_MODELS } from '@/lib/ollama';
 import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Square, Bot } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Send, Square, Bot, Monitor, Cloud } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 5;
@@ -31,6 +32,8 @@ interface Props {
 
 export default function Chat({ conversation, onUpdate, model, onModelChange }: Props) {
   const [input, setInput] = useState('');
+  const [provider, setProvider] = useState<LLMProvider>('ollama');
+  const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
@@ -72,7 +75,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         // Stream AI response
         let full = '';
         setStreamedContent('');
-        for await (const chunk of streamChat(model, currentMessages)) {
+        const activeModel = provider === 'cloud' ? cloudModel : model;
+        const streamer = provider === 'cloud' ? streamCloudChat : streamChat;
+        for await (const chunk of streamer(activeModel, currentMessages)) {
           full += chunk;
           setStreamedContent(full);
         }
@@ -150,8 +155,35 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b shrink-0">
-        <ModelSelector value={model} onChange={onModelChange} />
+      <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b shrink-0 flex-wrap">
+        <Select value={provider} onValueChange={(v) => setProvider(v as LLMProvider)}>
+          <SelectTrigger className="w-[120px] sm:w-[140px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ollama">
+              <span className="flex items-center gap-1.5"><Monitor className="h-3 w-3" /> Ollama (PC)</span>
+            </SelectItem>
+            <SelectItem value="cloud">
+              <span className="flex items-center gap-1.5"><Cloud className="h-3 w-3" /> Cloud AI</span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        {provider === 'ollama' ? (
+          <ModelSelector value={model} onChange={onModelChange} />
+        ) : (
+          <Select value={cloudModel} onValueChange={setCloudModel}>
+            <SelectTrigger className="w-[160px] sm:w-[200px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CLOUD_MODELS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <ScrollArea className="flex-1 min-h-0">

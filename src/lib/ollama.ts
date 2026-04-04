@@ -1,5 +1,14 @@
 import { getSettings } from './settings';
 
+export type LLMProvider = 'ollama' | 'cloud';
+
+export const CLOUD_MODELS = [
+  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
+  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
+  { value: 'openai/gpt-5', label: 'GPT-5' },
+];
 export interface OllamaModel {
   name: string;
   size: number;
@@ -132,6 +141,77 @@ export async function* streamChat(
         const json = JSON.parse(line);
         if (json.message?.content) yield json.message.content;
       } catch {}
+    }
+  }
+}
+
+export async function* streamCloudChat(
+  model: string,
+  messages: ChatMessage[],
+): AsyncGenerator<string> {
+  const { systemPrompt } = getSettings();
+  const agentMemory = (await import('./memory')).getAgentMemory();
+  const currentObjective = getLatestObjective(messages);
+  const fullSystemPrompt = [
+    systemPrompt.trim(),
+    RUNTIME_EXECUTION_PROMPT,
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const allMessages: ChatMessage[] = [
+    { role: 'system', content: fullSystemPrompt },
+    ...messages,
+  ];
+
+  const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+  const res = await fetch(CHAT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ model, messages: allMessages }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `Cloud AI error: ${res.statusText}`);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return;
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) yield content;
+      } catch {
+        buffer = line + '\n' + buffer;
+        break;
+      }
     }
   }
 }
