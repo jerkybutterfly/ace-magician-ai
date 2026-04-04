@@ -75,7 +75,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         // Stream AI response
         let full = '';
         setStreamedContent('');
-        for await (const chunk of streamChat(model, currentMessages)) {
+        const activeModel = provider === 'cloud' ? cloudModel : model;
+        const streamer = provider === 'cloud' ? streamCloudChat : streamChat;
+        for await (const chunk of streamer(activeModel, currentMessages)) {
           full += chunk;
           setStreamedContent(full);
         }
