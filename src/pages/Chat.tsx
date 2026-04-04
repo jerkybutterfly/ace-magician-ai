@@ -33,7 +33,8 @@ interface Props {
 
 export default function Chat({ conversation, onUpdate, model, onModelChange }: Props) {
   const [input, setInput] = useState('');
-  const [provider, setProvider] = useState<LLMProvider>('ollama');
+  const isMobile = useIsMobile();
+  const [provider, setProvider] = useState<LLMProvider>(() => isMobile ? 'cloud' : 'ollama');
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
