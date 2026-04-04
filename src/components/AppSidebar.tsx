@@ -38,7 +38,7 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
             <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
               <MessageSquare className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-sm">Local AI</span>
+            <span className="font-semibold text-sm">Pesto Steve's AI</span>
           </div>
         )}
       </SidebarHeader>
