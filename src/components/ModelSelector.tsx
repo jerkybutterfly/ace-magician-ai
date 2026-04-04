@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchModels, type OllamaModel } from '@/lib/ollama';
 import { RefreshCw } from 'lucide-react';
+import { ModelPullDialog } from './ModelPullDialog';
 
 interface Props {
   value: string;
@@ -46,6 +47,7 @@ export function ModelSelector({ value, onChange }: Props) {
       <button onClick={load} disabled={loading} className="p-1 rounded hover:bg-muted transition-colors">
         <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
       </button>
+      <ModelPullDialog onPullComplete={load} />
     </div>
   );
 }
