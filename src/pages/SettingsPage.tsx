@@ -59,8 +59,11 @@ export default function SettingsPage() {
           <CardTitle className="text-base">System Prompt</CardTitle>
           <CardDescription>Default system prompt for all conversations</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Textarea value={settings.systemPrompt} onChange={(e) => update('systemPrompt', e.target.value)} rows={4} placeholder="You are a helpful AI assistant..." />
+        <CardContent className="space-y-3">
+          <Textarea value={settings.systemPrompt} onChange={(e) => update('systemPrompt', e.target.value)} rows={6} placeholder="You are a helpful AI assistant..." className="font-mono text-xs" />
+          <Button variant="outline" size="sm" onClick={() => update('systemPrompt', DEFAULT_SYSTEM_PROMPT)}>
+            Reset to Default
+          </Button>
         </CardContent>
       </Card>
 
