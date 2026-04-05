@@ -143,7 +143,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         break;
       }
     } catch (err) {
-      const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ Error: ${err instanceof Error ? err.message : 'Unknown error'}. Make sure Ollama is running.` };
+      const errorDetail = err instanceof Error ? err.message : 'Unknown error';
+      const hint = provider === 'cloud' ? 'Please try again.' : 'Make sure Ollama is running.';
+      const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${provider === 'cloud' ? 'Cloud AI' : 'Ollama'} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
       setStreaming(false);
