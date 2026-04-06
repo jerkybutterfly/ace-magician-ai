@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { streamChat, streamCloudChat, type ChatMessage, type LLMProvider, CLOUD_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, type ChatMessage, type LLMProvider, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
