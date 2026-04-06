@@ -23,6 +23,10 @@ function createEmptyTelegramStatus(): TelegramStatus {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) {
+    if (error.message === 'Not Found') {
+      return 'Your local agent is running, but it is missing the Telegram endpoints. Run the latest public/agent.py and restart it.';
+    }
+
     return error.message === 'Failed to fetch'
       ? 'Local agent unavailable at the configured Agent URL.'
       : error.message;
