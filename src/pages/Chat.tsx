@@ -164,11 +164,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectItem value="cloud">
               <span className="flex items-center gap-1.5"><Cloud className="h-3 w-3" /> Cloud AI</span>
             </SelectItem>
+            <SelectItem value="google">
+              <span className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> AI Studio</span>
+            </SelectItem>
           </SelectContent>
         </Select>
 
         {provider === 'ollama' ? (
           <ModelSelector value={model} onChange={onModelChange} />
+        ) : provider === 'google' ? (
+          <Select value={googleModel} onValueChange={setGoogleModel}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GOOGLE_MODELS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : (
           <Select value={cloudModel} onValueChange={setCloudModel}>
             <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50">
