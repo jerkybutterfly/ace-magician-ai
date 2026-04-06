@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 5;
@@ -77,8 +77,6 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
       while (round < MAX_TOOL_ROUNDS) {
         round++;
-
-        // Stream AI response
         let full = '';
         setStreamedContent('');
         const activeModel = provider === 'cloud' ? cloudModel : model;
@@ -88,33 +86,23 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           setStreamedContent(full);
         }
 
-        // Check for tool commands
         const containsToolCommands = hasToolCommands(full);
 
         if (containsToolCommands) {
           setExecutingTools(true);
           setStreamedContent(full + '\n\n⏳ Executing commands...');
-
           const { processed } = await executeToolCommands(full);
-
-          // Add assistant response with tool results to conversation
           const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
           currentMessages = [...currentMessages, assistantMsg];
           visibleHistory = [...visibleHistory, assistantMsg];
-
-          // Feed results back as a system message so AI can react
           const feedbackMsg: ChatMessage = {
             role: 'user',
             content: `[TOOL_RESULTS]\nThe commands were executed. Here are the results that were inserted into your previous response:\n${processed}\n[/TOOL_RESULTS]\nAnalyze the results and continue. If more actions are needed, use your tags. If done, summarize what happened.`,
           };
           currentMessages = [...currentMessages, feedbackMsg];
-
-          // Update conversation with results so far
           updated = { ...updated, messages: visibleHistory, updatedAt: Date.now() };
           onUpdate(updated);
           setExecutingTools(false);
-
-          // Continue loop — AI will see results and can chain more actions
           continue;
         }
 
@@ -135,7 +123,6 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           continue;
         }
 
-        // No tool commands — final response
         const assistantMsg: ChatMessage = { role: 'assistant', content: full };
         visibleHistory = [...visibleHistory, assistantMsg];
         updated = { ...updated, messages: visibleHistory, updatedAt: Date.now() };
@@ -163,9 +150,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b shrink-0 flex-wrap">
+      {/* Model selector bar */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/50 shrink-0">
         <Select value={provider} onValueChange={(v) => setProvider(v as LLMProvider)}>
-          <SelectTrigger className="w-[120px] sm:w-[140px] h-8 text-xs">
+          <SelectTrigger className="w-[130px] h-8 text-xs bg-secondary/50 border-border/50">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -182,7 +170,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           <ModelSelector value={model} onChange={onModelChange} />
         ) : (
           <Select value={cloudModel} onValueChange={setCloudModel}>
-            <SelectTrigger className="w-[160px] sm:w-[200px] h-8 text-xs">
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -194,17 +182,29 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         )}
       </div>
 
+      {/* Messages area */}
       <ScrollArea className="flex-1 min-h-0">
-        <div className="max-w-3xl mx-auto px-2 sm:px-0">
+        <div className="max-w-3xl mx-auto px-3 sm:px-0">
           {visibleMessages.length === 0 && !streaming && (
-            <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center px-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                <Bot className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
+            <div className="flex flex-col items-center justify-center py-20 sm:py-32 text-center px-4">
+              <div className="w-16 h-16 rounded-2xl bg-primary/15 flex items-center justify-center mb-5 ring-1 ring-primary/20">
+                <Bot className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-base sm:text-lg font-semibold mb-1">Pesto Steve's AI</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
-                Chat with your local AI. It has full access to your files and can run commands on your PC.
+              <h2 className="text-xl font-bold mb-2 text-foreground">Pesto Steve's AI</h2>
+              <p className="text-sm text-muted-foreground max-w-md leading-relaxed">
+                The AI that actually does things. Full access to your files, terminal, and system.
               </p>
+              <div className="flex gap-2 mt-6 flex-wrap justify-center">
+                {['Run a command', 'Browse files', 'System info'].map((hint) => (
+                  <button
+                    key={hint}
+                    onClick={() => setInput(hint)}
+                    className="px-3 py-1.5 text-xs rounded-full border border-border/60 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all"
+                  >
+                    {hint}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {visibleMessages.map((msg, i) => (
@@ -214,7 +214,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <ChatMessageBubble message={{ role: 'assistant', content: streamedContent }} />
           )}
           {executingTools && !streamedContent && (
-            <div className="px-4 sm:px-6 py-3 text-sm text-muted-foreground animate-pulse">
+            <div className="px-6 py-3 text-sm text-muted-foreground animate-pulse">
               ⏳ Executing file operations...
             </div>
           )}
@@ -222,25 +222,28 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         </div>
       </ScrollArea>
 
-      <div className="border-t p-2 sm:p-4 shrink-0">
-        <div className="max-w-3xl mx-auto flex gap-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask anything..."
-            className="resize-none min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] text-sm sm:text-base"
-            rows={1}
-            disabled={streaming}
-          />
-          <Button
-            onClick={streaming ? undefined : send}
-            disabled={!input.trim() && !streaming}
-            size="icon"
-            className="h-[40px] w-[40px] sm:h-[44px] sm:w-[44px] flex-shrink-0"
-          >
-            {streaming ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-          </Button>
+      {/* Input area — OpenClaw style centered pill */}
+      <div className="p-3 sm:p-4 shrink-0">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex gap-2 items-end bg-secondary/40 border border-border/50 rounded-2xl p-2 focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message Pesto Steve..."
+              className="resize-none min-h-[40px] max-h-[160px] text-sm bg-transparent border-0 shadow-none focus-visible:ring-0 p-2"
+              rows={1}
+              disabled={streaming}
+            />
+            <Button
+              onClick={streaming ? undefined : send}
+              disabled={!input.trim() && !streaming}
+              size="icon"
+              className="h-9 w-9 rounded-xl flex-shrink-0 bg-primary hover:bg-primary/90"
+            >
+              {streaming ? <Square className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
