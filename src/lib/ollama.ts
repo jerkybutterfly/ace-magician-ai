@@ -1,6 +1,6 @@
 import { getSettings } from './settings';
 
-export type LLMProvider = 'ollama' | 'cloud';
+export type LLMProvider = 'ollama' | 'cloud' | 'google';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
@@ -8,6 +8,12 @@ export const CLOUD_MODELS = [
   { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
   { value: 'openai/gpt-5', label: 'GPT-5' },
+];
+
+export const GOOGLE_MODELS = [
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
 ];
 export interface OllamaModel {
   name: string;
