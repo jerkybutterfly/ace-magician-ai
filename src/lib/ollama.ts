@@ -218,6 +218,8 @@ export async function* streamCloudChat(
         buffer = line + '\n' + buffer;
         break;
       }
+    }
+  }
 }
 
 export async function* streamGoogleChat(
