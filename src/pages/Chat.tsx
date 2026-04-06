@@ -40,6 +40,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     if (isMobile) setProvider('cloud');
   }, [isMobile]);
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
+  const [googleModel, setGoogleModel] = useState(GOOGLE_MODELS[0].value);
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
