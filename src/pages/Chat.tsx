@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { streamChat, streamCloudChat, type ChatMessage, type LLMProvider, CLOUD_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, type ChatMessage, type LLMProvider, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 5;
@@ -40,6 +40,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     if (isMobile) setProvider('cloud');
   }, [isMobile]);
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
+  const [googleModel, setGoogleModel] = useState(GOOGLE_MODELS[0].value);
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
@@ -79,8 +80,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         round++;
         let full = '';
         setStreamedContent('');
-        const activeModel = provider === 'cloud' ? cloudModel : model;
-        const streamer = provider === 'cloud' ? streamCloudChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'cloud' ? cloudModel : model;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'cloud' ? streamCloudChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           full += chunk;
           setStreamedContent(full);
@@ -131,8 +132,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const hint = provider === 'cloud' ? 'Please try again.' : 'Make sure Ollama is running.';
-      const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${provider === 'cloud' ? 'Cloud AI' : 'Ollama'} error: ${errorDetail}. ${hint}` };
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : 'Please try again.';
+      const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
       setStreaming(false);
@@ -163,11 +165,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectItem value="cloud">
               <span className="flex items-center gap-1.5"><Cloud className="h-3 w-3" /> Cloud AI</span>
             </SelectItem>
+            <SelectItem value="google">
+              <span className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> AI Studio</span>
+            </SelectItem>
           </SelectContent>
         </Select>
 
         {provider === 'ollama' ? (
           <ModelSelector value={model} onChange={onModelChange} />
+        ) : provider === 'google' ? (
+          <Select value={googleModel} onValueChange={setGoogleModel}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GOOGLE_MODELS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : (
           <Select value={cloudModel} onValueChange={setCloudModel}>
             <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50">
