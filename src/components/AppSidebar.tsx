@@ -32,14 +32,17 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
   const location = useLocation();
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
+    <Sidebar collapsible="icon" className="border-r border-border/50">
       <SidebarHeader className="p-3">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <MessageSquare className="h-4 w-4 text-primary-foreground" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-primary/15 ring-1 ring-primary/30 flex items-center justify-center">
+              <span className="text-base">🦞</span>
             </div>
-            <span className="font-semibold text-sm">Pesto Steve's AI</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-sm text-foreground tracking-tight">Pesto Steve</span>
+              <span className="text-[10px] text-muted-foreground">AI Agent</span>
+            </div>
           </div>
         )}
       </SidebarHeader>
@@ -51,7 +54,7 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end className="hover:bg-muted/50" activeClassName="bg-muted text-primary font-medium">
+                    <NavLink to={item.url} end className="hover:bg-secondary/60 rounded-lg transition-colors" activeClassName="bg-primary/10 text-primary font-medium">
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
@@ -64,11 +67,11 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
 
         {!collapsed && location.pathname === '/' && (
           <>
-            <SidebarSeparator />
+            <SidebarSeparator className="bg-border/40" />
             <SidebarGroup>
               <div className="flex items-center justify-between px-3 py-1">
-                <SidebarGroupLabel className="p-0 text-xs">History</SidebarGroupLabel>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onNewChat}>
+                <SidebarGroupLabel className="p-0 text-[10px] uppercase tracking-wider text-muted-foreground/70">History</SidebarGroupLabel>
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 hover:text-primary" onClick={onNewChat}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -78,13 +81,13 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
                     <SidebarMenuItem key={c.id}>
                       <SidebarMenuButton
                         onClick={() => onSelectConvo(c.id)}
-                        className={`text-xs truncate group ${c.id === currentConvoId ? 'bg-muted text-primary' : ''}`}
+                        className={`text-xs truncate group rounded-lg transition-colors ${c.id === currentConvoId ? 'bg-primary/10 text-primary' : 'hover:bg-secondary/60'}`}
                       >
                         <MessageSquare className="mr-2 h-3.5 w-3.5 flex-shrink-0" />
                         <span className="truncate flex-1">{c.title}</span>
                         <button
                           onClick={(e) => { e.stopPropagation(); onDeleteConvo(c.id); }}
-                          className="opacity-0 group-hover:opacity-100 ml-1"
+                          className="opacity-0 group-hover:opacity-100 ml-1 transition-opacity"
                         >
                           <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
                         </button>
@@ -99,9 +102,9 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
 
         {!collapsed && (
           <>
-            <SidebarSeparator />
+            <SidebarSeparator className="bg-border/40" />
             <SidebarGroup>
-              <SidebarGroupLabel>System</SidebarGroupLabel>
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70">System</SidebarGroupLabel>
               <SystemInfoPanel />
             </SidebarGroup>
           </>
@@ -109,7 +112,7 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
       </SidebarContent>
 
       {!collapsed && (
-        <SidebarFooter className="h-[250px] border-t">
+        <SidebarFooter className="h-[250px] border-t border-border/40">
           <TerminalWidget />
         </SidebarFooter>
       )}
