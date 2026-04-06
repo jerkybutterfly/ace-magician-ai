@@ -80,8 +80,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         round++;
         let full = '';
         setStreamedContent('');
-        const activeModel = provider === 'cloud' ? cloudModel : model;
-        const streamer = provider === 'cloud' ? streamCloudChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'cloud' ? cloudModel : model;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'cloud' ? streamCloudChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           full += chunk;
           setStreamedContent(full);
