@@ -163,6 +163,21 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">LM Studio Configuration</CardTitle>
+          <CardDescription>Connect to a local LM Studio server for running models</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="lmstudio-url">LM Studio URL</Label>
+            <Input id="lmstudio-url" value={settings.lmStudioUrl} onChange={(e) => update('lmStudioUrl', e.target.value)} placeholder="http://localhost:1234" />
+            <p className="text-xs text-muted-foreground">
+              Start LM Studio&apos;s local server (Developer tab → Start Server) then select &quot;LM Studio&quot; as a provider in Chat.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+        <CardHeader>
           <CardTitle className="text-base">Agent Configuration</CardTitle>
           <CardDescription>Configure connection to the local Python agent for PC control</CardDescription>
         </CardHeader>
