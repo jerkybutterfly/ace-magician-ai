@@ -180,6 +180,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectItem value="google">
               <span className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> AI Studio</span>
             </SelectItem>
+            <SelectItem value="lmstudio">
+              <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> LM Studio</span>
+            </SelectItem>
           </SelectContent>
         </Select>
 
@@ -193,6 +196,17 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectContent>
               {GOOGLE_MODELS.map((m) => (
                 <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : provider === 'lmstudio' ? (
+          <Select value={lmStudioModel} onValueChange={setLmStudioModel}>
+            <SelectTrigger className="w-[200px] h-8 text-xs bg-secondary/50 border-border/50">
+              <SelectValue placeholder={lmStudioModels.length === 0 ? 'No models loaded' : 'Select model'} />
+            </SelectTrigger>
+            <SelectContent>
+              {lmStudioModels.map((m) => (
+                <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
               ))}
             </SelectContent>
           </Select>
