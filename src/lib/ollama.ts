@@ -1,6 +1,6 @@
 import { getSettings } from './settings';
 
-export type LLMProvider = 'ollama' | 'cloud' | 'google';
+export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
