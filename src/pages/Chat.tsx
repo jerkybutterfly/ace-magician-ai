@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { streamChat, streamCloudChat, streamGoogleChat, type ChatMessage, type LLMProvider, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, type ChatMessage, type LLMProvider, type LMStudioModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 5;
@@ -41,6 +41,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   }, [isMobile]);
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
   const [googleModel, setGoogleModel] = useState(GOOGLE_MODELS[0].value);
+  const [lmStudioModels, setLmStudioModels] = useState<LMStudioModel[]>([]);
+  const [lmStudioModel, setLmStudioModel] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
