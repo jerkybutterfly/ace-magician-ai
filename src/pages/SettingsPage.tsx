@@ -177,6 +177,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">Agent Configuration</CardTitle>
           <CardDescription>Configure connection to the local Python agent for PC control</CardDescription>
