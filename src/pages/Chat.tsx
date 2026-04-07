@@ -92,8 +92,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         round++;
         let full = '';
         setStreamedContent('');
-        const activeModel = provider === 'google' ? googleModel : provider === 'cloud' ? cloudModel : model;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'cloud' ? streamCloudChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? lmStudioModel : provider === 'cloud' ? cloudModel : model;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'cloud' ? streamCloudChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           full += chunk;
           setStreamedContent(full);
@@ -144,8 +144,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : 'Please try again.';
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'lmstudio' ? 'Make sure LM Studio is running with the local server enabled.' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
