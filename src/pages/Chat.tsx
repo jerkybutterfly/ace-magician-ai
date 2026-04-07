@@ -43,6 +43,16 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [googleModel, setGoogleModel] = useState(GOOGLE_MODELS[0].value);
   const [lmStudioModels, setLmStudioModels] = useState<LMStudioModel[]>([]);
   const [lmStudioModel, setLmStudioModel] = useState('');
+
+  useEffect(() => {
+    if (provider === 'lmstudio') {
+      fetchLMStudioModels().then((models) => {
+        setLmStudioModels(models);
+        if (models.length > 0 && !lmStudioModel) setLmStudioModel(models[0].id);
+      }).catch(() => setLmStudioModels([]));
+    }
+  }, [provider]);
+
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
