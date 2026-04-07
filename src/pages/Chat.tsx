@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { streamChat, streamCloudChat, streamGoogleChat, type ChatMessage, type LLMProvider, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, type ChatMessage, type LLMProvider, type LMStudioModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 5;
@@ -41,6 +41,18 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   }, [isMobile]);
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
   const [googleModel, setGoogleModel] = useState(GOOGLE_MODELS[0].value);
+  const [lmStudioModels, setLmStudioModels] = useState<LMStudioModel[]>([]);
+  const [lmStudioModel, setLmStudioModel] = useState('');
+
+  useEffect(() => {
+    if (provider === 'lmstudio') {
+      fetchLMStudioModels().then((models) => {
+        setLmStudioModels(models);
+        if (models.length > 0 && !lmStudioModel) setLmStudioModel(models[0].id);
+      }).catch(() => setLmStudioModels([]));
+    }
+  }, [provider]);
+
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
@@ -80,8 +92,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         round++;
         let full = '';
         setStreamedContent('');
-        const activeModel = provider === 'google' ? googleModel : provider === 'cloud' ? cloudModel : model;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'cloud' ? streamCloudChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? lmStudioModel : provider === 'cloud' ? cloudModel : model;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'cloud' ? streamCloudChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           full += chunk;
           setStreamedContent(full);
@@ -132,8 +144,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : 'Please try again.';
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'lmstudio' ? 'Make sure LM Studio is running with the local server enabled.' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
@@ -168,6 +180,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectItem value="google">
               <span className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> AI Studio</span>
             </SelectItem>
+            <SelectItem value="lmstudio">
+              <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> LM Studio</span>
+            </SelectItem>
           </SelectContent>
         </Select>
 
@@ -181,6 +196,17 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectContent>
               {GOOGLE_MODELS.map((m) => (
                 <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : provider === 'lmstudio' ? (
+          <Select value={lmStudioModel} onValueChange={setLmStudioModel}>
+            <SelectTrigger className="w-[200px] h-8 text-xs bg-secondary/50 border-border/50">
+              <SelectValue placeholder={lmStudioModels.length === 0 ? 'No models loaded' : 'Select model'} />
+            </SelectTrigger>
+            <SelectContent>
+              {lmStudioModels.map((m) => (
+                <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
               ))}
             </SelectContent>
           </Select>

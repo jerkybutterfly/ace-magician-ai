@@ -1,6 +1,6 @@
 import { getSettings } from './settings';
 
-export type LLMProvider = 'ollama' | 'cloud' | 'google';
+export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
@@ -15,6 +15,20 @@ export const GOOGLE_MODELS = [
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
   { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
 ];
+
+export interface LMStudioModel {
+  id: string;
+  object: string;
+}
+
+export async function fetchLMStudioModels(): Promise<LMStudioModel[]> {
+  const { lmStudioUrl } = getSettings();
+  const res = await fetch(`${lmStudioUrl}/v1/models`);
+  if (!res.ok) throw new Error('Failed to fetch LM Studio models');
+  const data = await res.json();
+  return data.data ?? [];
+}
+
 export interface OllamaModel {
   name: string;
   size: number;
@@ -259,6 +273,68 @@ export async function* streamGoogleChat(
     throw new Error(errorData.error || `Google AI error: ${res.statusText}`);
   }
 
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return;
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) yield content;
+      } catch {
+        buffer = line + '\n' + buffer;
+        break;
+      }
+    }
+  }
+}
+
+export async function* streamLMStudioChat(
+  model: string,
+  messages: ChatMessage[],
+): AsyncGenerator<string> {
+  const { lmStudioUrl, systemPrompt } = getSettings();
+  const agentMemory = (await import('./memory')).getAgentMemory();
+  const currentObjective = getLatestObjective(messages);
+  const fullSystemPrompt = [
+    systemPrompt.trim(),
+    RUNTIME_EXECUTION_PROMPT,
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const allMessages: ChatMessage[] = [
+    { role: 'system', content: fullSystemPrompt },
+    ...messages,
+  ];
+
+  const res = await fetch(`${lmStudioUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages: allMessages, stream: true }),
+  });
+
+  if (!res.ok) throw new Error(`LM Studio error: ${res.statusText}`);
   const reader = res.body?.getReader();
   if (!reader) throw new Error('No response body');
 
