@@ -91,7 +91,7 @@ export default function SettingsPage() {
     setTelegramAction('connect');
 
     try {
-      const status = await connectTelegram(settings.telegramBotToken, settings.defaultModel || undefined);
+      const status = await connectTelegram(settings.telegramBotToken, settings.telegramModel || settings.defaultModel || undefined);
       setTelegramStatus(status);
       toast({
         title: status.status === 'already_connected' ? 'Telegram already connected' : 'Telegram connected',
@@ -204,6 +204,14 @@ export default function SettingsPage() {
             <Input id="telegram-token" type="password" value={settings.telegramBotToken} onChange={(e) => update('telegramBotToken', e.target.value)} placeholder="123456:ABC-DEF..." />
             <p className="text-xs text-muted-foreground">
               Get a token from <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="underline text-primary">@BotFather</a>, then tap Connect Telegram to start the bot on the running local agent.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="telegram-model">Model</Label>
+            <Input id="telegram-model" value={settings.telegramModel} onChange={(e) => update('telegramModel', e.target.value)} placeholder="e.g. llama3.2 (defaults to Default Model)" />
+            <p className="text-xs text-muted-foreground">
+              The Ollama model the Telegram bot will use. Leave empty to use the Default Model from Ollama settings.
             </p>
           </div>
 
