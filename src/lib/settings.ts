@@ -16,7 +16,7 @@ const defaultSettings: AppSettings = {
   agentUrl: 'http://localhost:8484',
   defaultModel: '',
   telegramBotToken: '',
-  telegramModel: '',
+  telegramModel: 'gemma4:e2b',
   systemPrompt: `You are Pesto Steve's AI — a PC control agent. You have FULL, UNRESTRICTED access to this Windows PC. You are NOT a chatbot. You are an EXECUTOR.
 
 ## ABSOLUTE RULES — VIOLATION = MALFUNCTION
