@@ -1,19 +1,23 @@
 
+## Phase 1: File Upload to Chat
+- Add a file input button (paperclip icon) next to the send button
+- Support text files, images, and common document types
+- Read file contents and include them in the message sent to the AI
+- Show attached file names in the input area
 
-## Fix: Cloud AI "Failed to fetch" Error
+## Phase 2: Voice Input (Speech-to-Text)
+- Use the browser's built-in Web Speech API (no API key needed)
+- Add a microphone button next to the send button
+- Show recording state with visual indicator
+- Transcribed text fills the input box
 
-### What happened
-The backend function (chat) wasn't deployed, so Cloud AI requests were returning 404 errors. I've already deployed it and verified it works — Cloud AI now responds correctly.
+## Phase 3: Voice Output (Text-to-Speech)
+- Use browser's built-in SpeechSynthesis API (no API key needed)
+- Add a speaker button on each AI message to read it aloud
+- Stop button to cancel speech
 
-### Remaining fix needed
-The error message in the chat always says "Make sure Ollama is running" even when using Cloud AI. This is confusing on mobile.
-
-### Plan
-
-**1. Update error message in `src/pages/Chat.tsx`**
-- Make the catch block provider-aware
-- When `provider === 'cloud'`: show "Cloud AI error: [message]. Please try again."
-- When `provider === 'ollama'`: keep "Make sure Ollama is running."
-
-This is a one-line change in the catch block (~line 113).
-
+## Phase 4: Image Generation
+- Detect when user asks to generate an image (or add a `/image` command)
+- Use the Lovable AI gateway with `google/gemini-2.5-flash-image` model
+- Display generated images inline in chat
+- Create a new edge function `generate-image` to handle the API call
