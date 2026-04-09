@@ -16,6 +16,7 @@ import type { Conversation } from '@/lib/conversations';
 const MAX_TOOL_ROUNDS = 5;
 const MAX_FORCE_TAG_RETRIES = 2;
 const REFUSAL_PATTERNS = /I (cannot|can't|am unable|don't have the capability|unable to)|for security reasons|I'm not able|I do not have|I can't help with|I can't assist with/i;
+const CAPABILITY_LIMIT_PATTERNS = /I ('m|am) (a |an )?(text-based|language) (model|AI)|I (don't|do not) have (access|the ability) to|beyond (my|the) (scope|capabilities)|not (capable|able) of (performing|executing|running)|no.*(tool|function).*(call|use|support)/i;
 const ACTIONABLE_REQUEST_PATTERN = /\b(open|launch|start|run|install|download|pull|go to|visit|browse|list|show|read|write|create|delete|remove|rename|move|copy|search|find|close|stop|restart|execute)\b/i;
 const IMAGE_COMMAND = /^\/image\s+(.+)/i;
 
@@ -204,27 +205,54 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
         const containsToolCommands = hasToolCommands(full);
 
+        // Detect when the model explicitly says it can't do something
+        const hitsCapabilityLimit = CAPABILITY_LIMIT_PATTERNS.test(full);
+        const hitsRefusal = REFUSAL_PATTERNS.test(full);
+
         if (containsToolCommands) {
           setExecutingTools(true);
           setStreamedContent(full + '\n\n⏳ Executing commands...');
-          const { processed } = await executeToolCommands(full);
-          const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
-          currentMessages = [...currentMessages, assistantMsg];
+          try {
+            const { processed } = await executeToolCommands(full);
+            const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
+            currentMessages = [...currentMessages, assistantMsg];
+            visibleHistory = [...visibleHistory, assistantMsg];
+            const feedbackMsg: ChatMessage = {
+              role: 'user',
+              content: `[TOOL_RESULTS]\nThe commands were executed. Here are the results that were inserted into your previous response:\n${processed}\n[/TOOL_RESULTS]\nAnalyze the results and continue. If more actions are needed, use your tags. If done, summarize what happened.`,
+            };
+            currentMessages = [...currentMessages, feedbackMsg];
+            updated = { ...updated, messages: visibleHistory, updatedAt: Date.now() };
+            onUpdate(updated);
+          } catch (toolErr) {
+            // Tool execution failed — likely agent unreachable
+            const errDetail = toolErr instanceof Error ? toolErr.message : 'Unknown error';
+            const errorNote = `\n\n⚠️ **Tool execution failed:** ${errDetail}\n\nThe local agent may not be running or reachable. Check Settings → Agent Configuration.`;
+            const assistantMsg: ChatMessage = { role: 'assistant', content: full + errorNote };
+            visibleHistory = [...visibleHistory, assistantMsg];
+            updated = { ...updated, messages: visibleHistory, updatedAt: Date.now() };
+            onUpdate(updated);
+            break;
+          } finally {
+            setExecutingTools(false);
+          }
+          continue;
+        }
+
+        // If model says it can't do the task, show a capability error
+        if (hitsCapabilityLimit && actionableRequest) {
+          const capNote = `\n\n> ⚠️ **This model doesn't support tool use.** It can't run commands or access files. Switch to a model that supports tool calling (e.g. Ollama with gemma4:e2b, or Cloud AI) for actionable tasks.`;
+          const assistantMsg: ChatMessage = { role: 'assistant', content: full + capNote };
           visibleHistory = [...visibleHistory, assistantMsg];
-          const feedbackMsg: ChatMessage = {
-            role: 'user',
-            content: `[TOOL_RESULTS]\nThe commands were executed. Here are the results that were inserted into your previous response:\n${processed}\n[/TOOL_RESULTS]\nAnalyze the results and continue. If more actions are needed, use your tags. If done, summarize what happened.`,
-          };
-          currentMessages = [...currentMessages, feedbackMsg];
           updated = { ...updated, messages: visibleHistory, updatedAt: Date.now() };
           onUpdate(updated);
-          setExecutingTools(false);
-          continue;
+          break;
         }
 
         const shouldForceToolUse =
           forcedTagRetries < MAX_FORCE_TAG_RETRIES &&
-          (REFUSAL_PATTERNS.test(full) || (actionableRequest && round === 1));
+          !hitsCapabilityLimit &&
+          (hitsRefusal || (actionableRequest && round === 1));
 
         if (shouldForceToolUse) {
           forcedTagRetries++;
