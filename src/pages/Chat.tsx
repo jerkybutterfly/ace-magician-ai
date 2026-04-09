@@ -4,17 +4,20 @@ import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetc
 import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
+import { VoiceInput } from '@/components/VoiceInput';
+import { FileUploadButton } from '@/components/FileUploadButton';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 5;
 const MAX_FORCE_TAG_RETRIES = 2;
 const REFUSAL_PATTERNS = /I (cannot|can't|am unable|don't have the capability|unable to)|for security reasons|I'm not able|I do not have|I can't help with|I can't assist with/i;
 const ACTIONABLE_REQUEST_PATTERN = /\b(open|launch|start|run|install|download|pull|go to|visit|browse|list|show|read|write|create|delete|remove|rename|move|copy|search|find|close|stop|restart|execute)\b/i;
+const IMAGE_COMMAND = /^\/image\s+(.+)/i;
 
 function isInternalMessage(message: ChatMessage): boolean {
   return message.role === 'system' || (message.role === 'user' && message.content.startsWith('[TOOL_RESULTS]'));
@@ -22,6 +25,32 @@ function isInternalMessage(message: ChatMessage): boolean {
 
 function isActionableRequest(text: string): boolean {
   return ACTIONABLE_REQUEST_PATTERN.test(text) || /[A-Za-z]:\\/.test(text);
+}
+
+async function readFileAsText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
+async function generateImage(prompt: string): Promise<{ text: string; images: Array<{ image_url: { url: string } }> }> {
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ prompt }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Image generation failed');
+  }
+  return res.json();
 }
 
 interface Props {
@@ -35,6 +64,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [input, setInput] = useState('');
   const isMobile = useIsMobile();
   const [provider, setProvider] = useState<LLMProvider>('ollama');
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
 
   useEffect(() => {
     if (isMobile) setProvider('cloud');
@@ -66,10 +96,72 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamedContent]);
 
+  const handleFilesSelected = async (files: FileList) => {
+    const newFiles: { name: string; content: string }[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const content = await readFileAsText(file);
+        newFiles.push({ name: file.name, content: content.slice(0, 50000) });
+      } catch {
+        newFiles.push({ name: file.name, content: '(unable to read file)' });
+      }
+    }
+    setAttachedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const send = async () => {
-    if (!input.trim() || !conversation || streaming) return;
+    if ((!input.trim() && attachedFiles.length === 0) || !conversation || streaming) return;
     const request = input.trim();
-    const userMsg: ChatMessage = { role: 'user', content: request };
+
+    // Check for /image command
+    const imageMatch = request.match(IMAGE_COMMAND);
+    if (imageMatch) {
+      const imagePrompt = imageMatch[1];
+      const userMsg: ChatMessage = { role: 'user', content: request };
+      let updated: Conversation = {
+        ...conversation,
+        messages: [...visibleMessages, userMsg],
+        updatedAt: Date.now(),
+        title: visibleMessages.length === 0 ? request.slice(0, 40) : conversation.title,
+      };
+      onUpdate(updated);
+      setInput('');
+      setStreaming(true);
+      setStreamedContent('🎨 Generating image...');
+
+      try {
+        const result = await generateImage(imagePrompt);
+        let content = result.text || 'Here\'s your generated image:';
+        if (result.images?.length) {
+          for (const img of result.images) {
+            content += `\n\n![Generated image](${img.image_url.url})`;
+          }
+        }
+        const assistantMsg: ChatMessage = { role: 'assistant', content };
+        updated = { ...updated, messages: [...updated.messages, assistantMsg], updatedAt: Date.now() };
+        onUpdate(updated);
+      } catch (err) {
+        const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ Image generation error: ${err instanceof Error ? err.message : 'Unknown error'}` };
+        onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
+      } finally {
+        setStreaming(false);
+        setStreamedContent('');
+      }
+      return;
+    }
+
+    // Build message with file attachments
+    let messageContent = request;
+    if (attachedFiles.length > 0) {
+      const fileContext = attachedFiles.map(f => `--- File: ${f.name} ---\n${f.content}`).join('\n\n');
+      messageContent = fileContext + (request ? `\n\n${request}` : '\n\nPlease analyze the attached file(s).');
+    }
+
+    const userMsg: ChatMessage = { role: 'user', content: messageContent };
     let visibleHistory = [...visibleMessages, userMsg];
     let updated: Conversation = {
       ...conversation,
@@ -79,6 +171,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     };
     onUpdate(updated);
     setInput('');
+    setAttachedFiles([]);
     setStreaming(true);
     setStreamedContent('');
 
@@ -237,7 +330,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
                 The AI that actually does things. Full access to your files, terminal, and system.
               </p>
               <div className="flex gap-2 mt-6 flex-wrap justify-center">
-                {['Run a command', 'Browse files', 'System info'].map((hint) => (
+                {['Run a command', 'Browse files', '/image a sunset', 'System info'].map((hint) => (
                   <button
                     key={hint}
                     onClick={() => setInput(hint)}
@@ -264,22 +357,37 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         </div>
       </ScrollArea>
 
-      {/* Input area — OpenClaw style centered pill */}
+      {/* Input area */}
       <div className="p-3 sm:p-4 shrink-0">
         <div className="max-w-3xl mx-auto">
+          {/* Attached files */}
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2 px-2">
+              {attachedFiles.map((f, i) => (
+                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary border border-primary/20">
+                  📎 {f.name}
+                  <button onClick={() => removeFile(i)} className="hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 items-end bg-secondary/40 border border-border/50 rounded-2xl p-2 focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+            <FileUploadButton onFilesSelected={handleFilesSelected} disabled={streaming} />
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Message Pesto Steve..."
+              placeholder="Message Pesto Steve... (use /image to generate images)"
               className="resize-none min-h-[40px] max-h-[160px] text-sm bg-transparent border-0 shadow-none focus-visible:ring-0 p-2"
               rows={1}
               disabled={streaming}
             />
+            <VoiceInput onTranscript={(text) => setInput(prev => prev + text)} disabled={streaming} />
             <Button
               onClick={streaming ? undefined : send}
-              disabled={!input.trim() && !streaming}
+              disabled={!input.trim() && !streaming && attachedFiles.length === 0}
               size="icon"
               className="h-9 w-9 rounded-xl flex-shrink-0 bg-primary hover:bg-primary/90"
             >
