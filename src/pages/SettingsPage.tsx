@@ -171,7 +171,13 @@ export default function SettingsPage() {
             <Label htmlFor="lmstudio-url">LM Studio URL</Label>
             <Input id="lmstudio-url" value={settings.lmStudioUrl} onChange={(e) => update('lmStudioUrl', e.target.value)} placeholder="http://localhost:1234" />
             <p className="text-xs text-muted-foreground">
-              Start LM Studio&apos;s local server (Developer tab → Start Server) then select &quot;LM Studio&quot; as a provider in Chat.
+              Start LM Studio&apos;s local server (Developer tab → Start Server), load a model, then select &quot;LM Studio&quot; as a provider in Chat.
+            </p>
+          </div>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+            <p className="text-xs font-medium text-destructive">⚠️ Local network only</p>
+            <p className="text-xs text-muted-foreground">
+              LM Studio only works when this app is opened from the same PC or local network (e.g. <code className="text-xs bg-muted px-1 rounded">http://localhost:5173</code>). The hosted cloud preview cannot reach local HTTP services due to browser security restrictions.
             </p>
           </div>
         </CardContent>
@@ -187,7 +193,7 @@ export default function SettingsPage() {
             <Label htmlFor="agent-url">Agent URL</Label>
             <Input id="agent-url" value={settings.agentUrl} onChange={(e) => update('agentUrl', e.target.value)} placeholder="http://localhost:8484" />
             <p className="text-xs text-muted-foreground">
-              Use <code className="text-xs bg-muted px-1 rounded">http://localhost:8484</code> on the same PC. From your phone or another device, use your PC&apos;s LAN IP instead.
+              Points to the Python agent (<code className="text-xs bg-muted px-1 rounded">agent.py</code>) — <strong>not</strong> LM Studio. Default: <code className="text-xs bg-muted px-1 rounded">http://localhost:8484</code>. From another device, use your PC&apos;s LAN IP (e.g. <code className="text-xs bg-muted px-1 rounded">http://192.168.0.239:8484</code>).
             </p>
           </div>
         </CardContent>

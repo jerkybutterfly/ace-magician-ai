@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X, RefreshCw } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 5;
@@ -73,14 +73,24 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [googleModel, setGoogleModel] = useState(GOOGLE_MODELS[0].value);
   const [lmStudioModels, setLmStudioModels] = useState<LMStudioModel[]>([]);
   const [lmStudioModel, setLmStudioModel] = useState('');
+  const [lmStudioError, setLmStudioError] = useState('');
+  const [lmStudioLoading, setLmStudioLoading] = useState(false);
+
+  const loadLmStudioModels = () => {
+    setLmStudioLoading(true);
+    setLmStudioError('');
+    fetchLMStudioModels().then((models) => {
+      setLmStudioModels(models);
+      setLmStudioError('');
+      if (models.length > 0 && !lmStudioModel) setLmStudioModel(models[0].id);
+    }).catch((err) => {
+      setLmStudioModels([]);
+      setLmStudioError(err instanceof Error ? err.message : 'Failed to connect to LM Studio');
+    }).finally(() => setLmStudioLoading(false));
+  };
 
   useEffect(() => {
-    if (provider === 'lmstudio') {
-      fetchLMStudioModels().then((models) => {
-        setLmStudioModels(models);
-        if (models.length > 0 && !lmStudioModel) setLmStudioModel(models[0].id);
-      }).catch(() => setLmStudioModels([]));
-    }
+    if (provider === 'lmstudio') loadLmStudioModels();
   }, [provider]);
 
   const [streaming, setStreaming] = useState(false);
@@ -238,7 +248,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
       const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'lmstudio' ? 'Make sure LM Studio is running with the local server enabled.' : 'Please try again.';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'lmstudio' ? '' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
@@ -293,16 +303,24 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             </SelectContent>
           </Select>
         ) : provider === 'lmstudio' ? (
-          <Select value={lmStudioModel} onValueChange={setLmStudioModel}>
-            <SelectTrigger className="w-[200px] h-8 text-xs bg-secondary/50 border-border/50">
-              <SelectValue placeholder={lmStudioModels.length === 0 ? 'No models loaded' : 'Select model'} />
-            </SelectTrigger>
-            <SelectContent>
-              {lmStudioModels.map((m) => (
-                <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={lmStudioModel} onValueChange={setLmStudioModel}>
+              <SelectTrigger className="w-[200px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={lmStudioLoading ? 'Loading...' : lmStudioError ? 'Connection failed' : 'No models loaded'} />
+              </SelectTrigger>
+              <SelectContent>
+                {lmStudioModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button onClick={loadLmStudioModels} disabled={lmStudioLoading} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${lmStudioLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {lmStudioError && (
+              <span className="text-[10px] text-destructive max-w-[200px] truncate" title={lmStudioError}>⚠️ {lmStudioError}</span>
+            )}
+          </div>
         ) : (
           <Select value={cloudModel} onValueChange={setCloudModel}>
             <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50">
