@@ -174,8 +174,8 @@ export default function SettingsPage() {
               Start LM Studio&apos;s local server (Developer tab → Start Server), load a model, then select &quot;LM Studio&quot; as a provider in Chat.
             </p>
           </div>
-          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 space-y-1">
-            <p className="text-xs font-medium text-yellow-400">⚠️ Local network only</p>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+            <p className="text-xs font-medium text-destructive">⚠️ Local network only</p>
             <p className="text-xs text-muted-foreground">
               LM Studio only works when this app is opened from the same PC or local network (e.g. <code className="text-xs bg-muted px-1 rounded">http://localhost:5173</code>). The hosted cloud preview cannot reach local HTTP services due to browser security restrictions.
             </p>
