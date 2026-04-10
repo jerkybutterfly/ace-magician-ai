@@ -295,8 +295,130 @@ async def telegram_status():
 
 
 # ═══════════════════════════════════════════════════════
-#  Telegram Bot — PC Control via Chat
+#  Browser Automation Endpoints
 # ═══════════════════════════════════════════════════════
+
+@app.post("/browser/navigate")
+async def browser_navigate(req: BrowserNavRequest):
+    """Open a URL in the browser."""
+    try:
+        driver = _get_browser()
+        driver.get(req.url)
+        return {"status": "ok", "url": driver.current_url, "title": driver.title}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/browser/click")
+async def browser_click(req: BrowserClickRequest):
+    """Click an element by CSS selector."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        driver = _get_browser()
+        el = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, req.selector))
+        )
+        el.click()
+        return {"status": "ok", "title": driver.title, "url": driver.current_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/browser/fill")
+async def browser_fill(req: BrowserFillRequest):
+    """Clear and fill an input element by CSS selector."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        driver = _get_browser()
+        el = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, req.selector))
+        )
+        el.clear()
+        el.send_keys(req.value)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/browser/type")
+async def browser_type(req: BrowserTypeRequest):
+    """Type text and optionally press keys (e.g. Enter)."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        driver = _get_browser()
+        el = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, req.selector))
+        )
+        # Support special keys like {ENTER}, {TAB}
+        text = req.text
+        key_map = {"{ENTER}": Keys.ENTER, "{TAB}": Keys.TAB, "{ESCAPE}": Keys.ESCAPE}
+        for placeholder, key in key_map.items():
+            if placeholder in text:
+                parts = text.split(placeholder)
+                for i, part in enumerate(parts):
+                    if part:
+                        el.send_keys(part)
+                    if i < len(parts) - 1:
+                        el.send_keys(key)
+                return {"status": "ok"}
+        el.send_keys(text)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/browser/screenshot")
+async def browser_screenshot():
+    """Take a screenshot and return as base64 PNG."""
+    try:
+        driver = _get_browser()
+        png = driver.get_screenshot_as_png()
+        b64 = _b64.b64encode(png).decode("ascii")
+        return {"status": "ok", "image": b64, "title": driver.title, "url": driver.current_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/browser/text")
+async def browser_get_text():
+    """Get visible text content of the current page."""
+    try:
+        driver = _get_browser()
+        text = driver.find_element("tag name", "body").text[:10000]
+        return {"status": "ok", "text": text, "title": driver.title, "url": driver.current_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/browser/status")
+async def browser_status():
+    """Check if browser is running."""
+    with _browser_lock:
+        alive = False
+        if _browser_driver:
+            try:
+                _browser_driver.title
+                alive = True
+            except Exception:
+                pass
+    return {"running": alive}
+
+
+@app.post("/browser/close")
+async def browser_close():
+    """Close the browser session."""
+    _close_browser()
+    return {"status": "ok"}
+
+
+
 
 TELEGRAM_SYSTEM_PROMPT = """You are an AI agent with FULL CONTROL of this PC. You execute actions DIRECTLY using command tags. The system automatically executes your tags — you NEVER give the user commands to run manually.
 
