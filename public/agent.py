@@ -564,7 +564,8 @@ def execute_tool_tag(tag: str, arg: str) -> str:
 
 def process_tool_tags(text: str) -> tuple[str, bool]:
     """Find and execute tool tags in AI response. Returns (processed_text, had_tags)."""
-    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD):(.+?)\]"
+    # Match parameterized tags
+    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD|OPEN_URL|CLICK|FILL_FORM|TYPE_TEXT|GET_PAGE_TEXT):?(.+?)?\]"
     matches = list(re.finditer(pattern, text))
 
     if not matches:
