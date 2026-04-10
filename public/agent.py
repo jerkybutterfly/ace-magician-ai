@@ -889,7 +889,7 @@ if __name__ == "__main__":
     import uvicorn
 
     print(f"🤖 Local AI Agent starting on http://0.0.0.0:{args.port}")
-    print("   Endpoints: /terminal, /files, /files/read, /files/write, /files/delete, /system, /telegram/status, /telegram/connect, /telegram/disconnect")
+    print("   Endpoints: /terminal, /files, /system, /browser/*, /telegram/*")
 
     if args.telegram_token:
         try:
