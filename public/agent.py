@@ -495,6 +495,64 @@ def execute_tool_tag(tag: str, arg: str) -> str:
             output = result.stdout or result.stderr or "(no output)"
             return output[:3000]
 
+        if tag == "OPEN_URL":
+            driver = _get_browser()
+            driver.get(arg.strip())
+            return f"🌐 Opened: {driver.title} ({driver.current_url})"
+
+        if tag == "CLICK":
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            driver = _get_browser()
+            el = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, arg.strip()))
+            )
+            el.click()
+            return f"🖱️ Clicked {arg.strip()} — now on: {driver.title}"
+
+        if tag == "FILL_FORM":
+            parts = arg.split("|", 1)
+            if len(parts) != 2:
+                return "❌ Invalid format. Use: selector|value"
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            driver = _get_browser()
+            el = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, parts[0].strip()))
+            )
+            el.clear()
+            el.send_keys(parts[1].strip())
+            return f"📝 Filled {parts[0].strip()}"
+
+        if tag == "TYPE_TEXT":
+            parts = arg.split("|", 1)
+            if len(parts) != 2:
+                return "❌ Invalid format. Use: selector|text"
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.common.keys import Keys
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            driver = _get_browser()
+            el = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, parts[0].strip()))
+            )
+            text = parts[1].strip()
+            key_map = {"{ENTER}": Keys.ENTER, "{TAB}": Keys.TAB, "{ESCAPE}": Keys.ESCAPE}
+            for placeholder, key in key_map.items():
+                text = text.replace(placeholder, "")
+                if placeholder in parts[1]:
+                    el.send_keys(key)
+            if text:
+                el.send_keys(text)
+            return f"⌨️ Typed into {parts[0].strip()}"
+
+        if tag == "GET_PAGE_TEXT":
+            driver = _get_browser()
+            text = driver.find_element("tag name", "body").text[:4000]
+            return f"📃 Page: {driver.title}\n{text}"
+
         return f"❌ Unknown tag: {tag}"
 
     except subprocess.TimeoutExpired:
