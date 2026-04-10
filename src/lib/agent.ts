@@ -1,5 +1,59 @@
 import { getSettings } from './settings';
 
+// ── Browser automation helpers ──
+
+export async function browserNavigate(url: string): Promise<{ status: string; url: string; title: string }> {
+  const res = await fetch(`${agentUrl('/browser/navigate')}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser navigate failed'));
+  return res.json();
+}
+
+export async function browserClick(selector: string): Promise<{ status: string; title: string; url: string }> {
+  const res = await fetch(`${agentUrl('/browser/click')}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selector }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser click failed'));
+  return res.json();
+}
+
+export async function browserFill(selector: string, value: string): Promise<{ status: string }> {
+  const res = await fetch(`${agentUrl('/browser/fill')}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selector, value }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser fill failed'));
+  return res.json();
+}
+
+export async function browserType(selector: string, text: string): Promise<{ status: string }> {
+  const res = await fetch(`${agentUrl('/browser/type')}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selector, text }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser type failed'));
+  return res.json();
+}
+
+export async function browserScreenshot(): Promise<{ status: string; image: string; title: string; url: string }> {
+  const res = await fetch(`${agentUrl('/browser/screenshot')}`);
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser screenshot failed'));
+  return res.json();
+}
+
+export async function browserGetText(): Promise<{ status: string; text: string; title: string; url: string }> {
+  const res = await fetch(`${agentUrl('/browser/text')}`);
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser get text failed'));
+  return res.json();
+}
+
 function agentUrl(path: string): string {
   return `${getSettings().agentUrl}${path}`;
 }

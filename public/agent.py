@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Local AI Agent — FastAPI server for PC control + Telegram bot.
-Run: pip install fastapi uvicorn psutil requests && python agent.py
+Local AI Agent — FastAPI server for PC control + browser automation + Telegram bot.
+Run: pip install fastapi uvicorn psutil requests selenium && python agent.py
 With Telegram: python agent.py --telegram-token YOUR_BOT_TOKEN
 """
 import argparse
@@ -20,7 +20,65 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-app = FastAPI(title="Local AI Agent", version="2.1.0")
+# ═══════════════════════════════════════════════════════
+#  Browser Automation (Selenium)
+# ═══════════════════════════════════════════════════════
+import base64 as _b64
+
+_browser_driver = None
+_browser_lock = threading.Lock()
+
+
+def _get_browser():
+    """Lazily start a Chrome browser session."""
+    global _browser_driver
+    with _browser_lock:
+        if _browser_driver is not None:
+            try:
+                _browser_driver.title  # test if alive
+                return _browser_driver
+            except Exception:
+                _browser_driver = None
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        opts = Options()
+        opts.add_argument("--start-maximized")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        _browser_driver = webdriver.Chrome(options=opts)
+        return _browser_driver
+
+
+def _close_browser():
+    global _browser_driver
+    with _browser_lock:
+        if _browser_driver:
+            try:
+                _browser_driver.quit()
+            except Exception:
+                pass
+            _browser_driver = None
+
+
+class BrowserNavRequest(BaseModel):
+    url: str
+
+
+class BrowserClickRequest(BaseModel):
+    selector: str
+
+
+class BrowserFillRequest(BaseModel):
+    selector: str
+    value: str
+
+
+class BrowserTypeRequest(BaseModel):
+    selector: str
+    text: str
+
+
+app = FastAPI(title="Local AI Agent", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -237,10 +295,132 @@ async def telegram_status():
 
 
 # ═══════════════════════════════════════════════════════
-#  Telegram Bot — PC Control via Chat
+#  Browser Automation Endpoints
 # ═══════════════════════════════════════════════════════
 
-TELEGRAM_SYSTEM_PROMPT = """You are an AI agent with FULL CONTROL of this PC. You execute actions DIRECTLY using command tags. The system automatically executes your tags — you NEVER give the user commands to run manually.
+@app.post("/browser/navigate")
+async def browser_navigate(req: BrowserNavRequest):
+    """Open a URL in the browser."""
+    try:
+        driver = _get_browser()
+        driver.get(req.url)
+        return {"status": "ok", "url": driver.current_url, "title": driver.title}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/browser/click")
+async def browser_click(req: BrowserClickRequest):
+    """Click an element by CSS selector."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        driver = _get_browser()
+        el = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, req.selector))
+        )
+        el.click()
+        return {"status": "ok", "title": driver.title, "url": driver.current_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/browser/fill")
+async def browser_fill(req: BrowserFillRequest):
+    """Clear and fill an input element by CSS selector."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        driver = _get_browser()
+        el = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, req.selector))
+        )
+        el.clear()
+        el.send_keys(req.value)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/browser/type")
+async def browser_type(req: BrowserTypeRequest):
+    """Type text and optionally press keys (e.g. Enter)."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        driver = _get_browser()
+        el = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, req.selector))
+        )
+        # Support special keys like {ENTER}, {TAB}
+        text = req.text
+        key_map = {"{ENTER}": Keys.ENTER, "{TAB}": Keys.TAB, "{ESCAPE}": Keys.ESCAPE}
+        for placeholder, key in key_map.items():
+            if placeholder in text:
+                parts = text.split(placeholder)
+                for i, part in enumerate(parts):
+                    if part:
+                        el.send_keys(part)
+                    if i < len(parts) - 1:
+                        el.send_keys(key)
+                return {"status": "ok"}
+        el.send_keys(text)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/browser/screenshot")
+async def browser_screenshot():
+    """Take a screenshot and return as base64 PNG."""
+    try:
+        driver = _get_browser()
+        png = driver.get_screenshot_as_png()
+        b64 = _b64.b64encode(png).decode("ascii")
+        return {"status": "ok", "image": b64, "title": driver.title, "url": driver.current_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/browser/text")
+async def browser_get_text():
+    """Get visible text content of the current page."""
+    try:
+        driver = _get_browser()
+        text = driver.find_element("tag name", "body").text[:10000]
+        return {"status": "ok", "text": text, "title": driver.title, "url": driver.current_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/browser/status")
+async def browser_status():
+    """Check if browser is running."""
+    with _browser_lock:
+        alive = False
+        if _browser_driver:
+            try:
+                _browser_driver.title
+                alive = True
+            except Exception:
+                pass
+    return {"running": alive}
+
+
+@app.post("/browser/close")
+async def browser_close():
+    """Close the browser session."""
+    _close_browser()
+    return {"status": "ok"}
+
+
+
+
+TELEGRAM_SYSTEM_PROMPT = """You are an AI agent with FULL CONTROL of this PC and a real browser. You execute actions DIRECTLY using command tags. The system automatically executes your tags — you NEVER give the user commands to run manually.
 
 CRITICAL RULES:
 - You MUST use the tags below. They are auto-executed. NEVER tell the user to run commands themselves.
@@ -253,11 +433,18 @@ AVAILABLE TAGS (auto-executed):
 [READ_FILE:path] — Read file contents  
 [WRITE_FILE:path|content] — Create/overwrite a file
 [RUN_CMD:command] — Run ANY terminal command (PowerShell, cmd, start programs)
+[OPEN_URL:url] — Open a URL in the browser
+[CLICK:css_selector] — Click an element on the page
+[FILL_FORM:css_selector|value] — Fill an input field
+[TYPE_TEXT:css_selector|text] — Type text (supports {ENTER}, {TAB})
+[GET_PAGE_TEXT] — Get visible text of the current page
 
 EXAMPLES:
-User: \"Open Chrome and go to google.com\"
-Assistant: Opening Chrome now.
-[RUN_CMD:start chrome https://google.com]
+User: \"Go to google.com and search for cats\"
+Assistant: Searching Google now.
+[OPEN_URL:https://www.google.com]
+[FILL_FORM:textarea[name="q"]|cats]
+[TYPE_TEXT:textarea[name="q"]|{ENTER}]
 
 User: \"What's on my desktop?\"
 Assistant: Let me check.
@@ -308,6 +495,64 @@ def execute_tool_tag(tag: str, arg: str) -> str:
             output = result.stdout or result.stderr or "(no output)"
             return output[:3000]
 
+        if tag == "OPEN_URL":
+            driver = _get_browser()
+            driver.get(arg.strip())
+            return f"🌐 Opened: {driver.title} ({driver.current_url})"
+
+        if tag == "CLICK":
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            driver = _get_browser()
+            el = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, arg.strip()))
+            )
+            el.click()
+            return f"🖱️ Clicked {arg.strip()} — now on: {driver.title}"
+
+        if tag == "FILL_FORM":
+            parts = arg.split("|", 1)
+            if len(parts) != 2:
+                return "❌ Invalid format. Use: selector|value"
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            driver = _get_browser()
+            el = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, parts[0].strip()))
+            )
+            el.clear()
+            el.send_keys(parts[1].strip())
+            return f"📝 Filled {parts[0].strip()}"
+
+        if tag == "TYPE_TEXT":
+            parts = arg.split("|", 1)
+            if len(parts) != 2:
+                return "❌ Invalid format. Use: selector|text"
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.common.keys import Keys
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            driver = _get_browser()
+            el = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, parts[0].strip()))
+            )
+            text = parts[1].strip()
+            key_map = {"{ENTER}": Keys.ENTER, "{TAB}": Keys.TAB, "{ESCAPE}": Keys.ESCAPE}
+            for placeholder, key in key_map.items():
+                text = text.replace(placeholder, "")
+                if placeholder in parts[1]:
+                    el.send_keys(key)
+            if text:
+                el.send_keys(text)
+            return f"⌨️ Typed into {parts[0].strip()}"
+
+        if tag == "GET_PAGE_TEXT":
+            driver = _get_browser()
+            text = driver.find_element("tag name", "body").text[:4000]
+            return f"📃 Page: {driver.title}\n{text}"
+
         return f"❌ Unknown tag: {tag}"
 
     except subprocess.TimeoutExpired:
@@ -319,7 +564,8 @@ def execute_tool_tag(tag: str, arg: str) -> str:
 
 def process_tool_tags(text: str) -> tuple[str, bool]:
     """Find and execute tool tags in AI response. Returns (processed_text, had_tags)."""
-    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD):(.+?)\]"
+    # Match parameterized tags
+    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD|OPEN_URL|CLICK|FILL_FORM|TYPE_TEXT|GET_PAGE_TEXT):?(.+?)?\]"
     matches = list(re.finditer(pattern, text))
 
     if not matches:
@@ -643,7 +889,7 @@ if __name__ == "__main__":
     import uvicorn
 
     print(f"🤖 Local AI Agent starting on http://0.0.0.0:{args.port}")
-    print("   Endpoints: /terminal, /files, /files/read, /files/write, /files/delete, /system, /telegram/status, /telegram/connect, /telegram/disconnect")
+    print("   Endpoints: /terminal, /files, /system, /browser/*, /telegram/*")
 
     if args.telegram_token:
         try:
