@@ -20,7 +20,65 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-app = FastAPI(title="Local AI Agent", version="2.1.0")
+# ═══════════════════════════════════════════════════════
+#  Browser Automation (Selenium)
+# ═══════════════════════════════════════════════════════
+import base64 as _b64
+
+_browser_driver = None
+_browser_lock = threading.Lock()
+
+
+def _get_browser():
+    """Lazily start a Chrome browser session."""
+    global _browser_driver
+    with _browser_lock:
+        if _browser_driver is not None:
+            try:
+                _browser_driver.title  # test if alive
+                return _browser_driver
+            except Exception:
+                _browser_driver = None
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        opts = Options()
+        opts.add_argument("--start-maximized")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        _browser_driver = webdriver.Chrome(options=opts)
+        return _browser_driver
+
+
+def _close_browser():
+    global _browser_driver
+    with _browser_lock:
+        if _browser_driver:
+            try:
+                _browser_driver.quit()
+            except Exception:
+                pass
+            _browser_driver = None
+
+
+class BrowserNavRequest(BaseModel):
+    url: str
+
+
+class BrowserClickRequest(BaseModel):
+    selector: str
+
+
+class BrowserFillRequest(BaseModel):
+    selector: str
+    value: str
+
+
+class BrowserTypeRequest(BaseModel):
+    selector: str
+    text: str
+
+
+app = FastAPI(title="Local AI Agent", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
