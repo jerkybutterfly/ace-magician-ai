@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Local AI Agent — FastAPI server for PC control + Telegram bot.
-Run: pip install fastapi uvicorn psutil requests && python agent.py
+Local AI Agent — FastAPI server for PC control + browser automation + Telegram bot.
+Run: pip install fastapi uvicorn psutil requests selenium && python agent.py
 With Telegram: python agent.py --telegram-token YOUR_BOT_TOKEN
 """
 import argparse
