@@ -119,6 +119,22 @@ app.add_middleware(
 # ── Safety: blocked commands (add more as needed) ──
 BLOCKED_COMMANDS = {"rm -rf /", "mkfs", "dd if=", ":(){:|:&};:", "format c:"}
 
+# ── Self-Awareness ──
+SELF_PATH = Path(__file__).resolve()
+MISSION_FILE = Path.home() / ".ace-agent-mission.json"
+SKILLS_DIR = Path(__file__).parent / "skills"
+SKILLS_DIR.mkdir(exist_ok=True)
+
+class MissionRequest(BaseModel):
+    goal: str
+    status: str
+    next_steps: list[str] = []
+
+
+class SkillRequest(BaseModel):
+    name: str
+    args: str = ""
+
 
 # ═══════════════════════════════════════════════════════
 #  Shared Helpers
@@ -321,6 +337,63 @@ async def system_info():
 @app.get("/telegram/status")
 async def telegram_status():
     return get_telegram_state()
+
+
+@app.get("/mission")
+async def get_mission():
+    try:
+        import json
+        if MISSION_FILE.exists():
+            return json.loads(MISSION_FILE.read_text())
+        return {
+            "goal": "Make money to buy better equipment and improve myself.",
+            "status": "Initializing core directives...",
+            "next_steps": ["Audit current codebase", "Identify monetization strategies"]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/mission")
+async def update_mission(req: MissionRequest):
+    try:
+        import json
+        MISSION_FILE.write_text(json.dumps(req.dict(), indent=2))
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/skills")
+async def list_skills():
+    try:
+        skills = []
+        for f in SKILLS_DIR.glob("*.py"):
+            skills.append({"name": f.stem, "path": str(f)})
+        return skills
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/skills/execute")
+async def execute_skill(req: SkillRequest):
+    try:
+        skill_path = SKILLS_DIR / f"{req.name}.py"
+        if not skill_path.exists():
+            raise HTTPException(status_code=404, detail=f"Skill '{req.name}' not found")
+        
+        # Run the skill as a separate process
+        cmd = f"python \"{skill_path}\" {req.args}"
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=60
+        )
+        return {
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ═══════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
-import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor } from './agent';
+import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills } from './agent';
 
 export interface ToolResult {
   tag: string;
@@ -20,6 +20,9 @@ const TOOL_PATTERNS = [
   { regex: /\[JS_EXEC:(.*?)\]/g, handler: handleJSExec },
   { regex: /\[WAIT:(.*?)\]/g, handler: handleWait },
   { regex: /\[WAIT_FOR:(.*?)\]/g, handler: handleWaitFor },
+  { regex: /\[UPDATE_MISSION:(.*?)\|(.*?)\|(.*?)\]/g, handler: handleUpdateMission },
+  { regex: /\[CREATE_SKILL:(.*?)\|([\s\S]*?)\]/g, handler: handleCreateSkill },
+  { regex: /\[RUN_SKILL:(.*?)\|(.*?)\]/g, handler: handleRunSkill },
 ];
 
 async function handleListDir(match: RegExpMatchArray): Promise<ToolResult> {
@@ -165,6 +168,42 @@ async function handleWaitFor(match: RegExpMatchArray): Promise<ToolResult> {
     return { tag: match[0], result: `\n⏰ Timed out waiting for: \`${selector}\`` };
   } catch (e) {
     return { tag: match[0], result: `\n⚠️ Wait failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleUpdateMission(match: RegExpMatchArray): Promise<ToolResult> {
+  const goal = match[1].trim();
+  const status = match[2].trim();
+  const nextSteps = match[3].split(',').map(s => s.trim());
+  try {
+    await updateMission(goal, status, nextSteps);
+    return { tag: match[0], result: `\n🎯 **Mission Updated**\nGoal: ${goal}\nStatus: ${status}\nNext Steps: ${nextSteps.join(', ')}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to update mission: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleCreateSkill(match: RegExpMatchArray): Promise<ToolResult> {
+  const name = match[1].trim();
+  const code = match[2];
+  const path = `public/skills/${name}.py`;
+  try {
+    await writeFile(path, code);
+    return { tag: match[0], result: `\n🛠️ **Skill Created**: \`${name}\`\nSaved to \`${path}\`. You can now use \`[RUN_SKILL:${name}|args]\`.` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to create skill \`${name}\`: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleRunSkill(match: RegExpMatchArray): Promise<ToolResult> {
+  const name = match[1].trim();
+  const args = match[2].trim();
+  try {
+    const result = await executeSkill(name, args);
+    const output = result.stdout || result.stderr || '(no output)';
+    return { tag: match[0], result: `\n🚀 **Executed Skill**: \`${name} ${args}\`\n\`\`\`\n${output.trim()}\n\`\`\`\n${result.returncode !== 0 ? `Exit code: ${result.returncode}` : ''}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to run skill \`${name}\`: ${e instanceof Error ? e.message : 'unknown error'}` };
   }
 }
 

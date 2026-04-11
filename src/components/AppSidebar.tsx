@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/sidebar';
 import { TerminalWidget } from './TerminalWidget';
 import { SystemInfoPanel } from './SystemInfo';
+import { MissionPanel } from './MissionPanel';
 import { Button } from '@/components/ui/button';
 import type { Conversation } from '@/lib/conversations';
 
@@ -67,6 +68,11 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
 
         {!collapsed && location.pathname === '/' && (
           <>
+            <SidebarSeparator className="bg-border/40" />
+            <SidebarGroup>
+               <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Strategy & Mission</SidebarGroupLabel>
+               <MissionPanel />
+            </SidebarGroup>
             <SidebarSeparator className="bg-border/40" />
             <SidebarGroup>
               <div className="flex items-center justify-between px-3 py-1">

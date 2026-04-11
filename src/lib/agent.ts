@@ -194,3 +194,33 @@ export async function disconnectTelegram(): Promise<TelegramStatus> {
   if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to disconnect Telegram'));
   return res.json();
 }
+
+export async function updateMission(goal: string, status: string, next_steps: string[]): Promise<void> {
+  const res = await fetch(agentUrl('/mission'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ goal, status, next_steps }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to update mission'));
+}
+export interface SkillResult {
+  stdout: string;
+  stderr: string;
+  returncode: number;
+}
+
+export async function executeSkill(name: string, args: string = ""): Promise<SkillResult> {
+  const res = await fetch(agentUrl('/skills/execute'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, args }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Skill execution failed'));
+  return res.json();
+}
+
+export async function listSkills(): Promise<{ name: string; path: string }[]> {
+  const res = await fetch(agentUrl('/skills'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to list skills'));
+  return res.json();
+}
