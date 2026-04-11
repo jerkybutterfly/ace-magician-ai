@@ -16,7 +16,9 @@ import type { Conversation } from '@/lib/conversations';
 const MAX_TOOL_ROUNDS = 5;
 const MAX_FORCE_TAG_RETRIES = 2;
 const REFUSAL_PATTERNS = /I (cannot|can't|am unable|don't have the capability|unable to)|for security reasons|I'm not able|I do not have|I can't help with|I can't assist with/i;
-const CAPABILITY_LIMIT_PATTERNS = /I ('m|am) (a |an )?(text-based|language) (model|AI)|I (don't|do not) have (access|the ability) to|beyond (my|the) (scope|capabilities)|not (capable|able) of (performing|executing|running)|no.*(tool|function).*(call|use|support)/i;
+// Only match when the model explicitly says it's a text/language model without tool support
+// Do NOT match generic "I do not have access" refusals — those are content refusals, not capability limits
+const CAPABILITY_LIMIT_PATTERNS = /I ('m|am) (a |an )?(text-based|language) (model|AI)|not (capable|able) of (performing|executing|running) (commands|code|scripts)|no.*(tool|function).*(call|use|support)|cannot (execute|run) (commands|code|programs)/i;
 const ACTIONABLE_REQUEST_PATTERN = /\b(open|launch|start|run|install|download|pull|go to|visit|browse|list|show|read|write|create|delete|remove|rename|move|copy|search|find|close|stop|restart|execute)\b/i;
 const IMAGE_COMMAND = /^\/image\s+(.+)/i;
 
