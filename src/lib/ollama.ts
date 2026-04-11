@@ -30,7 +30,7 @@ export async function fetchLMStudioModels(): Promise<LMStudioModel[]> {
     const isHttps = window.location.protocol === 'https:';
     const hint = isHttps
       ? 'Your browser is blocking the request because this page is served over HTTPS but LM Studio runs on HTTP. To use LM Studio, open this app from your local network (e.g. http://localhost:5173) instead of the cloud preview.'
-      : `Cannot reach LM Studio at ${lmStudioUrl}. Make sure LM Studio is running and its local server is started (Developer tab → Start Server).`;
+      : `Cannot reach LM Studio at ${lmStudioUrl}. Check: 1) LM Studio is running, 2) Go to Developer tab → Start Server, 3) Server is listening on port 1234, 4) CORS is enabled in LM Studio settings (allow origin *).`;
     throw new Error(hint);
   }
   if (!res.ok) throw new Error(`LM Studio returned an error (${res.status}). Ensure the server is running.`);
