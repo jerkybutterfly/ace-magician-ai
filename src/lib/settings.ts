@@ -12,7 +12,7 @@ const SETTINGS_KEY = 'local-ai-settings';
 
 const defaultSettings: AppSettings = {
   ollamaUrl: 'http://localhost:11434',
-  lmStudioUrl: 'http://localhost:1234',
+  lmStudioUrl: 'http://127.0.0.1:1234',
   agentUrl: 'http://localhost:8484',
   defaultModel: '',
   telegramBotToken: '',
