@@ -1,4 +1,4 @@
-import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText } from './agent';
+import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor } from './agent';
 
 export interface ToolResult {
   tag: string;
@@ -16,6 +16,10 @@ const TOOL_PATTERNS = [
   { regex: /\[TYPE_TEXT:(.*?)\|(.*?)\]/g, handler: handleTypeText },
   { regex: /\[SCREENSHOT\]/g, handler: handleScreenshot },
   { regex: /\[GET_PAGE_TEXT\]/g, handler: handleGetPageText },
+  { regex: /\[GET_PAGE_HTML\]/g, handler: handleGetPageHtml },
+  { regex: /\[JS_EXEC:(.*?)\]/g, handler: handleJSExec },
+  { regex: /\[WAIT:(.*?)\]/g, handler: handleWait },
+  { regex: /\[WAIT_FOR:(.*?)\]/g, handler: handleWaitFor },
 ];
 
 async function handleListDir(match: RegExpMatchArray): Promise<ToolResult> {
@@ -125,6 +129,45 @@ async function handleGetPageText(_match: RegExpMatchArray): Promise<ToolResult> 
   }
 }
 
+async function handleGetPageHtml(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const result = await browserGetHtml();
+    const truncated = result.html.length > 5000 ? result.html.slice(0, 5000) + '\n...(truncated)' : result.html;
+    return { tag: _match[0], result: `\n🔍 Interactive elements on **${result.title}** (${result.url}):\n\`\`\`json\n${truncated}\n\`\`\`` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Failed to get page HTML: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleJSExec(match: RegExpMatchArray): Promise<ToolResult> {
+  const code = match[1].trim();
+  try {
+    const result = await browserExecJS(code);
+    return { tag: match[0], result: `\n📜 JS executed: ${result.result || '(no return value)'}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ JS execution failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleWait(match: RegExpMatchArray): Promise<ToolResult> {
+  const seconds = Math.min(parseFloat(match[1].trim()) || 2, 30);
+  await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  return { tag: match[0], result: `\n⏳ Waited ${seconds}s` };
+}
+
+async function handleWaitFor(match: RegExpMatchArray): Promise<ToolResult> {
+  const selector = match[1].trim();
+  try {
+    const result = await browserWaitFor(selector);
+    if (result.found) {
+      return { tag: match[0], result: `\n✅ Element found: \`${selector}\`` };
+    }
+    return { tag: match[0], result: `\n⏰ Timed out waiting for: \`${selector}\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Wait failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
 /**
  * Check if an AI response contains tool commands.
  */
@@ -138,7 +181,10 @@ export function hasToolCommands(text: string): boolean {
 /**
  * Execute all tool commands in the AI response and return the processed text.
  */
-export async function executeToolCommands(text: string): Promise<{ processed: string; executed: boolean }> {
+export async function executeToolCommands(
+  text: string, 
+  onStatus?: (status: string) => void
+): Promise<{ processed: string; executed: boolean }> {
   let processed = text;
   let executed = false;
 
@@ -147,9 +193,16 @@ export async function executeToolCommands(text: string): Promise<{ processed: st
     const matches = [...text.matchAll(new RegExp(regex.source, regex.flags))];
     
     for (const match of matches) {
+      const tag = match[0];
+      const toolName = tag.split(':')[0].replace('[', '');
+      
+      if (onStatus) onStatus(`Running ${toolName}...`);
+      
       const result = await handler(match);
-      processed = processed.replace(result.tag, result.result);
+      processed = processed.replace(tag, result.result);
       executed = true;
+      
+      if (onStatus) onStatus(`Finished ${toolName}`);
     }
   }
 

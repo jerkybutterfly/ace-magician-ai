@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X, RefreshCw } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
-const MAX_TOOL_ROUNDS = 5;
+const MAX_TOOL_ROUNDS = 10;
 const MAX_FORCE_TAG_RETRIES = 2;
 const REFUSAL_PATTERNS = /I (cannot|can't|am unable|don't have the capability|unable to)|for security reasons|I'm not able|I do not have|I can't help with|I can't assist with/i;
 // Only match when the model explicitly says it's a text/language model without tool support
@@ -99,6 +99,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
+  const [statusLogs, setStatusLogs] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -213,9 +214,12 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
         if (containsToolCommands) {
           setExecutingTools(true);
-          setStreamedContent(full + '\n\n⏳ Executing commands...');
+          setStatusLogs([]);
+          setStreamedContent(full);
           try {
-            const { processed } = await executeToolCommands(full);
+            const { processed } = await executeToolCommands(full, (status) => {
+              setStatusLogs(prev => [...prev.slice(-4), status]);
+            });
             const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
             currentMessages = [...currentMessages, assistantMsg];
             visibleHistory = [...visibleHistory, assistantMsg];
@@ -237,6 +241,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             break;
           } finally {
             setExecutingTools(false);
+            setStatusLogs([]);
           }
           continue;
         }
@@ -396,9 +401,29 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           {streaming && streamedContent && (
             <ChatMessageBubble message={{ role: 'assistant', content: streamedContent }} />
           )}
-          {executingTools && !streamedContent && (
-            <div className="px-6 py-3 text-sm text-muted-foreground animate-pulse">
-              ⏳ Executing file operations...
+          {executingTools && (
+            <div className="mx-6 my-4 p-4 rounded-2xl bg-secondary/30 border border-primary/20 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex gap-1 h-3 items-center">
+                  <span className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                  <span className="w-1 h-1 bg-primary rounded-full animate-bounce"></span>
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Agent Progress</span>
+              </div>
+              <div className="space-y-2">
+                {statusLogs.map((log, i) => (
+                  <div key={i} className="flex items-start gap-2.5 text-sm animate-in fade-in slide-in-from-left-1 duration-200">
+                    <div className="mt-1.5 w-1 h-1 rounded-full bg-primary/40 shrink-0" />
+                    <span className={i === statusLogs.length - 1 ? "text-foreground font-medium" : "text-muted-foreground"}>
+                      {log}
+                    </span>
+                  </div>
+                ))}
+                {statusLogs.length === 0 && (
+                  <div className="text-sm text-muted-foreground italic">Analyzing task requirements...</div>
+                )}
+              </div>
             </div>
           )}
           <div ref={scrollRef} />

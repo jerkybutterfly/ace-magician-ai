@@ -54,6 +54,32 @@ export async function browserGetText(): Promise<{ status: string; text: string; 
   return res.json();
 }
 
+export async function browserGetHtml(): Promise<{ status: string; html: string; title: string; url: string }> {
+  const res = await fetch(`${agentUrl('/browser/html')}`);
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser get HTML failed'));
+  return res.json();
+}
+
+export async function browserExecJS(code: string): Promise<{ status: string; result: string | null; title: string; url: string }> {
+  const res = await fetch(`${agentUrl('/browser/js')}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser JS execution failed'));
+  return res.json();
+}
+
+export async function browserWaitFor(selector: string, timeout = 20): Promise<{ status: string; found: boolean; title: string; url: string }> {
+  const res = await fetch(`${agentUrl('/browser/wait')}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selector, timeout }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Browser wait failed'));
+  return res.json();
+}
+
 function agentUrl(path: string): string {
   return `${getSettings().agentUrl}${path}`;
 }

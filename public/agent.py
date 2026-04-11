@@ -30,7 +30,7 @@ _browser_lock = threading.Lock()
 
 
 def _get_browser():
-    """Lazily start a Chrome browser session."""
+    """Lazily start a Chrome browser session with stealth settings."""
     global _browser_driver
     with _browser_lock:
         if _browser_driver is not None:
@@ -41,11 +41,31 @@ def _get_browser():
                 _browser_driver = None
         from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
         opts = Options()
         opts.add_argument("--start-maximized")
         opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_argument("--disable-infobars")
+        opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--no-sandbox")
+        opts.add_argument("--disable-gpu")
+        opts.add_argument("--lang=en-US")
+        opts.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
         opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        opts.add_experimental_option("useAutomationExtension", False)
+        # Preserve login sessions between runs
+        user_data_dir = Path.home() / ".ace-agent-chrome-profile"
+        opts.add_argument(f"--user-data-dir={user_data_dir}")
         _browser_driver = webdriver.Chrome(options=opts)
+        # Remove navigator.webdriver flag to bypass bot detection
+        _browser_driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": """
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                window.chrome = {runtime: {}};
+                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+            """
+        })
         return _browser_driver
 
 
@@ -76,6 +96,15 @@ class BrowserFillRequest(BaseModel):
 class BrowserTypeRequest(BaseModel):
     selector: str
     text: str
+
+
+class BrowserJSRequest(BaseModel):
+    code: str
+
+
+class BrowserWaitRequest(BaseModel):
+    selector: str
+    timeout: int = 20
 
 
 app = FastAPI(title="Local AI Agent", version="3.0.0")
@@ -317,10 +346,11 @@ async def browser_click(req: BrowserClickRequest):
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         driver = _get_browser()
-        el = WebDriverWait(driver, 10).until(
+        el = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, req.selector))
         )
         el.click()
+        time.sleep(1)  # Brief pause after click for page transitions
         return {"status": "ok", "title": driver.title, "url": driver.current_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -334,11 +364,14 @@ async def browser_fill(req: BrowserFillRequest):
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         driver = _get_browser()
-        el = WebDriverWait(driver, 10).until(
+        el = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, req.selector))
         )
         el.clear()
-        el.send_keys(req.value)
+        # Type character by character with small delay to appear human-like
+        for char in req.value:
+            el.send_keys(char)
+            time.sleep(0.05)
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -353,7 +386,7 @@ async def browser_type(req: BrowserTypeRequest):
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         driver = _get_browser()
-        el = WebDriverWait(driver, 10).until(
+        el = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, req.selector))
         )
         # Support special keys like {ENTER}, {TAB}
@@ -418,6 +451,72 @@ async def browser_close():
     return {"status": "ok"}
 
 
+@app.get("/browser/html")
+async def browser_get_html():
+    """Get the page HTML (simplified DOM with interactive elements)."""
+    try:
+        driver = _get_browser()
+        # Extract a simplified version of the DOM focusing on interactive elements
+        html_script = """
+        function getInteractiveDOM() {
+            const els = document.querySelectorAll(
+                'input, textarea, button, select, a[href], [role="button"], [onclick], form, label, h1, h2, h3, [aria-label]'
+            );
+            const items = [];
+            els.forEach((el, i) => {
+                const tag = el.tagName.toLowerCase();
+                const attrs = {};
+                ['id', 'name', 'type', 'class', 'href', 'placeholder', 'value', 'aria-label', 'role', 'for'].forEach(a => {
+                    if (el.getAttribute(a)) attrs[a] = el.getAttribute(a);
+                });
+                const text = el.textContent?.trim().slice(0, 100) || '';
+                const visible = el.offsetParent !== null || el.offsetWidth > 0;
+                if (visible || tag === 'input') {
+                    items.push({tag, attrs, text: text || undefined, index: i});
+                }
+            });
+            return JSON.stringify(items, null, 2);
+        }
+        return getInteractiveDOM();
+        """
+        result = driver.execute_script(html_script)
+        return {
+            "status": "ok",
+            "html": result[:15000],
+            "title": driver.title,
+            "url": driver.current_url,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/browser/js")
+async def browser_exec_js(req: BrowserJSRequest):
+    """Execute JavaScript on the current page."""
+    try:
+        driver = _get_browser()
+        result = driver.execute_script(req.code)
+        return {"status": "ok", "result": str(result)[:5000] if result else None, "title": driver.title, "url": driver.current_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/browser/wait")
+async def browser_wait_for(req: BrowserWaitRequest):
+    """Wait for an element to appear on the page."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        driver = _get_browser()
+        WebDriverWait(driver, req.timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, req.selector))
+        )
+        return {"status": "ok", "found": True, "title": driver.title, "url": driver.current_url}
+    except Exception:
+        return {"status": "ok", "found": False, "title": driver.title if _browser_driver else "", "url": driver.current_url if _browser_driver else ""}
+
+
 
 
 TELEGRAM_SYSTEM_PROMPT = """You are an AI agent with FULL CONTROL of this PC and a real browser. You execute actions DIRECTLY using command tags. The system automatically executes your tags — you NEVER give the user commands to run manually.
@@ -438,6 +537,26 @@ AVAILABLE TAGS (auto-executed):
 [FILL_FORM:css_selector|value] — Fill an input field
 [TYPE_TEXT:css_selector|text] — Type text (supports {ENTER}, {TAB})
 [GET_PAGE_TEXT] — Get visible text of the current page
+[GET_PAGE_HTML] — Get interactive elements on the page (forms, buttons, inputs)
+[JS_EXEC:javascript_code] — Execute JavaScript on the page
+[WAIT:seconds] — Wait/pause for N seconds
+[WAIT_FOR:css_selector] — Wait until an element appears
+[SCREENSHOT] — Take a screenshot of the current browser page
+
+LOGIN WORKFLOW EXAMPLE:
+User: \"Log into my Gmail\"
+Assistant: Logging into Gmail now.
+[OPEN_URL:https://accounts.google.com]
+[WAIT:2]
+[GET_PAGE_HTML]
+(after seeing the form fields)
+[FILL_FORM:input[type="email"]|user@gmail.com]
+[CLICK:#identifierNext button]
+[WAIT:3]
+[FILL_FORM:input[type="password"]|the_password]
+[CLICK:#passwordNext button]
+[WAIT:3]
+[GET_PAGE_TEXT]
 
 EXAMPLES:
 User: \"Go to google.com and search for cats\"
@@ -498,6 +617,7 @@ def execute_tool_tag(tag: str, arg: str) -> str:
         if tag == "OPEN_URL":
             driver = _get_browser()
             driver.get(arg.strip())
+            time.sleep(2)  # Wait for page to load
             return f"🌐 Opened: {driver.title} ({driver.current_url})"
 
         if tag == "CLICK":
@@ -505,10 +625,11 @@ def execute_tool_tag(tag: str, arg: str) -> str:
             from selenium.webdriver.support.ui import WebDriverWait
             from selenium.webdriver.support import expected_conditions as EC
             driver = _get_browser()
-            el = WebDriverWait(driver, 10).until(
+            el = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, arg.strip()))
             )
             el.click()
+            time.sleep(1.5)  # Wait after click for page transitions
             return f"🖱️ Clicked {arg.strip()} — now on: {driver.title}"
 
         if tag == "FILL_FORM":
@@ -519,11 +640,14 @@ def execute_tool_tag(tag: str, arg: str) -> str:
             from selenium.webdriver.support.ui import WebDriverWait
             from selenium.webdriver.support import expected_conditions as EC
             driver = _get_browser()
-            el = WebDriverWait(driver, 10).until(
+            el = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, parts[0].strip()))
             )
             el.clear()
-            el.send_keys(parts[1].strip())
+            # Type character by character to appear human-like
+            for char in parts[1].strip():
+                el.send_keys(char)
+                time.sleep(0.05)
             return f"📝 Filled {parts[0].strip()}"
 
         if tag == "TYPE_TEXT":
@@ -535,7 +659,7 @@ def execute_tool_tag(tag: str, arg: str) -> str:
             from selenium.webdriver.support.ui import WebDriverWait
             from selenium.webdriver.support import expected_conditions as EC
             driver = _get_browser()
-            el = WebDriverWait(driver, 10).until(
+            el = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, parts[0].strip()))
             )
             text = parts[1].strip()
@@ -553,6 +677,56 @@ def execute_tool_tag(tag: str, arg: str) -> str:
             text = driver.find_element("tag name", "body").text[:4000]
             return f"📃 Page: {driver.title}\n{text}"
 
+        if tag == "GET_PAGE_HTML":
+            driver = _get_browser()
+            html_script = """
+            function getInteractiveDOM() {
+                const els = document.querySelectorAll(
+                    'input, textarea, button, select, a[href], [role="button"], [onclick], form, label, h1, h2, h3, [aria-label]'
+                );
+                const items = [];
+                els.forEach((el, i) => {
+                    const tag = el.tagName.toLowerCase();
+                    const attrs = {};
+                    ['id', 'name', 'type', 'class', 'href', 'placeholder', 'value', 'aria-label', 'role', 'for'].forEach(a => {
+                        if (el.getAttribute(a)) attrs[a] = el.getAttribute(a);
+                    });
+                    const text = el.textContent?.trim().slice(0, 100) || '';
+                    const visible = el.offsetParent !== null || el.offsetWidth > 0;
+                    if (visible || tag === 'input') {
+                        items.push({tag, attrs, text: text || undefined});
+                    }
+                });
+                return JSON.stringify(items, null, 2);
+            }
+            return getInteractiveDOM();
+            """
+            result = driver.execute_script(html_script)
+            return f"🔍 Interactive elements on {driver.title}:\n{result[:6000]}"
+
+        if tag == "JS_EXEC":
+            driver = _get_browser()
+            result = driver.execute_script(arg)
+            return f"📜 JS result: {str(result)[:3000] if result else '(no return value)'}"
+
+        if tag == "WAIT":
+            seconds = min(float(arg.strip()), 30)  # Max 30 seconds
+            time.sleep(seconds)
+            return f"⏳ Waited {seconds}s"
+
+        if tag == "WAIT_FOR":
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            driver = _get_browser()
+            try:
+                WebDriverWait(driver, 20).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, arg.strip()))
+                )
+                return f"✅ Element found: {arg.strip()}"
+            except Exception:
+                return f"⏰ Timed out waiting for: {arg.strip()}"
+
         return f"❌ Unknown tag: {tag}"
 
     except subprocess.TimeoutExpired:
@@ -565,7 +739,7 @@ def execute_tool_tag(tag: str, arg: str) -> str:
 def process_tool_tags(text: str) -> tuple[str, bool]:
     """Find and execute tool tags in AI response. Returns (processed_text, had_tags)."""
     # Match parameterized tags
-    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD|OPEN_URL|CLICK|FILL_FORM|TYPE_TEXT|GET_PAGE_TEXT):?(.+?)?\]"
+    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD|OPEN_URL|CLICK|FILL_FORM|TYPE_TEXT|GET_PAGE_TEXT|GET_PAGE_HTML|JS_EXEC|WAIT|WAIT_FOR|SCREENSHOT):?(.+?)?\]"
     matches = list(re.finditer(pattern, text))
 
     if not matches:
