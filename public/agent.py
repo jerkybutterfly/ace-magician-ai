@@ -146,9 +146,12 @@ class FileDeleteRequest(BaseModel):
 class TelegramConnectRequest(BaseModel):
     token: str
     model: Optional[str] = None
+    provider: Optional[str] = None  # "ollama" or "lmstudio"
+    lmstudio_url: Optional[str] = None
 
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+LMSTUDIO_URL = os.environ.get("LMSTUDIO_URL", "http://127.0.0.1:1234")
 telegram_lock = threading.Lock()
 telegram_state_lock = threading.Lock()
 telegram_thread: Optional[threading.Thread] = None
@@ -757,7 +760,7 @@ def process_tool_tags(text: str) -> tuple[str, bool]:
 
 
 
-def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event):
+def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event, provider: str = "ollama", lmstudio_url: str = "http://127.0.0.1:1234"):
     """Long-polling loop for Telegram bot."""
     global telegram_thread, telegram_stop_event, telegram_bot_token, telegram_bot_model
 
