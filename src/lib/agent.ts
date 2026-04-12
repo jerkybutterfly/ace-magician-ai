@@ -177,11 +177,11 @@ export async function getTelegramStatus(): Promise<TelegramStatus> {
   return res.json();
 }
 
-export async function connectTelegram(token: string, model?: string): Promise<TelegramStatus> {
+export async function connectTelegram(token: string, model?: string, provider?: string, lmstudioUrl?: string): Promise<TelegramStatus> {
   const res = await fetch(agentUrl('/telegram/connect'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, model }),
+    body: JSON.stringify({ token, model, provider, lmstudio_url: lmstudioUrl }),
   });
   if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to connect Telegram'));
   return res.json();
