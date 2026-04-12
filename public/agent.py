@@ -985,7 +985,7 @@ def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event
 
 
 
-def start_telegram_bot(token: str, model: str) -> dict[str, Any]:
+def start_telegram_bot(token: str, model: str, provider: str = "ollama", lmstudio_url: str = "http://127.0.0.1:1234") -> dict[str, Any]:
     global telegram_thread, telegram_stop_event, telegram_bot_token, telegram_bot_model
 
     cleaned_token = token.strip()
@@ -1008,7 +1008,7 @@ def start_telegram_bot(token: str, model: str) -> dict[str, Any]:
         telegram_bot_model = cleaned_model
         telegram_thread = threading.Thread(
             target=telegram_bot_loop,
-            args=(cleaned_token, cleaned_model, telegram_stop_event),
+            args=(cleaned_token, cleaned_model, telegram_stop_event, provider, lmstudio_url),
             daemon=True,
         )
         telegram_thread.start()
@@ -1061,7 +1061,12 @@ def stop_telegram_bot() -> dict[str, Any]:
 
 @app.post("/telegram/connect")
 async def telegram_connect(req: TelegramConnectRequest):
-    return start_telegram_bot(req.token, req.model or "gemma3:4b")
+    return start_telegram_bot(
+        req.token,
+        req.model or "gemma3:4b",
+        provider=req.provider or "ollama",
+        lmstudio_url=req.lmstudio_url or LMSTUDIO_URL,
+    )
 
 
 @app.post("/telegram/disconnect")
