@@ -220,10 +220,28 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="telegram-model">Model</Label>
-            <Input id="telegram-model" value={settings.telegramModel} onChange={(e) => update('telegramModel', e.target.value)} placeholder="e.g. llama3.2 (defaults to Default Model)" />
+            <Label htmlFor="telegram-provider">AI Provider</Label>
+            <Select value={settings.telegramProvider} onValueChange={(v) => update('telegramProvider', v as TelegramProvider)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ollama">Ollama</SelectItem>
+                <SelectItem value="lmstudio">LM Studio</SelectItem>
+              </SelectContent>
+            </Select>
             <p className="text-xs text-muted-foreground">
-              The Ollama model the Telegram bot will use. Leave empty to use the Default Model from Ollama settings.
+              Which AI backend the Telegram bot should use for generating responses.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="telegram-model">Model</Label>
+            <Input id="telegram-model" value={settings.telegramModel} onChange={(e) => update('telegramModel', e.target.value)} placeholder={settings.telegramProvider === 'lmstudio' ? 'Uses loaded model' : 'e.g. llama3.2 (defaults to Default Model)'} />
+            <p className="text-xs text-muted-foreground">
+              {settings.telegramProvider === 'lmstudio'
+                ? 'LM Studio uses whichever model is currently loaded. You can leave this empty.'
+                : 'The Ollama model the Telegram bot will use. Leave empty to use the Default Model from Ollama settings.'}
             </p>
           </div>
 
