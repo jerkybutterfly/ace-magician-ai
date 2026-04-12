@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { connectTelegram, disconnectTelegram, getTelegramStatus, type TelegramStatus } from '@/lib/agent';
-import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, type AppSettings } from '@/lib/settings';
+import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, type AppSettings, type TelegramProvider } from '@/lib/settings';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -91,7 +92,12 @@ export default function SettingsPage() {
     setTelegramAction('connect');
 
     try {
-      const status = await connectTelegram(settings.telegramBotToken, settings.telegramModel || settings.defaultModel || undefined);
+      const status = await connectTelegram(
+        settings.telegramBotToken,
+        settings.telegramModel || settings.defaultModel || undefined,
+        settings.telegramProvider,
+        settings.telegramProvider === 'lmstudio' ? settings.lmStudioUrl : undefined,
+      );
       setTelegramStatus(status);
       toast({
         title: status.status === 'already_connected' ? 'Telegram already connected' : 'Telegram connected',
