@@ -886,17 +886,30 @@ def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event
                     final_response = ""
                     for round_num in range(max_tool_rounds):
                         try:
-                            ollama_resp = requests.post(
-                                f"{OLLAMA_URL}/api/chat",
-                                json={"model": ollama_model, "messages": current_messages, "stream": False},
-                                timeout=120,
-                            )
-                            ollama_data = ollama_resp.json()
-                            if not ollama_resp.ok:
-                                raise RuntimeError(str(ollama_data))
-                            ai_text = ollama_data.get("message", {}).get("content", "")
+                            if provider == "lmstudio":
+                                # LM Studio uses OpenAI-compatible API
+                                llm_resp = requests.post(
+                                    f"{lmstudio_url}/v1/chat/completions",
+                                    json={"model": ollama_model, "messages": current_messages, "stream": False},
+                                    timeout=120,
+                                )
+                                llm_data = llm_resp.json()
+                                if not llm_resp.ok:
+                                    raise RuntimeError(str(llm_data))
+                                ai_text = llm_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                            else:
+                                # Ollama API
+                                llm_resp = requests.post(
+                                    f"{OLLAMA_URL}/api/chat",
+                                    json={"model": ollama_model, "messages": current_messages, "stream": False},
+                                    timeout=120,
+                                )
+                                llm_data = llm_resp.json()
+                                if not llm_resp.ok:
+                                    raise RuntimeError(str(llm_data))
+                                ai_text = llm_data.get("message", {}).get("content", "")
                         except Exception as e:
-                            ai_text = f"⚠️ Ollama error: {e}"
+                            ai_text = f"⚠️ {'LM Studio' if provider == 'lmstudio' else 'Ollama'} error: {e}"
                             final_response = ai_text
                             break
 
