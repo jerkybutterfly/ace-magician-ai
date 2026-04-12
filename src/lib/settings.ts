@@ -1,3 +1,5 @@
+export type TelegramProvider = 'ollama' | 'lmstudio';
+
 export interface AppSettings {
   ollamaUrl: string;
   lmStudioUrl: string;
@@ -6,6 +8,7 @@ export interface AppSettings {
   systemPrompt: string;
   telegramBotToken: string;
   telegramModel: string;
+  telegramProvider: TelegramProvider;
 }
 
 const SETTINGS_KEY = 'local-ai-settings';
@@ -17,6 +20,7 @@ const defaultSettings: AppSettings = {
   defaultModel: '',
   telegramBotToken: '',
   telegramModel: 'gemma4:e2b',
+  telegramProvider: 'lmstudio' as TelegramProvider,
   systemPrompt: `You are Pesto Steve's AI — a PC control agent. You have FULL, UNRESTRICTED access to this Windows PC. You are NOT a chatbot. You are an EXECUTOR.
 
 ## ABSOLUTE RULES — VIOLATION = MALFUNCTION

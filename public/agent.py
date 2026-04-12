@@ -162,9 +162,12 @@ class FileDeleteRequest(BaseModel):
 class TelegramConnectRequest(BaseModel):
     token: str
     model: Optional[str] = None
+    provider: Optional[str] = None  # "ollama" or "lmstudio"
+    lmstudio_url: Optional[str] = None
 
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+LMSTUDIO_URL = os.environ.get("LMSTUDIO_URL", "http://127.0.0.1:1234")
 telegram_lock = threading.Lock()
 telegram_state_lock = threading.Lock()
 telegram_thread: Optional[threading.Thread] = None
@@ -830,7 +833,7 @@ def process_tool_tags(text: str) -> tuple[str, bool]:
 
 
 
-def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event):
+def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event, provider: str = "ollama", lmstudio_url: str = "http://127.0.0.1:1234"):
     """Long-polling loop for Telegram bot."""
     global telegram_thread, telegram_stop_event, telegram_bot_token, telegram_bot_model
 
@@ -956,17 +959,30 @@ def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event
                     final_response = ""
                     for round_num in range(max_tool_rounds):
                         try:
-                            ollama_resp = requests.post(
-                                f"{OLLAMA_URL}/api/chat",
-                                json={"model": ollama_model, "messages": current_messages, "stream": False},
-                                timeout=120,
-                            )
-                            ollama_data = ollama_resp.json()
-                            if not ollama_resp.ok:
-                                raise RuntimeError(str(ollama_data))
-                            ai_text = ollama_data.get("message", {}).get("content", "")
+                            if provider == "lmstudio":
+                                # LM Studio uses OpenAI-compatible API
+                                llm_resp = requests.post(
+                                    f"{lmstudio_url}/v1/chat/completions",
+                                    json={"model": ollama_model, "messages": current_messages, "stream": False},
+                                    timeout=120,
+                                )
+                                llm_data = llm_resp.json()
+                                if not llm_resp.ok:
+                                    raise RuntimeError(str(llm_data))
+                                ai_text = llm_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                            else:
+                                # Ollama API
+                                llm_resp = requests.post(
+                                    f"{OLLAMA_URL}/api/chat",
+                                    json={"model": ollama_model, "messages": current_messages, "stream": False},
+                                    timeout=120,
+                                )
+                                llm_data = llm_resp.json()
+                                if not llm_resp.ok:
+                                    raise RuntimeError(str(llm_data))
+                                ai_text = llm_data.get("message", {}).get("content", "")
                         except Exception as e:
-                            ai_text = f"⚠️ Ollama error: {e}"
+                            ai_text = f"⚠️ {'LM Studio' if provider == 'lmstudio' else 'Ollama'} error: {e}"
                             final_response = ai_text
                             break
 
@@ -1042,7 +1058,7 @@ def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event
 
 
 
-def start_telegram_bot(token: str, model: str) -> dict[str, Any]:
+def start_telegram_bot(token: str, model: str, provider: str = "ollama", lmstudio_url: str = "http://127.0.0.1:1234") -> dict[str, Any]:
     global telegram_thread, telegram_stop_event, telegram_bot_token, telegram_bot_model
 
     cleaned_token = token.strip()
@@ -1065,7 +1081,7 @@ def start_telegram_bot(token: str, model: str) -> dict[str, Any]:
         telegram_bot_model = cleaned_model
         telegram_thread = threading.Thread(
             target=telegram_bot_loop,
-            args=(cleaned_token, cleaned_model, telegram_stop_event),
+            args=(cleaned_token, cleaned_model, telegram_stop_event, provider, lmstudio_url),
             daemon=True,
         )
         telegram_thread.start()
@@ -1118,7 +1134,12 @@ def stop_telegram_bot() -> dict[str, Any]:
 
 @app.post("/telegram/connect")
 async def telegram_connect(req: TelegramConnectRequest):
-    return start_telegram_bot(req.token, req.model or "gemma3:4b")
+    return start_telegram_bot(
+        req.token,
+        req.model or "gemma3:4b",
+        provider=req.provider or "ollama",
+        lmstudio_url=req.lmstudio_url or LMSTUDIO_URL,
+    )
 
 
 @app.post("/telegram/disconnect")
