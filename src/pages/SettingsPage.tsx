@@ -41,6 +41,9 @@ export default function SettingsPage() {
   const [telegramStatus, setTelegramStatus] = useState<TelegramStatus>(createEmptyTelegramStatus);
   const [telegramLoading, setTelegramLoading] = useState(true);
   const [telegramAction, setTelegramAction] = useState<'connect' | 'disconnect' | null>(null);
+  const [discordStatus, setDiscordStatus] = useState<DiscordStatus>({ enabled: false, connected: false, running: false, username: null, model: null, error: null, updated_at: null });
+  const [discordLoading, setDiscordLoading] = useState(true);
+  const [discordAction, setDiscordAction] = useState<'connect' | 'disconnect' | null>(null);
 
   const telegramBusy = telegramAction !== null;
 
