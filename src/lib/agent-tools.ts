@@ -1,4 +1,4 @@
-import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills } from './agent';
+import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo } from './agent';
 
 export interface ToolResult {
   tag: string;
@@ -23,6 +23,12 @@ const TOOL_PATTERNS = [
   { regex: /\[UPDATE_MISSION:(.*?)\|(.*?)\|(.*?)\]/g, handler: handleUpdateMission },
   { regex: /\[CREATE_SKILL:(.*?)\|([\s\S]*?)\]/g, handler: handleCreateSkill },
   { regex: /\[RUN_SKILL:(.*?)\|(.*?)\]/g, handler: handleRunSkill },
+  { regex: /\[LIST_PROCESSES\]/g, handler: handleListProcesses },
+  { regex: /\[KILL_PROCESS:(\d+)\]/g, handler: handleKillProcess },
+  { regex: /\[GET_CLIPBOARD\]/g, handler: handleGetClipboard },
+  { regex: /\[SET_CLIPBOARD:([\s\S]*?)\]/g, handler: handleSetClipboard },
+  { regex: /\[NOTIFY:(.*?)\|(.*?)\]/g, handler: handleNotify },
+  { regex: /\[NET_INFO\]/g, handler: handleNetInfo },
 ];
 
 async function handleListDir(match: RegExpMatchArray): Promise<ToolResult> {
