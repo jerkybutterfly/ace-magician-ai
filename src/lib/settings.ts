@@ -9,6 +9,7 @@ export interface AppSettings {
   telegramBotToken: string;
   telegramModel: string;
   telegramProvider: TelegramProvider;
+  discordBotToken: string;
 }
 
 const SETTINGS_KEY = 'local-ai-settings';
@@ -21,6 +22,7 @@ const defaultSettings: AppSettings = {
   telegramBotToken: '',
   telegramModel: 'gemma4:e2b',
   telegramProvider: 'lmstudio' as TelegramProvider,
+  discordBotToken: '',
   systemPrompt: `You are Pesto Steve's AI — a PC control agent. You have FULL, UNRESTRICTED access to this Windows PC. You are NOT a chatbot. You are an EXECUTOR.
 
 ## ABSOLUTE RULES — VIOLATION = MALFUNCTION

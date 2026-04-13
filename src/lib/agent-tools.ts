@@ -1,4 +1,4 @@
-import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills } from './agent';
+import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo } from './agent';
 
 export interface ToolResult {
   tag: string;
@@ -23,6 +23,12 @@ const TOOL_PATTERNS = [
   { regex: /\[UPDATE_MISSION:(.*?)\|(.*?)\|(.*?)\]/g, handler: handleUpdateMission },
   { regex: /\[CREATE_SKILL:(.*?)\|([\s\S]*?)\]/g, handler: handleCreateSkill },
   { regex: /\[RUN_SKILL:(.*?)\|(.*?)\]/g, handler: handleRunSkill },
+  { regex: /\[LIST_PROCESSES\]/g, handler: handleListProcesses },
+  { regex: /\[KILL_PROCESS:(\d+)\]/g, handler: handleKillProcess },
+  { regex: /\[GET_CLIPBOARD\]/g, handler: handleGetClipboard },
+  { regex: /\[SET_CLIPBOARD:([\s\S]*?)\]/g, handler: handleSetClipboard },
+  { regex: /\[NOTIFY:(.*?)\|(.*?)\]/g, handler: handleNotify },
+  { regex: /\[NET_INFO\]/g, handler: handleNetInfo },
 ];
 
 async function handleListDir(match: RegExpMatchArray): Promise<ToolResult> {
@@ -204,6 +210,68 @@ async function handleRunSkill(match: RegExpMatchArray): Promise<ToolResult> {
     return { tag: match[0], result: `\n🚀 **Executed Skill**: \`${name} ${args}\`\n\`\`\`\n${output.trim()}\n\`\`\`\n${result.returncode !== 0 ? `Exit code: ${result.returncode}` : ''}` };
   } catch (e) {
     return { tag: match[0], result: `\n⚠️ Failed to run skill \`${name}\`: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleListProcesses(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const procs = await listProcesses();
+    const listing = procs.slice(0, 30).map(p => `PID ${p.pid} | ${p.name} | CPU ${p.cpu_percent}% | ${p.memory_mb}MB`).join('\n');
+    return { tag: _match[0], result: `\n📋 **Running Processes (top 30):**\n\`\`\`\n${listing}\n\`\`\`` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Failed to list processes: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleKillProcess(match: RegExpMatchArray): Promise<ToolResult> {
+  const pid = parseInt(match[1], 10);
+  try {
+    await killProcess(pid);
+    return { tag: match[0], result: `\n🛑 Process ${pid} terminated.` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to kill PID ${pid}: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleGetClipboard(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const text = await getClipboard();
+    return { tag: _match[0], result: `\n📋 **Clipboard:**\n\`\`\`\n${text}\n\`\`\`` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Failed to read clipboard: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleSetClipboard(match: RegExpMatchArray): Promise<ToolResult> {
+  const text = match[1];
+  try {
+    await setClipboard(text);
+    return { tag: match[0], result: `\n✅ Clipboard set.` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to set clipboard: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleNotify(match: RegExpMatchArray): Promise<ToolResult> {
+  const title = match[1].trim();
+  const message = match[2].trim();
+  try {
+    await sendNotification(title, message);
+    return { tag: match[0], result: `\n🔔 Notification sent: "${title}"` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to send notification: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleNetInfo(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const info = await getNetworkInfo();
+    const ifaces = info.interfaces.map(i => `${i.name}: ${i.ip} (${i.netmask})`).join('\n');
+    const sent = (info.bytes_sent / 1048576).toFixed(1);
+    const recv = (info.bytes_recv / 1048576).toFixed(1);
+    return { tag: _match[0], result: `\n🌐 **Network Info** (${info.hostname})\n\`\`\`\n${ifaces}\n\nSent: ${sent}MB | Received: ${recv}MB\n\`\`\`` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Failed to get network info: ${e instanceof Error ? e.message : 'unknown error'}` };
   }
 }
 

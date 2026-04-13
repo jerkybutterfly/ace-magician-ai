@@ -166,6 +166,33 @@ class TelegramConnectRequest(BaseModel):
     lmstudio_url: Optional[str] = None
 
 
+class DiscordConnectRequest(BaseModel):
+    token: str
+    model: Optional[str] = None
+    provider: Optional[str] = None
+    lmstudio_url: Optional[str] = None
+
+
+class CronJobRequest(BaseModel):
+    name: str
+    command: str
+    interval_seconds: int = 60
+
+
+class ClipboardRequest(BaseModel):
+    text: str
+
+
+class NotifyRequest(BaseModel):
+    title: str
+    message: str
+
+
+class WebhookPayload(BaseModel):
+    event: str = "generic"
+    data: dict = {}
+
+
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 LMSTUDIO_URL = os.environ.get("LMSTUDIO_URL", "http://127.0.0.1:1234")
 telegram_lock = threading.Lock()
@@ -1147,6 +1174,283 @@ async def telegram_disconnect():
     return stop_telegram_bot()
 
 
+# ═══════════════════════════════════════════════════════
+#  Cron Jobs / Scheduled Tasks
+# ═══════════════════════════════════════════════════════
+_cron_jobs: dict[str, dict] = {}
+_cron_stop = threading.Event()
+_cron_thread: Optional[threading.Thread] = None
+
+
+def _cron_loop():
+    """Background loop that runs scheduled jobs."""
+    while not _cron_stop.is_set():
+        now = time.time()
+        for name, job in list(_cron_jobs.items()):
+            if now - job.get("last_run", 0) >= job["interval_seconds"]:
+                try:
+                    result = subprocess.run(job["command"], shell=True, capture_output=True, text=True, timeout=30)
+                    job["last_result"] = {"stdout": result.stdout[:500], "stderr": result.stderr[:500], "returncode": result.returncode}
+                except Exception as e:
+                    job["last_result"] = {"stdout": "", "stderr": str(e), "returncode": -1}
+                job["last_run"] = now
+                job["run_count"] = job.get("run_count", 0) + 1
+        _cron_stop.wait(5)
+
+
+def _ensure_cron_thread():
+    global _cron_thread
+    if _cron_thread is None or not _cron_thread.is_alive():
+        _cron_stop.clear()
+        _cron_thread = threading.Thread(target=_cron_loop, daemon=True)
+        _cron_thread.start()
+
+
+@app.get("/cron")
+async def list_cron_jobs():
+    return [{"name": n, **{k: v for k, v in j.items()}} for n, j in _cron_jobs.items()]
+
+
+@app.post("/cron")
+async def create_cron_job(req: CronJobRequest):
+    if is_blocked(req.command):
+        raise HTTPException(status_code=403, detail="Command blocked for safety")
+    _cron_jobs[req.name] = {
+        "command": req.command,
+        "interval_seconds": max(req.interval_seconds, 10),
+        "last_run": 0,
+        "run_count": 0,
+        "last_result": None,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    _ensure_cron_thread()
+    return {"status": "created", "name": req.name}
+
+
+@app.delete("/cron/{name}")
+async def delete_cron_job(name: str):
+    if name not in _cron_jobs:
+        raise HTTPException(status_code=404, detail="Cron job not found")
+    del _cron_jobs[name]
+    return {"status": "deleted", "name": name}
+
+
+# ═══════════════════════════════════════════════════════
+#  Webhook Endpoint
+# ═══════════════════════════════════════════════════════
+_webhook_log: list[dict] = []
+
+
+@app.post("/webhook")
+async def receive_webhook(payload: WebhookPayload):
+    entry = {
+        "event": payload.event,
+        "data": payload.data,
+        "received_at": datetime.utcnow().isoformat(),
+    }
+    _webhook_log.append(entry)
+    if len(_webhook_log) > 100:
+        _webhook_log.pop(0)
+    return {"status": "received", "entry": entry}
+
+
+@app.get("/webhook/log")
+async def get_webhook_log():
+    return _webhook_log
+
+
+# ═══════════════════════════════════════════════════════
+#  Process Manager
+# ═══════════════════════════════════════════════════════
+@app.get("/processes")
+async def list_processes():
+    procs = []
+    for p in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info"]):
+        try:
+            info = p.info
+            procs.append({
+                "pid": info["pid"],
+                "name": info["name"],
+                "cpu_percent": info["cpu_percent"] or 0,
+                "memory_mb": round((info["memory_info"].rss if info["memory_info"] else 0) / 1048576, 1),
+            })
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    procs.sort(key=lambda x: x["cpu_percent"], reverse=True)
+    return procs[:100]
+
+
+@app.post("/processes/kill")
+async def kill_process(pid: int):
+    try:
+        p = psutil.Process(pid)
+        p.terminate()
+        return {"status": "terminated", "pid": pid, "name": p.name()}
+    except psutil.NoSuchProcess:
+        raise HTTPException(status_code=404, detail=f"Process {pid} not found")
+    except psutil.AccessDenied:
+        raise HTTPException(status_code=403, detail=f"Access denied for PID {pid}")
+
+
+# ═══════════════════════════════════════════════════════
+#  Clipboard
+# ═══════════════════════════════════════════════════════
+@app.get("/clipboard")
+async def get_clipboard():
+    try:
+        result = subprocess.run(
+            ["powershell", "-Command", "Get-Clipboard"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return {"text": result.stdout.strip()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/clipboard")
+async def set_clipboard(req: ClipboardRequest):
+    try:
+        subprocess.run(
+            ["powershell", "-Command", f"Set-Clipboard -Value '{req.text}'"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════
+#  Desktop Notifications (Windows)
+# ═══════════════════════════════════════════════════════
+@app.post("/notify")
+async def send_notification(req: NotifyRequest):
+    try:
+        ps_script = f'''
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+$textNodes = $template.GetElementsByTagName("text")
+$textNodes.Item(0).AppendChild($template.CreateTextNode("{req.title}")) > $null
+$textNodes.Item(1).AppendChild($template.CreateTextNode("{req.message}")) > $null
+$toast = [Windows.UI.Notifications.ToastNotification]::new($template)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Pesto Steve AI").Show($toast)
+'''
+        subprocess.run(["powershell", "-Command", ps_script], capture_output=True, text=True, timeout=10)
+        return {"status": "sent"}
+    except Exception as e:
+        # Fallback: use msg command
+        try:
+            subprocess.run(["msg", "*", f"{req.title}: {req.message}"], capture_output=True, timeout=5)
+            return {"status": "sent_fallback"}
+        except Exception:
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════
+#  Network Info
+# ═══════════════════════════════════════════════════════
+@app.get("/network")
+async def get_network_info():
+    import socket
+    interfaces = []
+    for name, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == socket.AF_INET:
+                interfaces.append({"name": name, "ip": addr.address, "netmask": addr.netmask})
+    stats = psutil.net_io_counters()
+    return {
+        "interfaces": interfaces,
+        "hostname": socket.gethostname(),
+        "bytes_sent": stats.bytes_sent,
+        "bytes_recv": stats.bytes_recv,
+    }
+
+
+# ═══════════════════════════════════════════════════════
+#  Discord Bot Integration
+# ═══════════════════════════════════════════════════════
+_discord_state: dict[str, Any] = {
+    "enabled": False,
+    "connected": False,
+    "running": False,
+    "username": None,
+    "model": None,
+    "error": None,
+    "updated_at": None,
+}
+_discord_thread: Optional[threading.Thread] = None
+_discord_stop = threading.Event()
+
+
+@app.get("/discord/status")
+async def discord_status():
+    running = _discord_thread is not None and _discord_thread.is_alive()
+    _discord_state["running"] = running
+    return _discord_state
+
+
+@app.post("/discord/connect")
+async def discord_connect(req: DiscordConnectRequest):
+    global _discord_thread
+    if _discord_thread and _discord_thread.is_alive():
+        return {**_discord_state, "status": "already_connected"}
+
+    _discord_stop.clear()
+    _discord_state.update({
+        "enabled": True, "connected": True, "running": True,
+        "model": req.model, "error": None,
+        "updated_at": datetime.utcnow().isoformat(),
+    })
+
+    def _discord_loop():
+        try:
+            import discord as _dc
+            intents = _dc.Intents.default()
+            intents.message_content = True
+            client = _dc.Client(intents=intents)
+
+            @client.event
+            async def on_ready():
+                _discord_state["username"] = str(client.user)
+                _discord_state["connected"] = True
+
+            @client.event
+            async def on_message(message):
+                if message.author == client.user:
+                    return
+                if client.user.mentioned_in(message) or isinstance(message.channel, _dc.DMChannel):
+                    import requests as _req
+                    provider = req.provider or "lmstudio"
+                    model = req.model or ""
+                    content = message.content.replace(f"<@{client.user.id}>", "").strip()
+                    try:
+                        if provider == "lmstudio":
+                            url = (req.lmstudio_url or LMSTUDIO_URL) + "/v1/chat/completions"
+                            resp = _req.post(url, json={"messages": [{"role": "user", "content": content}], "stream": False}, timeout=120)
+                            reply = resp.json()["choices"][0]["message"]["content"]
+                        else:
+                            resp = _req.post(f"{OLLAMA_URL}/api/chat", json={"model": model, "messages": [{"role": "user", "content": content}], "stream": False}, timeout=120)
+                            reply = resp.json()["message"]["content"]
+                        import asyncio
+                        asyncio.run_coroutine_threadsafe(message.channel.send(reply[:2000]), client.loop)
+                    except Exception as e:
+                        asyncio.run_coroutine_threadsafe(message.channel.send(f"Error: {e}"), client.loop)
+
+            client.run(req.token)
+        except Exception as e:
+            _discord_state.update({"error": str(e), "running": False, "connected": False})
+
+    _discord_thread = threading.Thread(target=_discord_loop, daemon=True)
+    _discord_thread.start()
+    return _discord_state
+
+
+@app.post("/discord/disconnect")
+async def discord_disconnect():
+    _discord_stop.set()
+    _discord_state.update({"enabled": False, "connected": False, "running": False, "updated_at": datetime.utcnow().isoformat()})
+    return _discord_state
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
@@ -1157,7 +1461,7 @@ if __name__ == "__main__":
     import uvicorn
 
     print(f"🤖 Local AI Agent starting on http://0.0.0.0:{args.port}")
-    print("   Endpoints: /terminal, /files, /system, /browser/*, /telegram/*")
+    print("   Endpoints: /terminal, /files, /system, /browser/*, /telegram/*, /discord/*, /cron, /webhook, /processes, /clipboard, /notify, /network")
 
     if args.telegram_token:
         try:

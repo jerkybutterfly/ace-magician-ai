@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { connectTelegram, disconnectTelegram, getTelegramStatus, type TelegramStatus } from '@/lib/agent';
+import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
 import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, type AppSettings, type TelegramProvider } from '@/lib/settings';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +41,9 @@ export default function SettingsPage() {
   const [telegramStatus, setTelegramStatus] = useState<TelegramStatus>(createEmptyTelegramStatus);
   const [telegramLoading, setTelegramLoading] = useState(true);
   const [telegramAction, setTelegramAction] = useState<'connect' | 'disconnect' | null>(null);
+  const [discordStatus, setDiscordStatus] = useState<DiscordStatus>({ enabled: false, connected: false, running: false, username: null, model: null, error: null, updated_at: null });
+  const [discordLoading, setDiscordLoading] = useState(true);
+  const [discordAction, setDiscordAction] = useState<'connect' | 'disconnect' | null>(null);
 
   const telegramBusy = telegramAction !== null;
 
@@ -70,7 +73,52 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void refreshTelegramStatus();
+    void refreshDiscordStatus();
   }, []);
+
+  const refreshDiscordStatus = async () => {
+    setDiscordLoading(true);
+    try {
+      setDiscordStatus(await getDiscordStatus());
+    } catch (error) {
+      setDiscordStatus({ enabled: false, connected: false, running: false, username: null, model: null, error: getErrorMessage(error, 'Failed to load Discord status.'), updated_at: null });
+    } finally {
+      setDiscordLoading(false);
+    }
+  };
+
+  const handleConnectDiscord = async () => {
+    if (!settings.discordBotToken?.trim()) {
+      toast({ title: 'Discord token required', description: 'Paste your bot token first.' });
+      return;
+    }
+    saveSettings(settings);
+    setDiscordAction('connect');
+    try {
+      const status = await connectDiscord(settings.discordBotToken, settings.telegramModel || settings.defaultModel || undefined, settings.telegramProvider, settings.telegramProvider === 'lmstudio' ? settings.lmStudioUrl : undefined);
+      setDiscordStatus(status);
+      toast({ title: 'Discord connected', description: status.username ? `Bot ${status.username} is now running.` : 'Discord bot is now running.' });
+    } catch (error) {
+      const message = getErrorMessage(error, 'Failed to connect Discord.');
+      setDiscordStatus({ enabled: false, connected: false, running: false, username: null, model: null, error: message, updated_at: null });
+      toast({ title: 'Discord connection failed', description: message });
+    } finally {
+      setDiscordAction(null);
+    }
+  };
+
+  const handleDisconnectDiscord = async () => {
+    setDiscordAction('disconnect');
+    try {
+      const status = await disconnectDiscord();
+      setDiscordStatus(status);
+      toast({ title: 'Discord disconnected' });
+    } catch (error) {
+      toast({ title: 'Discord disconnect failed', description: getErrorMessage(error, 'Failed to disconnect Discord.') });
+    } finally {
+      setDiscordAction(null);
+    }
+  };
 
   useEffect(() => {
     if (!(telegramStatus.running && !telegramStatus.enabled)) return;
@@ -268,6 +316,40 @@ export default function SettingsPage() {
               className="sm:flex-1"
             >
               {telegramAction === 'disconnect' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Disconnect
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Discord Integration</CardTitle>
+          <CardDescription>Connect a Discord bot so your AI responds in Discord channels</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="discord-token">Bot Token</Label>
+            <Input id="discord-token" type="password" value={settings.discordBotToken} onChange={(e) => update('discordBotToken', e.target.value)} placeholder="Your Discord bot token..." />
+            <p className="text-xs text-muted-foreground">
+              Create a bot at the <a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer" className="underline text-primary">Discord Developer Portal</a>, copy its token, and invite it to your server. The bot responds when mentioned or in DMs.
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-muted/40 p-3 space-y-1">
+            <p className="text-sm font-medium">Status</p>
+            <p className="text-sm text-muted-foreground break-words">
+              {discordAction === 'connect' ? 'Connecting...' : discordAction === 'disconnect' ? 'Disconnecting...' : discordLoading ? 'Checking...' : discordStatus.connected ? `Connected as ${discordStatus.username || 'bot'}` : discordStatus.error || 'Discord bot is not connected.'}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button type="button" onClick={handleConnectDiscord} disabled={discordAction !== null || discordLoading || !settings.discordBotToken?.trim()} className="sm:flex-1">
+              {discordAction === 'connect' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Connect Discord
+            </Button>
+            <Button type="button" variant="outline" onClick={handleDisconnectDiscord} disabled={discordAction !== null || discordLoading || !discordStatus.running} className="sm:flex-1">
+              {discordAction === 'disconnect' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Disconnect
             </Button>
           </div>
