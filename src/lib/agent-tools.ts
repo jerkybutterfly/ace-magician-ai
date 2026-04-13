@@ -1,4 +1,4 @@
-import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo } from './agent';
+import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar } from './agent';
 
 export interface ToolResult {
   tag: string;
@@ -29,6 +29,20 @@ const TOOL_PATTERNS = [
   { regex: /\[SET_CLIPBOARD:([\s\S]*?)\]/g, handler: handleSetClipboard },
   { regex: /\[NOTIFY:(.*?)\|(.*?)\]/g, handler: handleNotify },
   { regex: /\[NET_INFO\]/g, handler: handleNetInfo },
+  { regex: /\[HTTP_REQUEST:(GET|POST|PUT|DELETE|PATCH)\|(.*?)(?:\|([\s\S]*?))?\]/g, handler: handleHttpRequest },
+  { regex: /\[DOWNLOAD:(.*?)\|(.*?)\]/g, handler: handleDownload },
+  { regex: /\[SEARCH_FILES:(.*?)(?:\|(.*?))?\]/g, handler: handleSearchFiles },
+  { regex: /\[ZIP:(.*?)\|(.*?)\]/g, handler: handleZip },
+  { regex: /\[UNZIP:(.*?)(?:\|(.*?))?\]/g, handler: handleUnzip },
+  { regex: /\[POWER:(shutdown|restart|sleep|lock|logoff)\]/g, handler: handlePower },
+  { regex: /\[LAUNCH:(.*?)(?:\|(.*?))?\]/g, handler: handleLaunch },
+  { regex: /\[SPEAK:(.*?)\]/g, handler: handleSpeak },
+  { regex: /\[DISK_USAGE\]/g, handler: handleDiskUsage },
+  { regex: /\[DESKTOP_SCREENSHOT\]/g, handler: handleDesktopScreenshot },
+  { regex: /\[WIFI_SCAN\]/g, handler: handleWifiScan },
+  { regex: /\[LIST_INSTALLED\]/g, handler: handleListInstalled },
+  { regex: /\[GET_ENV\]/g, handler: handleGetEnv },
+  { regex: /\[SET_ENV:(.*?)\|(.*?)\]/g, handler: handleSetEnv },
 ];
 
 async function handleListDir(match: RegExpMatchArray): Promise<ToolResult> {
