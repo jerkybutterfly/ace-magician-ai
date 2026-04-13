@@ -1,87 +1,67 @@
 
-Goal: fix the persistent LM Studio “Failed to fetch” experience and make the app clearly support the two real connection modes.
 
-What I found
-- The LM Studio client code is already wired to call the configured URL directly from the browser:
-  - `src/lib/ollama.ts` uses `fetch(${lmStudioUrl}/v1/models)` and `fetch(${lmStudioUrl}/v1/chat/completions)`.
-- Your hosted preview is running on HTTPS, but your LM Studio server is local HTTP (`http://192.168.0.239:1234`).
-- The captured network logs show repeated browser-side failures from the hosted preview origin to `http://192.168.0.239:1234/...` with `Error: Failed to fetch`.
-- Your session replay also shows the Agent URL is currently set to an LM Studio endpoint (`http://192.168.0.239:1234/api/v1/models`), which explains why the sidebar says the local agent is unavailable too. LM Studio and Agent are two different services.
+# Add OpenClaw-Inspired Tools and Features
 
-Likely root cause
-- This is primarily a browser/network limitation, not just “LM Studio isn’t running”.
-- The app’s current error copy is misleading because it treats all LM Studio failures as if the server is off.
-- There is also a settings mix-up: Agent URL is pointed at LM Studio instead of the Python agent.
+Based on OpenClaw's feature set, here are the most impactful additions that align with your existing agent architecture.
 
-Implementation plan
+## What We Will Add
 
-1. Improve LM Studio error detection and messaging
-- Update `src/lib/ollama.ts` to throw more descriptive errors for:
-  - generic network failure
-  - no models loaded
-  - empty model selection
-- Update `src/pages/Chat.tsx` catch handling so LM Studio errors explain the real causes:
-  - hosted preview cannot always reach local HTTP services
-  - use the LAN IP only when self-hosting on the same network
-  - confirm a model is loaded in LM Studio
-- Replace the current generic hint:
-  - from: “Make sure LM Studio is running with the local server enabled.”
-  - to something like: “Couldn’t reach LM Studio from this browser. If you’re using the hosted preview, local HTTP services may be blocked. If self-hosting locally, use your LM Studio LAN URL and ensure a model is loaded.”
+### 1. Cron Jobs / Scheduled Tasks
+A scheduler system so the AI can set up recurring tasks (e.g., "check crypto prices every hour", "backup files daily"). Adds a `/cron` endpoint to agent.py and a Cron Jobs UI panel in the sidebar.
 
-2. Add visible connection guidance in Settings
-- Update the LM Studio help text in `src/pages/SettingsPage.tsx` to distinguish:
-  - local/self-hosted app usage
-  - hosted Lovable preview usage
-- Add a small warning block under LM Studio Configuration explaining:
-  - LM Studio works best when the app is opened from the same PC/local network
-  - the hosted preview may not be able to call local HTTP endpoints
-  - a loaded model is required in LM Studio’s Local Server
-- Keep the existing URL field, but make the instructions much clearer.
+### 2. Webhook Endpoint
+A `/webhook` endpoint on agent.py that accepts external HTTP triggers and routes them to the AI. Useful for receiving notifications from services, GitHub events, etc.
 
-3. Prevent confusing empty-model states in Chat
-- In `src/pages/Chat.tsx`, disable sending with provider `lmstudio` when:
-  - no LM Studio models were fetched, or
-  - no model is selected
-- Show a compact inline status near the model select:
-  - “No LM Studio models detected”
-  - “Load a model in LM Studio first”
-- This avoids sending a chat request that is guaranteed to fail.
+### 3. Discord Bot Integration
+Similar to the existing Telegram integration -- connect a Discord bot token in Settings so the AI can respond on Discord channels. Uses discord.py in agent.py.
 
-4. Make model fetching more user-friendly
-- Add loading/error state around the LM Studio model dropdown in Chat, similar to the Ollama selector pattern in `src/components/ModelSelector.tsx`.
-- Optionally add a refresh button for LM Studio models.
-- Surface a provider-specific status instead of silently setting `[]` on fetch failure.
+### 4. Skills Management Page
+A dedicated page to browse, view, edit, delete, and create skills with a code editor UI. Currently skills are only manageable via tool tags -- this adds a visual interface.
 
-5. Fix the settings confusion between LM Studio and Agent
-- Update Settings copy so the Agent section explicitly says it must point to the Python agent, not LM Studio.
-- Example guidance:
-  - LM Studio URL: `http://192.168.0.239:1234`
-  - Agent URL: `http://<your-pc-ip>:8484`
-- This should reduce the “local agent unavailable” false trail you’ve been hitting.
+### 5. Process Manager Tool
+New tool tags `[LIST_PROCESSES]` and `[KILL_PROCESS:pid]` so the AI can monitor and manage running processes on the PC, plus a "Processes" panel in the sidebar.
 
-Technical details
-```text
-Current architecture
-Browser -> LM Studio direct fetch -> local HTTP endpoint
-Browser -> Agent direct fetch -> local HTTP endpoint
+### 6. Clipboard Tool
+New tool tags `[GET_CLIPBOARD]` and `[SET_CLIPBOARD:text]` for reading/writing the system clipboard.
 
-Problem in hosted preview
-HTTPS preview origin -> local HTTP service
-=> often blocked / unreachable from browser
-=> reported as generic "Failed to fetch"
+### 7. Notification Tool
+`[NOTIFY:title|message]` to show desktop notifications via the agent (using Windows toast notifications).
+
+### 8. Network Info Tool
+`[NET_INFO]` to get network interfaces, IP addresses, Wi-Fi info, and active connections.
+
+---
+
+## Technical Details
+
+### Agent (public/agent.py) changes:
+- Add cron scheduler using `sched` or `schedule` library with a background thread
+- Add `/cron` CRUD endpoints (list, create, delete scheduled tasks)
+- Add `/webhook` POST endpoint that queues messages for processing
+- Add `/discord/connect`, `/discord/disconnect`, `/discord/status` endpoints using discord.py
+- Add `/processes` GET endpoint (psutil process listing)
+- Add `/processes/kill` POST endpoint
+- Add `/clipboard/get`, `/clipboard/set` endpoints (using pyperclip)
+- Add `/notify` POST endpoint (using win10toast or plyer)
+- Add `/network` GET endpoint
+
+### Frontend changes:
+- **src/lib/agent.ts**: Add API functions for all new endpoints
+- **src/lib/agent-tools.ts**: Add tool handlers for `LIST_PROCESSES`, `KILL_PROCESS`, `GET_CLIPBOARD`, `SET_CLIPBOARD`, `NOTIFY`, `NET_INFO`
+- **src/lib/ollama.ts**: Update RUNTIME_EXECUTION_PROMPT with new tool documentation
+- **src/pages/SkillsPage.tsx**: New page for skills management with code editor
+- **src/pages/CronPage.tsx**: New page to view/create/delete cron jobs
+- **src/components/AppSidebar.tsx**: Add nav links for Skills and Cron pages
+- **src/pages/SettingsPage.tsx**: Add Discord bot configuration section
+- **src/App.tsx**: Add routes for new pages
+
+### New tool tags added to the prompt:
+```
+18. [LIST_PROCESSES] — List running processes with PID, name, CPU%, memory
+19. [KILL_PROCESS:pid] — Kill a process by PID
+20. [GET_CLIPBOARD] — Read current clipboard content
+21. [SET_CLIPBOARD:text] — Copy text to clipboard
+22. [NOTIFY:title|message] — Show a desktop notification
+23. [NET_INFO] — Get network interfaces and IP addresses
 ```
 
-Files to update
-- `src/lib/ollama.ts`
-- `src/pages/Chat.tsx`
-- `src/pages/SettingsPage.tsx`
-
-Expected result
-- The app will stop implying LM Studio simply isn’t running.
-- It will clearly explain when the issue is browser/network reachability versus model-loading versus URL misconfiguration.
-- It will also stop the separate Agent URL confusion that is currently making Settings look more broken than it is.
-
-Notes specific to your current setup
-- LM Studio URL should be your LM Studio server, e.g. `http://192.168.0.239:1234`
-- Agent URL should be your Python agent, e.g. `http://192.168.0.239:8484`
-- They should not point to the same service.
