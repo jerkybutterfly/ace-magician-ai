@@ -289,9 +289,156 @@ async function handleNetInfo(_match: RegExpMatchArray): Promise<ToolResult> {
   }
 }
 
-/**
- * Check if an AI response contains tool commands.
- */
+async function handleHttpRequest(match: RegExpMatchArray): Promise<ToolResult> {
+  const method = match[1];
+  const url = match[2].trim();
+  const body = match[3]?.trim() || undefined;
+  try {
+    const result = await httpRequest(method, url, undefined, body);
+    const bodyStr = typeof result.body === 'string' ? result.body : JSON.stringify(result.body, null, 2);
+    const truncated = bodyStr.length > 3000 ? bodyStr.slice(0, 3000) + '\n...(truncated)' : bodyStr;
+    return { tag: match[0], result: `\n🌐 **HTTP ${method}** ${url} → ${result.status_code}\n\`\`\`\n${truncated}\n\`\`\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ HTTP request failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleDownload(match: RegExpMatchArray): Promise<ToolResult> {
+  const url = match[1].trim();
+  const path = match[2].trim();
+  try {
+    const result = await downloadFile(url, path);
+    return { tag: match[0], result: `\n⬇️ Downloaded to \`${result.path}\` (${(result.size / 1024).toFixed(1)}KB)` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Download failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleSearchFiles(match: RegExpMatchArray): Promise<ToolResult> {
+  const pattern = match[1].trim();
+  const path = match[2]?.trim() || '.';
+  try {
+    const results = await searchFiles(pattern, path);
+    const listing = results.slice(0, 20).map(r => `${r.file}:${r.line}: ${r.text}`).join('\n');
+    return { tag: match[0], result: `\n🔍 **Search "${pattern}"** (${results.length} matches)\n\`\`\`\n${listing || '(no matches)'}\n\`\`\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Search failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleZip(match: RegExpMatchArray): Promise<ToolResult> {
+  const paths = match[1].trim().split(',').map(s => s.trim());
+  const output = match[2].trim();
+  try {
+    const result = await zipFiles(paths, output);
+    return { tag: match[0], result: `\n📦 Zipped to \`${result.output}\` (${(result.size / 1024).toFixed(1)}KB)` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Zip failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleUnzip(match: RegExpMatchArray): Promise<ToolResult> {
+  const archive = match[1].trim();
+  const dest = match[2]?.trim() || '.';
+  try {
+    const result = await unzipFile(archive, dest);
+    return { tag: match[0], result: `\n📂 Extracted ${result.files.length} files to \`${result.destination}\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Unzip failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handlePower(match: RegExpMatchArray): Promise<ToolResult> {
+  const action = match[1].trim();
+  try {
+    await systemPower(action);
+    return { tag: match[0], result: `\n⚡ System ${action} initiated.` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Power action failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleLaunch(match: RegExpMatchArray): Promise<ToolResult> {
+  const app = match[1].trim();
+  const args = match[2]?.trim();
+  try {
+    const result = await launchApp(app, args);
+    return { tag: match[0], result: `\n🚀 Launched **${app}** (PID: ${result.pid})` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to launch ${app}: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleSpeak(match: RegExpMatchArray): Promise<ToolResult> {
+  const text = match[1].trim();
+  try {
+    await textToSpeech(text);
+    return { tag: match[0], result: `\n🔊 Speaking: "${text.slice(0, 60)}..."` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ TTS failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleDiskUsage(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const disks = await getDiskUsage();
+    const listing = disks.map(d => `${d.device} (${d.mountpoint}) — ${d.used_gb}/${d.total_gb}GB (${d.percent}%)`).join('\n');
+    return { tag: _match[0], result: `\n💾 **Disk Usage:**\n\`\`\`\n${listing}\n\`\`\`` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Failed to get disk usage: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleDesktopScreenshot(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const result = await desktopScreenshot();
+    return { tag: _match[0], result: `\n🖥️ Desktop screenshot captured.\n\n![desktop](data:image/png;base64,${result.image})` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Desktop screenshot failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleWifiScan(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const result = await getWifiNetworks();
+    return { tag: _match[0], result: `\n📶 **Wi-Fi Networks:**\n\`\`\`\n${result.output}\n\`\`\`` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Wi-Fi scan failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleListInstalled(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const progs = await getInstalledPrograms();
+    const listing = progs.slice(0, 50).map(p => `${p.DisplayName} (${p.DisplayVersion || 'n/a'})`).join('\n');
+    return { tag: _match[0], result: `\n📦 **Installed Programs (${progs.length} total, showing 50):**\n\`\`\`\n${listing}\n\`\`\`` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Failed to list installed programs: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleGetEnv(_match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const vars = await getEnvVars();
+    const listing = vars.slice(0, 40).map(v => `${v.name}=${v.value}`).join('\n');
+    return { tag: _match[0], result: `\n🔧 **Environment Variables (${vars.length} total):**\n\`\`\`\n${listing}\n\`\`\`` };
+  } catch (e) {
+    return { tag: _match[0], result: `\n⚠️ Failed to get env vars: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleSetEnv(match: RegExpMatchArray): Promise<ToolResult> {
+  const name = match[1].trim();
+  const value = match[2].trim();
+  try {
+    await setEnvVar(name, value);
+    return { tag: match[0], result: `\n✅ Set env var \`${name}\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to set env var: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+
 export function hasToolCommands(text: string): boolean {
   return TOOL_PATTERNS.some(({ regex }) => {
     regex.lastIndex = 0;
