@@ -73,7 +73,52 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void refreshTelegramStatus();
+    void refreshDiscordStatus();
   }, []);
+
+  const refreshDiscordStatus = async () => {
+    setDiscordLoading(true);
+    try {
+      setDiscordStatus(await getDiscordStatus());
+    } catch (error) {
+      setDiscordStatus({ enabled: false, connected: false, running: false, username: null, model: null, error: getErrorMessage(error, 'Failed to load Discord status.'), updated_at: null });
+    } finally {
+      setDiscordLoading(false);
+    }
+  };
+
+  const handleConnectDiscord = async () => {
+    if (!settings.discordBotToken?.trim()) {
+      toast({ title: 'Discord token required', description: 'Paste your bot token first.' });
+      return;
+    }
+    saveSettings(settings);
+    setDiscordAction('connect');
+    try {
+      const status = await connectDiscord(settings.discordBotToken, settings.telegramModel || settings.defaultModel || undefined, settings.telegramProvider, settings.telegramProvider === 'lmstudio' ? settings.lmStudioUrl : undefined);
+      setDiscordStatus(status);
+      toast({ title: 'Discord connected', description: status.username ? `Bot ${status.username} is now running.` : 'Discord bot is now running.' });
+    } catch (error) {
+      const message = getErrorMessage(error, 'Failed to connect Discord.');
+      setDiscordStatus({ enabled: false, connected: false, running: false, username: null, model: null, error: message, updated_at: null });
+      toast({ title: 'Discord connection failed', description: message });
+    } finally {
+      setDiscordAction(null);
+    }
+  };
+
+  const handleDisconnectDiscord = async () => {
+    setDiscordAction('disconnect');
+    try {
+      const status = await disconnectDiscord();
+      setDiscordStatus(status);
+      toast({ title: 'Discord disconnected' });
+    } catch (error) {
+      toast({ title: 'Discord disconnect failed', description: getErrorMessage(error, 'Failed to disconnect Discord.') });
+    } finally {
+      setDiscordAction(null);
+    }
+  };
 
   useEffect(() => {
     if (!(telegramStatus.running && !telegramStatus.enabled)) return;
