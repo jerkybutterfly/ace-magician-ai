@@ -224,3 +224,142 @@ export async function listSkills(): Promise<{ name: string; path: string }[]> {
   if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to list skills'));
   return res.json();
 }
+
+// ── Cron Jobs ──
+
+export interface CronJob {
+  name: string;
+  command: string;
+  interval_seconds: number;
+  last_run: number;
+  run_count: number;
+  last_result: CommandResult | null;
+  created_at: string;
+}
+
+export async function listCronJobs(): Promise<CronJob[]> {
+  const res = await fetch(agentUrl('/cron'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to list cron jobs'));
+  return res.json();
+}
+
+export async function createCronJob(name: string, command: string, intervalSeconds: number): Promise<void> {
+  const res = await fetch(agentUrl('/cron'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, command, interval_seconds: intervalSeconds }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to create cron job'));
+}
+
+export async function deleteCronJob(name: string): Promise<void> {
+  const res = await fetch(agentUrl(`/cron/${encodeURIComponent(name)}`), { method: 'DELETE' });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to delete cron job'));
+}
+
+// ── Processes ──
+
+export interface ProcessInfo {
+  pid: number;
+  name: string;
+  cpu_percent: number;
+  memory_mb: number;
+}
+
+export async function listProcesses(): Promise<ProcessInfo[]> {
+  const res = await fetch(agentUrl('/processes'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to list processes'));
+  return res.json();
+}
+
+export async function killProcess(pid: number): Promise<void> {
+  const res = await fetch(agentUrl(`/processes/kill?pid=${pid}`), { method: 'POST' });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to kill process'));
+}
+
+// ── Clipboard ──
+
+export async function getClipboard(): Promise<string> {
+  const res = await fetch(agentUrl('/clipboard'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to read clipboard'));
+  const data = await res.json();
+  return data.text;
+}
+
+export async function setClipboard(text: string): Promise<void> {
+  const res = await fetch(agentUrl('/clipboard'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to set clipboard'));
+}
+
+// ── Notifications ──
+
+export async function sendNotification(title: string, message: string): Promise<void> {
+  const res = await fetch(agentUrl('/notify'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, message }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to send notification'));
+}
+
+// ── Network Info ──
+
+export interface NetworkInfo {
+  interfaces: { name: string; ip: string; netmask: string }[];
+  hostname: string;
+  bytes_sent: number;
+  bytes_recv: number;
+}
+
+export async function getNetworkInfo(): Promise<NetworkInfo> {
+  const res = await fetch(agentUrl('/network'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get network info'));
+  return res.json();
+}
+
+// ── Discord ──
+
+export interface DiscordStatus {
+  enabled: boolean;
+  connected: boolean;
+  running: boolean;
+  username: string | null;
+  model: string | null;
+  error: string | null;
+  updated_at: string | null;
+  status?: string;
+}
+
+export async function getDiscordStatus(): Promise<DiscordStatus> {
+  const res = await fetch(agentUrl('/discord/status'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to load Discord status'));
+  return res.json();
+}
+
+export async function connectDiscord(token: string, model?: string, provider?: string, lmstudioUrl?: string): Promise<DiscordStatus> {
+  const res = await fetch(agentUrl('/discord/connect'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, model, provider, lmstudio_url: lmstudioUrl }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to connect Discord'));
+  return res.json();
+}
+
+export async function disconnectDiscord(): Promise<DiscordStatus> {
+  const res = await fetch(agentUrl('/discord/disconnect'), { method: 'POST' });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to disconnect Discord'));
+  return res.json();
+}
+
+// ── Webhook ──
+
+export async function getWebhookLog(): Promise<{ event: string; data: Record<string, unknown>; received_at: string }[]> {
+  const res = await fetch(agentUrl('/webhook/log'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get webhook log'));
+  return res.json();
+}
