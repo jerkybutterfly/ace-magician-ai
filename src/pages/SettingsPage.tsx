@@ -324,6 +324,39 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Discord Integration</CardTitle>
+          <CardDescription>Connect a Discord bot so your AI responds in Discord channels</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="discord-token">Bot Token</Label>
+            <Input id="discord-token" type="password" value={settings.discordBotToken} onChange={(e) => update('discordBotToken', e.target.value)} placeholder="Your Discord bot token..." />
+            <p className="text-xs text-muted-foreground">
+              Create a bot at the <a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer" className="underline text-primary">Discord Developer Portal</a>, copy its token, and invite it to your server. The bot responds when mentioned or in DMs.
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-muted/40 p-3 space-y-1">
+            <p className="text-sm font-medium">Status</p>
+            <p className="text-sm text-muted-foreground break-words">
+              {discordAction === 'connect' ? 'Connecting...' : discordAction === 'disconnect' ? 'Disconnecting...' : discordLoading ? 'Checking...' : discordStatus.connected ? `Connected as ${discordStatus.username || 'bot'}` : discordStatus.error || 'Discord bot is not connected.'}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button type="button" onClick={handleConnectDiscord} disabled={discordAction !== null || discordLoading || !settings.discordBotToken?.trim()} className="sm:flex-1">
+              {discordAction === 'connect' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Connect Discord
+            </Button>
+            <Button type="button" variant="outline" onClick={handleDisconnectDiscord} disabled={discordAction !== null || discordLoading || !discordStatus.running} className="sm:flex-1">
+              {discordAction === 'disconnect' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Disconnect
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+        <CardHeader>
           <CardTitle className="text-base">System Prompt</CardTitle>
           <CardDescription>Default system prompt for all conversations</CardDescription>
         </CardHeader>
