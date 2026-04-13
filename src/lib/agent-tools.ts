@@ -210,6 +210,7 @@ async function handleRunSkill(match: RegExpMatchArray): Promise<ToolResult> {
     return { tag: match[0], result: `\n🚀 **Executed Skill**: \`${name} ${args}\`\n\`\`\`\n${output.trim()}\n\`\`\`\n${result.returncode !== 0 ? `Exit code: ${result.returncode}` : ''}` };
   } catch (e) {
     return { tag: match[0], result: `\n⚠️ Failed to run skill \`${name}\`: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
 }
 
 async function handleListProcesses(_match: RegExpMatchArray): Promise<ToolResult> {
@@ -272,7 +273,6 @@ async function handleNetInfo(_match: RegExpMatchArray): Promise<ToolResult> {
   } catch (e) {
     return { tag: _match[0], result: `\n⚠️ Failed to get network info: ${e instanceof Error ? e.message : 'unknown error'}` };
   }
-}
 }
 
 /**
