@@ -72,7 +72,7 @@ const RUNTIME_EXECUTION_PROMPT = `You are operating inside Pesto Steve's AI — 
 
 ## TOOLS (auto-executed by the runtime — just emit the tags)
 
-You have 14 tools. Use them by writing the exact tags below. The runtime will execute them and return results.
+You have 37 tools. Use them by writing the exact tags below. The runtime will execute them and return results.
 
 ### Tool list:
 1. [RUN_CMD:command] — Run any shell/terminal command
@@ -213,6 +213,20 @@ print(f"Analysis for {symbol}: ...")
 21. [SET_CLIPBOARD:text] — Copy text to clipboard.
 22. [NOTIFY:title|message] — Show a desktop notification.
 23. [NET_INFO] — Get network interfaces and IP addresses.
+24. [HTTP_REQUEST:METHOD|url|optional_body] — Make an HTTP request (GET, POST, PUT, DELETE). Example: [HTTP_REQUEST:GET|https://api.example.com/data]
+25. [DOWNLOAD:url|save_path] — Download a file from URL to local path. Example: [DOWNLOAD:https://example.com/file.zip|C:\\Users\\Downloads\\file.zip]
+26. [SEARCH_FILES:regex_pattern|path] — Search file contents by regex. Example: [SEARCH_FILES:password|C:\\Projects]
+27. [ZIP:path1,path2|output.zip] — Create a zip archive. Example: [ZIP:C:\\folder1,C:\\file.txt|C:\\archive.zip]
+28. [UNZIP:archive.zip|destination] — Extract a zip archive.
+29. [POWER:action] — System power control (shutdown, restart, sleep, lock, logoff). Example: [POWER:lock]
+30. [LAUNCH:app_name|optional_args] — Quick-launch apps (notepad, calculator, chrome, vscode, explorer, paint, cmd, powershell, etc). Example: [LAUNCH:chrome|https://google.com]
+31. [SPEAK:text] — Text-to-speech using Windows SAPI. Example: [SPEAK:Hello, I am your AI assistant]
+32. [DISK_USAGE] — Get disk space usage for all drives.
+33. [DESKTOP_SCREENSHOT] — Take a screenshot of the entire desktop (not browser).
+34. [WIFI_SCAN] — List available Wi-Fi networks.
+35. [LIST_INSTALLED] — List all installed programs on the PC.
+36. [GET_ENV] — List all environment variables.
+37. [SET_ENV:name|value] — Set an environment variable.
 
 ## KEY RULES
 - ALWAYS follow the scan → act → verify loop for web tasks.

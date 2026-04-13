@@ -363,3 +363,159 @@ export async function getWebhookLog(): Promise<{ event: string; data: Record<str
   if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get webhook log'));
   return res.json();
 }
+
+// ── Environment Variables ──
+
+export async function getEnvVars(): Promise<{ name: string; value: string }[]> {
+  const res = await fetch(agentUrl('/env'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get env vars'));
+  return res.json();
+}
+
+export async function setEnvVar(name: string, value: string): Promise<void> {
+  const res = await fetch(agentUrl('/env'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, value }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to set env var'));
+}
+
+// ── HTTP Request Proxy ──
+
+export interface HTTPProxyResult {
+  status_code: number;
+  headers: Record<string, string>;
+  body: unknown;
+}
+
+export async function httpRequest(method: string, url: string, headers?: Record<string, string>, body?: string): Promise<HTTPProxyResult> {
+  const res = await fetch(agentUrl('/http'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method, url, headers, body }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'HTTP request failed'));
+  return res.json();
+}
+
+// ── Download File ──
+
+export async function downloadFile(url: string, savePath: string): Promise<{ status: string; path: string; size: number }> {
+  const res = await fetch(agentUrl('/download'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, save_path: savePath }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Download failed'));
+  return res.json();
+}
+
+// ── Search Files ──
+
+export interface SearchResult {
+  file: string;
+  line: number;
+  text: string;
+}
+
+export async function searchFiles(pattern: string, path?: string, extensions?: string): Promise<SearchResult[]> {
+  const res = await fetch(agentUrl('/search'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pattern, path: path || '.', extensions }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Search failed'));
+  return res.json();
+}
+
+// ── Zip / Unzip ──
+
+export async function zipFiles(paths: string[], output: string): Promise<{ status: string; output: string; size: number }> {
+  const res = await fetch(agentUrl('/zip'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paths, output }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Zip failed'));
+  return res.json();
+}
+
+export async function unzipFile(archive: string, destination?: string): Promise<{ status: string; destination: string; files: string[] }> {
+  const res = await fetch(agentUrl('/unzip'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ archive, destination: destination || '.' }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Unzip failed'));
+  return res.json();
+}
+
+// ── System Power ──
+
+export async function systemPower(action: string): Promise<{ status: string; action: string }> {
+  const res = await fetch(agentUrl('/power'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Power action failed'));
+  return res.json();
+}
+
+// ── App Launcher ──
+
+export async function launchApp(app: string, args?: string): Promise<{ status: string; app: string; pid: number }> {
+  const res = await fetch(agentUrl('/launch'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ app, args }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Launch failed'));
+  return res.json();
+}
+
+// ── Text-to-Speech ──
+
+export async function textToSpeech(text: string, rate?: number): Promise<{ status: string }> {
+  const res = await fetch(agentUrl('/tts'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, rate: rate || 150 }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'TTS failed'));
+  return res.json();
+}
+
+// ── Disk Usage ──
+
+export interface DiskInfo {
+  device: string;
+  mountpoint: string;
+  fstype: string;
+  total_gb: number;
+  used_gb: number;
+  free_gb: number;
+  percent: number;
+}
+
+export async function getDiskUsage(): Promise<DiskInfo[]> {
+  const res = await fetch(agentUrl('/disk'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get disk usage'));
+  return res.json();
+}
+
+// ── Desktop Screenshot ──
+
+export async function desktopScreenshot(): Promise<{ status: string; image: string }> {
+  const res = await fetch(agentUrl('/screenshot'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Screenshot failed'));
+  return res.json();
+}
+
+// ── Wi-Fi ──
+
+export async function getWifiNetworks(): Promise<{ status: string; output: string }> {
+  const res = await fetch(agentUrl('/wifi'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get Wi-Fi networks'));
+  return res.json();
+}
+
+// ── Installed Programs ──
+
+export async function getInstalledPrograms(): Promise<{ DisplayName: string; DisplayVersion: string; Publisher: string }[]> {
+  const res = await fetch(agentUrl('/installed'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get installed programs'));
+  return res.json();
+}

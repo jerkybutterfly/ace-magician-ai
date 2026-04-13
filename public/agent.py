@@ -1451,6 +1451,298 @@ async def discord_disconnect():
     return _discord_state
 
 
+# ═══════════════════════════════════════════════════════
+#  Environment Variables
+# ═══════════════════════════════════════════════════════
+
+@app.get("/env")
+async def get_env_vars():
+    return [{"name": k, "value": v[:50] + "..." if len(v) > 50 else v} for k, v in sorted(os.environ.items())]
+
+
+class EnvSetRequest(BaseModel):
+    name: str
+    value: str
+
+@app.post("/env")
+async def set_env_var(req: EnvSetRequest):
+    os.environ[req.name] = req.value
+    return {"status": "ok", "name": req.name}
+
+
+@app.delete("/env/{name}")
+async def delete_env_var(name: str):
+    if name in os.environ:
+        del os.environ[name]
+        return {"status": "ok", "deleted": name}
+    raise HTTPException(status_code=404, detail=f"Env var '{name}' not found")
+
+
+# ═══════════════════════════════════════════════════════
+#  HTTP Request Proxy
+# ═══════════════════════════════════════════════════════
+
+class HTTPRequestModel(BaseModel):
+    method: str = "GET"
+    url: str
+    headers: dict | None = None
+    body: str | None = None
+
+@app.post("/http")
+async def http_request(req: HTTPRequestModel):
+    import requests as _req
+    try:
+        resp = _req.request(method=req.method.upper(), url=req.url, headers=req.headers or {}, data=req.body, timeout=30)
+        try:
+            body = resp.json()
+        except Exception:
+            body = resp.text[:5000]
+        return {"status_code": resp.status_code, "headers": dict(resp.headers), "body": body}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════
+#  Download File from URL
+# ═══════════════════════════════════════════════════════
+
+class DownloadRequest(BaseModel):
+    url: str
+    save_path: str
+
+@app.post("/download")
+async def download_file_endpoint(req: DownloadRequest):
+    import requests as _req
+    try:
+        resp = _req.get(req.url, stream=True, timeout=60)
+        resp.raise_for_status()
+        p = Path(req.save_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "wb") as f:
+            for chunk in resp.iter_content(8192):
+                f.write(chunk)
+        return {"status": "ok", "path": str(p), "size": p.stat().st_size}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════
+#  Search Files by Content
+# ═══════════════════════════════════════════════════════
+
+class SearchRequest(BaseModel):
+    pattern: str
+    path: str = "."
+    extensions: str | None = None
+    max_results: int = 50
+
+@app.post("/search")
+async def search_files_endpoint(req: SearchRequest):
+    results = []
+    root = Path(req.path).resolve()
+    exts = [e.strip() for e in req.extensions.split(",")] if req.extensions else None
+    try:
+        pat = re.compile(req.pattern, re.IGNORECASE)
+    except re.error as e:
+        raise HTTPException(status_code=400, detail=f"Invalid regex: {e}")
+    for p in root.rglob("*"):
+        if not p.is_file() or p.stat().st_size > 1_000_000:
+            continue
+        if exts and p.suffix not in exts:
+            continue
+        try:
+            text = p.read_text(errors="ignore")
+            for i, line in enumerate(text.splitlines(), 1):
+                if pat.search(line):
+                    results.append({"file": str(p), "line": i, "text": line.strip()[:200]})
+                    if len(results) >= req.max_results:
+                        return results
+        except Exception:
+            continue
+    return results
+
+
+# ═══════════════════════════════════════════════════════
+#  Zip / Unzip
+# ═══════════════════════════════════════════════════════
+
+class ZipRequest(BaseModel):
+    paths: list[str]
+    output: str
+
+@app.post("/zip")
+async def zip_files_endpoint(req: ZipRequest):
+    import zipfile
+    try:
+        with zipfile.ZipFile(req.output, "w", zipfile.ZIP_DEFLATED) as zf:
+            for p in req.paths:
+                pp = Path(p)
+                if pp.is_file():
+                    zf.write(pp, pp.name)
+                elif pp.is_dir():
+                    for f in pp.rglob("*"):
+                        if f.is_file():
+                            zf.write(f, f.relative_to(pp.parent))
+        return {"status": "ok", "output": req.output, "size": Path(req.output).stat().st_size}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class UnzipRequest(BaseModel):
+    archive: str
+    destination: str = "."
+
+@app.post("/unzip")
+async def unzip_file_endpoint(req: UnzipRequest):
+    import zipfile
+    try:
+        with zipfile.ZipFile(req.archive, "r") as zf:
+            zf.extractall(req.destination)
+            names = zf.namelist()
+        return {"status": "ok", "destination": req.destination, "files": names[:100]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════
+#  System Power
+# ═══════════════════════════════════════════════════════
+
+class PowerRequest(BaseModel):
+    action: str
+
+@app.post("/power")
+async def system_power(req: PowerRequest):
+    cmds = {
+        "shutdown": "shutdown /s /t 5", "restart": "shutdown /r /t 5",
+        "sleep": "rundll32.exe powrprof.dll,SetSuspendState 0,1,0",
+        "lock": "rundll32.exe user32.dll,LockWorkStation", "logoff": "shutdown /l",
+    }
+    cmd = cmds.get(req.action)
+    if not cmd:
+        raise HTTPException(status_code=400, detail=f"Unknown action: {req.action}. Valid: {list(cmds.keys())}")
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+    return {"status": "ok", "action": req.action, "output": result.stdout or result.stderr}
+
+
+# ═══════════════════════════════════════════════════════
+#  App Launcher
+# ═══════════════════════════════════════════════════════
+
+class LaunchRequest(BaseModel):
+    app: str
+    args: str | None = None
+
+@app.post("/launch")
+async def launch_app(req: LaunchRequest):
+    known_apps = {
+        "notepad": "notepad.exe", "calculator": "calc.exe", "explorer": "explorer.exe",
+        "cmd": "cmd.exe", "powershell": "powershell.exe", "paint": "mspaint.exe",
+        "snip": "snippingtool.exe", "taskmgr": "taskmgr.exe", "control": "control.exe",
+        "chrome": r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        "firefox": r"C:\Program Files\Mozilla Firefox\firefox.exe",
+        "edge": r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        "vscode": "code", "obs": r"C:\Program Files\obs-studio\bin\64bit\obs64.exe",
+    }
+    exe = known_apps.get(req.app.lower(), req.app)
+    cmd_parts = [exe] + (req.args.split() if req.args else [])
+    try:
+        proc = subprocess.Popen(cmd_parts, shell=True)
+        return {"status": "ok", "app": req.app, "pid": proc.pid}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════
+#  Text-to-Speech
+# ═══════════════════════════════════════════════════════
+
+class TTSRequest(BaseModel):
+    text: str
+    rate: int = 150
+
+@app.post("/tts")
+async def text_to_speech(req: TTSRequest):
+    try:
+        safe_text = req.text.replace('"', '`"').replace("'", "''")
+        rate_val = max(-10, min(10, (req.rate - 150) // 30))
+        ps_script = f'Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = {rate_val}; $s.Speak("{safe_text}")'
+        subprocess.Popen(["powershell", "-Command", ps_script], shell=False)
+        return {"status": "ok", "text": req.text[:100]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════
+#  Disk Usage
+# ═══════════════════════════════════════════════════════
+
+@app.get("/disk")
+async def disk_usage():
+    result = []
+    for p in psutil.disk_partitions():
+        try:
+            u = psutil.disk_usage(p.mountpoint)
+            result.append({"device": p.device, "mountpoint": p.mountpoint, "fstype": p.fstype,
+                           "total_gb": round(u.total / (1024**3), 2), "used_gb": round(u.used / (1024**3), 2),
+                           "free_gb": round(u.free / (1024**3), 2), "percent": u.percent})
+        except Exception:
+            continue
+    return result
+
+
+# ═══════════════════════════════════════════════════════
+#  Desktop Screenshot
+# ═══════════════════════════════════════════════════════
+
+@app.get("/screenshot")
+async def desktop_screenshot():
+    try:
+        ps = '''Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing
+$b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$bmp = New-Object System.Drawing.Bitmap($b.Width, $b.Height)
+$g = [System.Drawing.Graphics]::FromImage($bmp)
+$g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+$ms = New-Object System.IO.MemoryStream
+$bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+[Convert]::ToBase64String($ms.ToArray())'''
+        result = subprocess.run(["powershell", "-Command", ps], capture_output=True, text=True, timeout=15)
+        if result.returncode != 0:
+            raise Exception(result.stderr)
+        return {"status": "ok", "image": result.stdout.strip()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════
+#  Wi-Fi & Installed Programs
+# ═══════════════════════════════════════════════════════
+
+@app.get("/wifi")
+async def list_wifi():
+    try:
+        result = subprocess.run(["netsh", "wlan", "show", "networks", "mode=bssid"], capture_output=True, text=True, timeout=15)
+        return {"status": "ok", "output": result.stdout}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/installed")
+async def list_installed():
+    try:
+        import json as _json
+        result = subprocess.run(
+            ['powershell', '-Command',
+             'Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | '
+             'Select-Object DisplayName, DisplayVersion, Publisher | '
+             'Where-Object { $_.DisplayName } | Sort-Object DisplayName | ConvertTo-Json -Compress'],
+            capture_output=True, text=True, timeout=30)
+        progs = _json.loads(result.stdout) if result.stdout.strip() else []
+        return progs if isinstance(progs, list) else [progs]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
@@ -1459,9 +1751,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     import uvicorn
-
     print(f"🤖 Local AI Agent starting on http://0.0.0.0:{args.port}")
-    print("   Endpoints: /terminal, /files, /system, /browser/*, /telegram/*, /discord/*, /cron, /webhook, /processes, /clipboard, /notify, /network")
+    print("   + /env, /http, /download, /search, /zip, /unzip, /power, /launch, /tts, /disk, /screenshot, /wifi, /installed")
 
     if args.telegram_token:
         try:
