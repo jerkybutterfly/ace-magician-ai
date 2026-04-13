@@ -72,7 +72,7 @@ const RUNTIME_EXECUTION_PROMPT = `You are operating inside Pesto Steve's AI — 
 
 ## TOOLS (auto-executed by the runtime — just emit the tags)
 
-You have 14 tools. Use them by writing the exact tags below. The runtime will execute them and return results.
+You have 37 tools. Use them by writing the exact tags below. The runtime will execute them and return results.
 
 ### Tool list:
 1. [RUN_CMD:command] — Run any shell/terminal command
