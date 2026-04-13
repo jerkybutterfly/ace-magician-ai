@@ -207,6 +207,12 @@ print(f"Analysis for {symbol}: ...")
 15. [UPDATE_MISSION:goal|status|next_steps_comma_separated] — Update your long-term plan.
 16. [CREATE_SKILL:name|python_code] — Save a custom Python script as a reusable skill.
 17. [RUN_SKILL:name|args] — Run a custom Python skill you previously created.
+18. [LIST_PROCESSES] — List running processes with PID, name, CPU%, memory.
+19. [KILL_PROCESS:pid] — Kill a process by PID.
+20. [GET_CLIPBOARD] — Read current clipboard content.
+21. [SET_CLIPBOARD:text] — Copy text to clipboard.
+22. [NOTIFY:title|message] — Show a desktop notification.
+23. [NET_INFO] — Get network interfaces and IP addresses.
 
 ## KEY RULES
 - ALWAYS follow the scan → act → verify loop for web tasks.
