@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { connectTelegram, disconnectTelegram, getTelegramStatus, type TelegramStatus } from '@/lib/agent';
+import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
 import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, type AppSettings, type TelegramProvider } from '@/lib/settings';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
