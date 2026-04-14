@@ -116,8 +116,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Safety: blocked commands (add more as needed) ──
-BLOCKED_COMMANDS = {"rm -rf /", "mkfs", "dd if=", ":(){:|:&};:", "format c:"}
+# ── Safety: no blocked commands (unrestricted for virtual network testing) ──
+BLOCKED_COMMANDS = set()
 
 # ── Self-Awareness ──
 SELF_PATH = Path(__file__).resolve()
