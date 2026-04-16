@@ -59,6 +59,24 @@ export async function fetchModels(): Promise<OllamaModel[]> {
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  thinking?: string;
+}
+
+export interface StreamChunk {
+  content?: string;
+  thinking?: string;
+}
+
+/** Extract <think>...</think> blocks from content, returning { thinking, content } */
+export function extractThinkTags(text: string): { thinking: string; content: string } {
+  const thinkRegex = /<think>([\s\S]*?)<\/think>/gi;
+  let thinking = '';
+  let match: RegExpExecArray | null;
+  while ((match = thinkRegex.exec(text)) !== null) {
+    thinking += (thinking ? '\n' : '') + match[1].trim();
+  }
+  const content = text.replace(thinkRegex, '').trim();
+  return { thinking, content };
 }
 
 export interface PullProgress {
@@ -290,7 +308,7 @@ export async function deleteModel(modelName: string): Promise<void> {
 export async function* streamChat(
   model: string,
   messages: ChatMessage[],
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamChunk> {
   const { ollamaUrl, systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
@@ -329,7 +347,10 @@ export async function* streamChat(
       if (!line.trim()) continue;
       try {
         const json = JSON.parse(line);
-        if (json.message?.content) yield json.message.content;
+        const chunk: StreamChunk = {};
+        if (json.message?.thinking) chunk.thinking = json.message.thinking;
+        if (json.message?.content) chunk.content = json.message.content;
+        if (chunk.thinking || chunk.content) yield chunk;
       } catch {}
     }
   }
@@ -338,7 +359,7 @@ export async function* streamChat(
 export async function* streamCloudChat(
   model: string,
   messages: ChatMessage[],
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamChunk> {
   const { systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
@@ -396,8 +417,11 @@ export async function* streamCloudChat(
 
       try {
         const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) yield content;
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
       } catch {
         buffer = line + '\n' + buffer;
         break;
@@ -409,7 +433,7 @@ export async function* streamCloudChat(
 export async function* streamGoogleChat(
   model: string,
   messages: ChatMessage[],
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamChunk> {
   const { systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
@@ -467,8 +491,11 @@ export async function* streamGoogleChat(
 
       try {
         const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) yield content;
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
       } catch {
         buffer = line + '\n' + buffer;
         break;
@@ -480,7 +507,7 @@ export async function* streamGoogleChat(
 export async function* streamLMStudioChat(
   model: string,
   messages: ChatMessage[],
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamChunk> {
   const { lmStudioUrl, systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
@@ -529,8 +556,11 @@ export async function* streamLMStudioChat(
 
       try {
         const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) yield content;
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
       } catch {
         buffer = line + '\n' + buffer;
         break;
