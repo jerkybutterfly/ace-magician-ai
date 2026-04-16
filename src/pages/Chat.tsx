@@ -418,8 +418,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           {visibleMessages.map((msg, i) => (
             <ChatMessageBubble key={i} message={msg} />
           ))}
-          {streaming && streamedContent && (
-            <ChatMessageBubble message={{ role: 'assistant', content: streamedContent }} />
+          {streaming && (streamedContent || streamedThinking) && (
+            <ChatMessageBubble message={{ role: 'assistant', content: streamedContent, thinking: streamedThinking || undefined }} />
           )}
           {executingTools && (
             <div className="mx-6 my-4 p-4 rounded-2xl bg-secondary/30 border border-primary/20 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
