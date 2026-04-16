@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, type ChatMessage, type LLMProvider, type LMStudioModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
@@ -98,6 +98,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
+  const [streamedThinking, setStreamedThinking] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
   const [statusLogs, setStatusLogs] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
@@ -188,6 +189,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     setAttachedFiles([]);
     setStreaming(true);
     setStreamedContent('');
+    setStreamedThinking('');
 
     try {
       let currentMessages = [...visibleHistory];
@@ -198,12 +200,29 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       while (round < MAX_TOOL_ROUNDS) {
         round++;
         let full = '';
+        let fullThinking = '';
         setStreamedContent('');
+        setStreamedThinking('');
         const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? lmStudioModel : provider === 'cloud' ? cloudModel : model;
         const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'cloud' ? streamCloudChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
-          full += chunk;
+          if (chunk.thinking) {
+            fullThinking += chunk.thinking;
+            setStreamedThinking(fullThinking);
+          }
+          if (chunk.content) {
+            full += chunk.content;
+            setStreamedContent(full);
+          }
+        }
+
+        // Fallback: extract <think> tags from content
+        if (!fullThinking && full.includes('<think>')) {
+          const extracted = extractThinkTags(full);
+          fullThinking = extracted.thinking;
+          full = extracted.content;
           setStreamedContent(full);
+          setStreamedThinking(fullThinking);
         }
 
         const containsToolCommands = hasToolCommands(full);
@@ -274,7 +293,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           continue;
         }
 
-        const assistantMsg: ChatMessage = { role: 'assistant', content: full };
+        const assistantMsg: ChatMessage = { role: 'assistant', content: full, thinking: fullThinking || undefined };
         visibleHistory = [...visibleHistory, assistantMsg];
         updated = { ...updated, messages: visibleHistory, updatedAt: Date.now() };
         onUpdate(updated);
@@ -289,6 +308,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     } finally {
       setStreaming(false);
       setStreamedContent('');
+      setStreamedThinking('');
       setExecutingTools(false);
     }
   };
@@ -398,8 +418,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           {visibleMessages.map((msg, i) => (
             <ChatMessageBubble key={i} message={msg} />
           ))}
-          {streaming && streamedContent && (
-            <ChatMessageBubble message={{ role: 'assistant', content: streamedContent }} />
+          {streaming && (streamedContent || streamedThinking) && (
+            <ChatMessageBubble message={{ role: 'assistant', content: streamedContent, thinking: streamedThinking || undefined }} />
           )}
           {executingTools && (
             <div className="mx-6 my-4 p-4 rounded-2xl bg-secondary/30 border border-primary/20 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
