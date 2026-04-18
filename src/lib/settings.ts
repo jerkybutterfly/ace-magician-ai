@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+
 export type TelegramProvider = 'ollama' | 'lmstudio';
 
 export interface AppSettings {
@@ -14,10 +16,22 @@ export interface AppSettings {
 
 const SETTINGS_KEY = 'local-ai-settings';
 
+// On a native Android device, `localhost` refers to the phone itself, not the PC.
+// Default to a placeholder LAN IP — user should update Settings to their PC's IP.
+export const isNativePlatform = (): boolean => {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+};
+
+const NATIVE_HOST = 'http://192.168.1.50';
+
 const defaultSettings: AppSettings = {
-  ollamaUrl: 'http://localhost:11434',
-  lmStudioUrl: 'http://127.0.0.1:1234',
-  agentUrl: 'http://localhost:8484',
+  ollamaUrl: isNativePlatform() ? `${NATIVE_HOST}:11434` : 'http://localhost:11434',
+  lmStudioUrl: isNativePlatform() ? `${NATIVE_HOST}:1234` : 'http://127.0.0.1:1234',
+  agentUrl: isNativePlatform() ? `${NATIVE_HOST}:8484` : 'http://localhost:8484',
   defaultModel: '',
   telegramBotToken: '',
   telegramModel: 'gemma4:e2b',
