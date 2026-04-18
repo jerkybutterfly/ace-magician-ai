@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
-import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, type AppSettings, type TelegramProvider } from '@/lib/settings';
+import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, type AppSettings, type TelegramProvider } from '@/lib/settings';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Smartphone } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -197,6 +199,15 @@ export default function SettingsPage() {
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-6 overflow-y-auto h-full pb-8">
       <h1 className="text-xl font-semibold">Settings</h1>
+      {isNativePlatform() && (
+        <Alert>
+          <Smartphone className="h-4 w-4" />
+          <AlertTitle>Running on Android</AlertTitle>
+          <AlertDescription>
+            Point Ollama, LM Studio, and Agent URLs at your PC's LAN IP (e.g. <code>http://192.168.1.50:11434</code>) — <code>localhost</code> refers to the phone itself, not your PC.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
