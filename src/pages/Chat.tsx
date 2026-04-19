@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
-import { executeToolCommands, hasToolCommands } from '@/lib/agent-tools';
+import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
 import { VoiceInput } from '@/components/VoiceInput';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X, RefreshCw } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X, RefreshCw, ShieldCheck, ShieldAlert } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 10;
@@ -101,8 +101,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [streamedThinking, setStreamedThinking] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
   const [statusLogs, setStatusLogs] = useState<string[]>([]);
+  const [pendingPermission, setPendingPermission] = useState<{ tag: string; tool: string; reason: string } | null>(null);
+  const permissionResolverRef = useRef<((d: PermissionDecision) => void) | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const requestPermission = (info: { tag: string; tool: string; reason: string }): Promise<PermissionDecision> => {
+    return new Promise((resolve) => {
+      setPendingPermission(info);
+      permissionResolverRef.current = (decision) => {
+        setPendingPermission(null);
+        permissionResolverRef.current = null;
+        resolve(decision);
+      };
+    });
+  };
+
+  const decidePermission = (decision: PermissionDecision) => {
+    permissionResolverRef.current?.(decision);
+  };
 
   const messages = conversation?.messages ?? [];
   const visibleMessages = messages.filter((message) => !isInternalMessage(message));
@@ -236,9 +253,13 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           setStatusLogs([]);
           setStreamedContent(full);
           try {
-            const { processed } = await executeToolCommands(full, (status) => {
-              setStatusLogs(prev => [...prev.slice(-4), status]);
-            });
+            const { processed } = await executeToolCommands(
+              full,
+              (status) => {
+                setStatusLogs(prev => [...prev.slice(-4), status]);
+              },
+              requestPermission,
+            );
             const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
             currentMessages = [...currentMessages, assistantMsg];
             visibleHistory = [...visibleHistory, assistantMsg];
@@ -443,6 +464,30 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
                 {statusLogs.length === 0 && (
                   <div className="text-sm text-muted-foreground italic">Analyzing task requirements...</div>
                 )}
+              </div>
+            </div>
+          )}
+          {pendingPermission && (
+            <div className="mx-6 my-4 p-4 rounded-2xl bg-secondary/40 border-2 border-primary/50 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldAlert className="h-4 w-4 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-primary">Permission required</span>
+              </div>
+              <div className="text-sm text-foreground mb-1">
+                The agent wants to run <code className="px-1.5 py-0.5 rounded bg-secondary/60 text-xs">{pendingPermission.tool}</code>:
+              </div>
+              <pre className="text-xs bg-secondary/60 rounded-lg p-2 mb-2 overflow-x-auto whitespace-pre-wrap break-all">{pendingPermission.tag}</pre>
+              <div className="text-xs text-muted-foreground mb-3">{pendingPermission.reason}</div>
+              <div className="flex gap-2 flex-wrap">
+                <Button size="sm" onClick={() => decidePermission('approve')} className="h-8 bg-primary hover:bg-primary/90">
+                  <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Approve once
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => decidePermission('approve-session')} className="h-8">
+                  Approve for session
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => decidePermission('deny')} className="h-8 text-destructive hover:text-destructive">
+                  Deny
+                </Button>
               </div>
             </div>
           )}

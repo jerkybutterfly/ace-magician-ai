@@ -1,9 +1,13 @@
 import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar } from './agent';
+import { checkPermission, isSessionAllowed, sessionAllowOnce, getToolName } from './permissions';
 
 export interface ToolResult {
   tag: string;
   result: string;
 }
+
+export type PermissionDecision = 'approve' | 'approve-session' | 'deny';
+export type PermissionPrompt = (info: { tag: string; tool: string; reason: string }) => Promise<PermissionDecision>;
 
 const TOOL_PATTERNS = [
   { regex: /\[LIST_DIR:(.*?)\]/g, handler: handleListDir },
@@ -447,11 +451,14 @@ export function hasToolCommands(text: string): boolean {
 }
 
 /**
- * Execute all tool commands in the AI response and return the processed text.
+ * Execute all tool commands in the AI response, gated by the permissions system.
+ * If a tag requires confirmation, `requestPermission` is called and the user's
+ * decision determines whether it runs.
  */
 export async function executeToolCommands(
-  text: string, 
-  onStatus?: (status: string) => void
+  text: string,
+  onStatus?: (status: string) => void,
+  requestPermission?: PermissionPrompt,
 ): Promise<{ processed: string; executed: boolean }> {
   let processed = text;
   let executed = false;
@@ -459,17 +466,45 @@ export async function executeToolCommands(
   for (const { regex, handler } of TOOL_PATTERNS) {
     regex.lastIndex = 0;
     const matches = [...text.matchAll(new RegExp(regex.source, regex.flags))];
-    
+
     for (const match of matches) {
       const tag = match[0];
-      const toolName = tag.split(':')[0].replace('[', '');
-      
+      const toolName = getToolName(tag);
+
+      // Permission check
+      const { mode, reason } = checkPermission(tag);
+      let allowed = mode === 'allow' || isSessionAllowed(tag);
+
+      if (!allowed && mode === 'deny') {
+        processed = processed.replace(tag, `\n🚫 **Blocked by permissions** — \`${tag}\` is denied (${reason}). Edit Permissions to change this.`);
+        executed = true;
+        continue;
+      }
+
+      if (!allowed && mode === 'ask') {
+        if (!requestPermission) {
+          // No prompt available — skip rather than auto-execute
+          processed = processed.replace(tag, `\n⏸️ **Awaiting approval** — \`${tag}\` requires confirmation but no prompt handler is attached.`);
+          executed = true;
+          continue;
+        }
+        if (onStatus) onStatus(`Awaiting approval for ${toolName}...`);
+        const decision = await requestPermission({ tag, tool: toolName, reason });
+        if (decision === 'deny') {
+          processed = processed.replace(tag, `\n🚫 **Denied by user** — \`${tag}\` was not executed.`);
+          executed = true;
+          continue;
+        }
+        if (decision === 'approve-session') sessionAllowOnce(tag);
+        allowed = true;
+      }
+
+      if (!allowed) continue;
+
       if (onStatus) onStatus(`Running ${toolName}...`);
-      
       const result = await handler(match);
       processed = processed.replace(tag, result.result);
       executed = true;
-      
       if (onStatus) onStatus(`Finished ${toolName}`);
     }
   }
