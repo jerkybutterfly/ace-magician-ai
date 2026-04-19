@@ -468,10 +468,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             </div>
           )}
           {pendingPermission && (
-            <div className="mx-6 my-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/40 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="mx-6 my-4 p-4 rounded-2xl bg-secondary/40 border-2 border-primary/50 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="flex items-center gap-2 mb-2">
-                <ShieldAlert className="h-4 w-4 text-amber-500" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-amber-500">Permission required</span>
+                <ShieldAlert className="h-4 w-4 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-primary">Permission required</span>
               </div>
               <div className="text-sm text-foreground mb-1">
                 The agent wants to run <code className="px-1.5 py-0.5 rounded bg-secondary/60 text-xs">{pendingPermission.tool}</code>:
