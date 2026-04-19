@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
@@ -18,6 +18,7 @@ const navItems = [
   { title: 'Skills', url: '/skills', icon: Zap },
   { title: 'Cron', url: '/cron', icon: Clock },
   { title: 'Memory', url: '/memory', icon: Brain },
+  { title: 'Permissions', url: '/permissions', icon: ShieldCheck },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
 

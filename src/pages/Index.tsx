@@ -8,6 +8,7 @@ import SettingsPage from './SettingsPage';
 import MemoryPage from './MemoryPage';
 import SkillsPage from './SkillsPage';
 import CronPage from './CronPage';
+import PermissionsPage from './PermissionsPage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
@@ -65,6 +66,8 @@ export default function Index() {
         return <CronPage />;
       case '/memory':
         return <MemoryPage />;
+      case '/permissions':
+        return <PermissionsPage />;
       case '/settings':
         return <SettingsPage />;
       default:
