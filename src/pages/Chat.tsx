@@ -467,6 +467,30 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
               </div>
             </div>
           )}
+          {pendingPermission && (
+            <div className="mx-6 my-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/40 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldAlert className="h-4 w-4 text-amber-500" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-amber-500">Permission required</span>
+              </div>
+              <div className="text-sm text-foreground mb-1">
+                The agent wants to run <code className="px-1.5 py-0.5 rounded bg-secondary/60 text-xs">{pendingPermission.tool}</code>:
+              </div>
+              <pre className="text-xs bg-secondary/60 rounded-lg p-2 mb-2 overflow-x-auto whitespace-pre-wrap break-all">{pendingPermission.tag}</pre>
+              <div className="text-xs text-muted-foreground mb-3">{pendingPermission.reason}</div>
+              <div className="flex gap-2 flex-wrap">
+                <Button size="sm" onClick={() => decidePermission('approve')} className="h-8 bg-primary hover:bg-primary/90">
+                  <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Approve once
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => decidePermission('approve-session')} className="h-8">
+                  Approve for session
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => decidePermission('deny')} className="h-8 text-destructive hover:text-destructive">
+                  Deny
+                </Button>
+              </div>
+            </div>
+          )}
           <div ref={scrollRef} />
         </div>
       </ScrollArea>
