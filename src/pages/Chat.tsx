@@ -101,8 +101,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [streamedThinking, setStreamedThinking] = useState('');
   const [executingTools, setExecutingTools] = useState(false);
   const [statusLogs, setStatusLogs] = useState<string[]>([]);
+  const [pendingPermission, setPendingPermission] = useState<{ tag: string; tool: string; reason: string } | null>(null);
+  const permissionResolverRef = useRef<((d: PermissionDecision) => void) | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const requestPermission = (info: { tag: string; tool: string; reason: string }): Promise<PermissionDecision> => {
+    return new Promise((resolve) => {
+      setPendingPermission(info);
+      permissionResolverRef.current = (decision) => {
+        setPendingPermission(null);
+        permissionResolverRef.current = null;
+        resolve(decision);
+      };
+    });
+  };
+
+  const decidePermission = (decision: PermissionDecision) => {
+    permissionResolverRef.current?.(decision);
+  };
 
   const messages = conversation?.messages ?? [];
   const visibleMessages = messages.filter((message) => !isInternalMessage(message));
