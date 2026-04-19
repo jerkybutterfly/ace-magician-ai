@@ -236,9 +236,13 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           setStatusLogs([]);
           setStreamedContent(full);
           try {
-            const { processed } = await executeToolCommands(full, (status) => {
-              setStatusLogs(prev => [...prev.slice(-4), status]);
-            });
+            const { processed } = await executeToolCommands(
+              full,
+              (status) => {
+                setStatusLogs(prev => [...prev.slice(-4), status]);
+              },
+              requestPermission,
+            );
             const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
             currentMessages = [...currentMessages, assistantMsg];
             visibleHistory = [...visibleHistory, assistantMsg];
