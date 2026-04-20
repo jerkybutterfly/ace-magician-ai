@@ -138,6 +138,43 @@ export default function LocalModelsPage() {
 
   const pct = pullTotal > 0 ? Math.round((pullProgress / pullTotal) * 100) : 0;
 
+  const openImport = async () => {
+    setImportOpen(true);
+    setScanning(true);
+    try {
+      const r = await scanExternalModels();
+      setExternal(r.models);
+      setSearchedDirs(r.searched_dirs);
+    } catch (e) {
+      toast({ title: 'Scan failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleImport = async (m: ExternalModel) => {
+    setImporting(true);
+    try {
+      const result = await importExternalModel(m.path, m.name, importMode);
+      toast({
+        title: 'Imported',
+        description: result.fallback_reason
+          ? `${result.name} (copied — symlink unavailable)`
+          : `${result.name} (${result.mode})`,
+      });
+      // Update inline so user sees it marked imported
+      setExternal((prev) => prev.map((x) => (x.path === m.path ? { ...x, imported: true } : x)));
+      refresh();
+    } catch (e) {
+      toast({ title: 'Import failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const ollamaCount = external.filter((m) => m.source === 'ollama').length;
+  const lmstudioCount = external.filter((m) => m.source === 'lmstudio').length;
+
   return (
     <ScrollArea className="flex-1 min-h-0">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
