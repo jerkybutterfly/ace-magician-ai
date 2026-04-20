@@ -237,8 +237,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         let fullThinking = '';
         setStreamedContent('');
         setStreamedThinking('');
-        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? lmStudioModel : provider === 'cloud' ? cloudModel : model;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'cloud' ? streamCloudChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? lmStudioModel : provider === 'cloud' ? cloudModel : provider === 'local' ? localModel : model;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           if (chunk.thinking) {
             fullThinking += chunk.thinking;
@@ -340,8 +340,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'lmstudio' ? '' : 'Please try again.';
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'local' ? 'Local runtime' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'lmstudio' ? '' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
@@ -380,11 +380,35 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectItem value="lmstudio">
               <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> LM Studio</span>
             </SelectItem>
+            <SelectItem value="local">
+              <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> Local (built-in)</span>
+            </SelectItem>
           </SelectContent>
         </Select>
 
         {provider === 'ollama' ? (
           <ModelSelector value={model} onChange={onModelChange} />
+        ) : provider === 'local' ? (
+          <div className="flex items-center gap-2">
+            <Select value={localModel} onValueChange={setLocalModel}>
+              <SelectTrigger className="w-[220px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={localError ? 'Agent unreachable' : localModels.length === 0 ? 'No models — open Local Models' : 'Select model'} />
+              </SelectTrigger>
+              <SelectContent>
+                {localModels.map((m) => (
+                  <SelectItem key={m.name} value={m.name} className="text-xs">
+                    {m.loaded ? '● ' : ''}{m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button onClick={loadLocalRuntimeModels} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+            {localError && (
+              <span className="text-[10px] text-destructive max-w-[180px] truncate" title={localError}>⚠️ {localError}</span>
+            )}
+          </div>
         ) : provider === 'google' ? (
           <Select value={googleModel} onValueChange={setGoogleModel}>
             <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50">
