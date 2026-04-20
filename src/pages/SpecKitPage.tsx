@@ -176,13 +176,21 @@ export default function SpecKitPage() {
 
   const StatusRow = ({ label, value }: { label: string; value: string | null | undefined }) => {
     const ok = value && !value.startsWith('error') && !value.startsWith('uv missing') && value !== 'found but not working';
+    const isError = value && value.startsWith('error');
     return (
-      <div className="flex items-center justify-between text-xs py-1">
-        <span className="text-muted-foreground">{label}</span>
-        <div className="flex items-center gap-1.5">
-          {ok ? <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> : <XCircle className="h-3.5 w-3.5 text-destructive" />}
-          <span className="font-mono">{value ?? 'missing'}</span>
+      <div className="text-xs py-1">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">{label}</span>
+          <div className="flex items-center gap-1.5 max-w-[70%]">
+            {ok ? <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" /> : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />}
+            <span className="font-mono truncate">{isError ? 'failed' : (value ?? 'missing')}</span>
+          </div>
         </div>
+        {isError && (
+          <pre className="mt-1 p-2 rounded bg-destructive/10 text-destructive text-[10px] font-mono whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
+            {value!.replace(/^error:\s*/, '')}
+          </pre>
+        )}
       </div>
     );
   };
