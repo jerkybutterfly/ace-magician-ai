@@ -62,9 +62,11 @@ export function ModelPullDialog({ onPullComplete }: Props) {
   };
 
   const suggestions = [
+    { name: 'hermes3:8b', desc: 'Hermes 3 — agentic, tool-use' },
+    { name: 'hermes3:3b', desc: 'Hermes 3 — small & fast' },
+    { name: 'nous-hermes2:10.7b', desc: 'Nous Hermes 2 — reasoning' },
     { name: 'gemma3:4b', desc: 'Great for 32GB RAM' },
     { name: 'llama3.2:3b', desc: 'Fast & capable' },
-    { name: 'mistral:7b', desc: 'Strong reasoning' },
     { name: 'qwen2.5:7b', desc: 'Multilingual' },
   ];
 
