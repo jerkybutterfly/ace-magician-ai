@@ -51,11 +51,15 @@ def cmd_check():
         out["uv"] = so.strip() if rc == 0 else "found but not working"
 
     if uv:
-        rc, so, se = _run([uv, "tool", "run", "--from", UVX_SOURCE, "specify", "--help"], timeout=120)
+        rc, so, se = _run(
+            [uv, "tool", "run", "--python", "3.12", "--from", UVX_SOURCE, "specify", "--help"],
+            timeout=300,
+        )
         if rc == 0:
             out["spec_kit"] = "ok"
         else:
-            out["spec_kit"] = f"error: {(se or so)[:200]}"
+            # Return the FULL error so the UI can show it
+            out["spec_kit"] = f"error: {(se or so).strip()}"
     else:
         out["spec_kit"] = "uv missing — run install-uv first"
 
