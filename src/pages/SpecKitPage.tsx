@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { executeSkill } from '@/lib/agent';
-import { streamChat, streamCloudChat, streamGoogleChat } from '@/lib/ollama';
+import { streamChat } from '@/lib/ollama';
 import { getSettings } from '@/lib/settings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -137,10 +137,9 @@ export default function SpecKitPage() {
   const generateActive = async () => {
     if (!selected) return;
     const settings = getSettings();
-    const provider = settings.provider;
     const model = settings.defaultModel;
     if (!model) {
-      toast({ title: 'No model selected', description: 'Pick a model in Settings first.' });
+      toast({ title: 'No model selected', description: 'Pick a default model in Settings first.' });
       return;
     }
 
@@ -162,12 +161,7 @@ export default function SpecKitPage() {
     setContent(c => ({ ...c, [activeTab]: '' }));
     try {
       const messages = [{ role: 'user' as const, content: prompt }];
-      const stream =
-        provider === 'cloud' ? streamCloudChat(model, messages)
-        : provider === 'google' ? streamGoogleChat(model, messages)
-        : streamChat(model, messages);
-
-      for await (const chunk of stream) {
+      for await (const chunk of streamChat(model, messages)) {
         if (chunk.content) {
           setContent(c => ({ ...c, [activeTab]: c[activeTab] + chunk.content }));
         }
