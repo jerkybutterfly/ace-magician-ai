@@ -94,7 +94,7 @@ def cmd_init(args):
 
     # `specify init <name>` creates a folder with that name
     rc, so, se = _run(
-        [uv, "tool", "run", "--from", UVX_SOURCE, "specify", "init", name, "--ai", "claude", "--ignore-agent-tools"],
+        [uv, "tool", "run", "--python", "3.12", "--from", UVX_SOURCE, "specify", "init", name, "--ai", "claude", "--ignore-agent-tools"],
         cwd=str(root),
         timeout=600,
     )
