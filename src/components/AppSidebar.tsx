@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2 } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import {
@@ -17,6 +17,7 @@ const navItems = [
   { title: 'Files', url: '/files', icon: FolderOpen },
   { title: 'Skills', url: '/skills', icon: Zap },
   { title: 'Spec Kit', url: '/speckit', icon: FileCode2 },
+  { title: 'Local Models', url: '/local-models', icon: Cpu },
   { title: 'Cron', url: '/cron', icon: Clock },
   { title: 'Memory', url: '/memory', icon: Brain },
   { title: 'Permissions', url: '/permissions', icon: ShieldCheck },

@@ -1,0 +1,284 @@
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Cpu, Download, Trash2, Plus, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import {
+  listLocalModels,
+  loadLocalModel,
+  unloadLocalModel,
+  deleteLocalModel,
+  pullLocalModel,
+  getLocalLLMStatus,
+  type LocalModel,
+  type LocalLLMStatus,
+} from '@/lib/local-llm';
+
+const SUGGESTED = [
+  { label: 'Hermes-3-Llama-3.2-3B Q4', url: 'https://huggingface.co/NousResearch/Hermes-3-Llama-3.2-3B-GGUF/resolve/main/Hermes-3-Llama-3.2-3B.Q4_K_M.gguf' },
+  { label: 'Llama-3.2-3B-Instruct Q4', url: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf' },
+  { label: 'Qwen2.5-3B-Instruct Q4', url: 'https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf' },
+  { label: 'Phi-3.5-mini-Instruct Q4', url: 'https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf' },
+];
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  let n = bytes;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return `${n.toFixed(1)} ${units[i]}`;
+}
+
+export default function LocalModelsPage() {
+  const { toast } = useToast();
+  const [models, setModels] = useState<LocalModel[]>([]);
+  const [status, setStatus] = useState<LocalLLMStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [nCtx, setNCtx] = useState(4096);
+  const [nGpuLayers, setNGpuLayers] = useState(0);
+
+  // Pull dialog state
+  const [pullOpen, setPullOpen] = useState(false);
+  const [pullUrl, setPullUrl] = useState('');
+  const [pulling, setPulling] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0);
+  const [pullTotal, setPullTotal] = useState(0);
+
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [s, m] = await Promise.all([getLocalLLMStatus(), listLocalModels()]);
+      setStatus(s);
+      setModels(m.models);
+      if (s.n_ctx) setNCtx(s.n_ctx);
+      if (typeof s.n_gpu_layers === 'number') setNGpuLayers(s.n_gpu_layers);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Cannot reach agent');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const handleLoad = async (name: string) => {
+    try {
+      await loadLocalModel(name, nCtx, nGpuLayers);
+      toast({ title: 'Model loaded', description: name });
+      refresh();
+    } catch (e) {
+      toast({ title: 'Load failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
+    }
+  };
+
+  const handleUnload = async () => {
+    await unloadLocalModel();
+    toast({ title: 'Model unloaded' });
+    refresh();
+  };
+
+  const handleDelete = async (name: string) => {
+    if (!confirm(`Delete ${name}?`)) return;
+    try {
+      await deleteLocalModel(name);
+      toast({ title: 'Deleted', description: name });
+      refresh();
+    } catch (e) {
+      toast({ title: 'Delete failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
+    }
+  };
+
+  const handlePull = async (url?: string) => {
+    const target = url || pullUrl.trim();
+    if (!target) return;
+    setPulling(true);
+    setPullProgress(0);
+    setPullTotal(0);
+    try {
+      for await (const p of pullLocalModel(target)) {
+        if (p.status === 'downloading') {
+          setPullProgress(p.completed || 0);
+          setPullTotal(p.total || 0);
+        } else if (p.status === 'done') {
+          toast({ title: 'Download complete', description: p.filename });
+        } else if (p.status === 'error') {
+          throw new Error(p.error || 'Download failed');
+        }
+      }
+      setPullOpen(false);
+      setPullUrl('');
+      refresh();
+    } catch (e) {
+      toast({ title: 'Download failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  const pct = pullTotal > 0 ? Math.round((pullProgress / pullTotal) * 100) : 0;
+
+  return (
+    <ScrollArea className="flex-1 min-h-0">
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Cpu className="h-6 w-6 text-primary" /> Local Models
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">Built-in llama.cpp runtime — no Ollama required.</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={refresh} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {error && (
+          <Card className="border-destructive/50">
+            <CardContent className="pt-6 flex gap-2 items-start">
+              <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-destructive">Cannot reach the local agent.</p>
+                <p className="text-muted-foreground mt-1">{error}</p>
+                <p className="text-xs text-muted-foreground mt-2">Make sure <code>python public/agent.py</code> is running.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {status && !status.available && (
+          <Card className="border-primary/40">
+            <CardContent className="pt-6 space-y-2">
+              <p className="text-sm font-medium">⚠️ <code>llama-cpp-python</code> is not installed on the agent.</p>
+              <p className="text-xs text-muted-foreground">Install it on your PC, then restart the agent:</p>
+              <pre className="text-xs bg-secondary/50 rounded p-2 overflow-x-auto">pip install llama-cpp-python --prefer-binary</pre>
+              <p className="text-xs text-muted-foreground">For NVIDIA GPU support:</p>
+              <pre className="text-xs bg-secondary/50 rounded p-2 overflow-x-auto">CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --no-cache-dir</pre>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Runtime settings</CardTitle>
+            <CardDescription>Applied when loading a model.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <Label>Context size</Label>
+                <span className="text-muted-foreground">{nCtx.toLocaleString()} tokens</span>
+              </div>
+              <Slider min={2048} max={32768} step={1024} value={[nCtx]} onValueChange={(v) => setNCtx(v[0])} />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <Label>GPU layers</Label>
+                <span className="text-muted-foreground">{nGpuLayers === -1 ? 'All' : nGpuLayers === 0 ? 'CPU only' : nGpuLayers}</span>
+              </div>
+              <Slider min={-1} max={80} step={1} value={[nGpuLayers]} onValueChange={(v) => setNGpuLayers(v[0])} />
+              <p className="text-xs text-muted-foreground">−1 = offload all layers to GPU, 0 = pure CPU.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle className="text-base">Installed models</CardTitle>
+              <CardDescription>{status?.models_dir || '~/.pesto-ai/models/'}</CardDescription>
+            </div>
+            <Dialog open={pullOpen} onOpenChange={setPullOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add model</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Download a GGUF model</DialogTitle>
+                  <DialogDescription>Paste a HuggingFace .gguf URL or pick a suggestion.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <Input
+                    placeholder="https://huggingface.co/.../model.gguf"
+                    value={pullUrl}
+                    onChange={(e) => setPullUrl(e.target.value)}
+                    disabled={pulling}
+                  />
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Suggestions:</p>
+                    {SUGGESTED.map((s) => (
+                      <button
+                        key={s.url}
+                        disabled={pulling}
+                        onClick={() => handlePull(s.url)}
+                        className="w-full text-left text-xs px-3 py-2 rounded-md hover:bg-secondary/60 transition-colors flex items-center justify-between gap-2 disabled:opacity-50"
+                      >
+                        <span>{s.label}</span>
+                        <Download className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                  {pulling && (
+                    <div className="space-y-1">
+                      <Progress value={pct} />
+                      <p className="text-xs text-muted-foreground text-center">
+                        {formatBytes(pullProgress)}{pullTotal ? ` / ${formatBytes(pullTotal)}` : ''} ({pct}%)
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setPullOpen(false)} disabled={pulling}>Cancel</Button>
+                  <Button onClick={() => handlePull()} disabled={pulling || !pullUrl.trim()}>
+                    <Download className="h-4 w-4 mr-1" /> Download
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            {models.length === 0 && !loading && (
+              <p className="text-sm text-muted-foreground text-center py-6">No models yet. Click "Add model" to download one.</p>
+            )}
+            <div className="space-y-2">
+              {models.map((m) => (
+                <div key={m.name} className="flex items-center justify-between gap-2 p-3 rounded-lg border border-border/50 bg-secondary/20">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm truncate">{m.name}</span>
+                      {m.loaded && (
+                        <Badge variant="default" className="h-5 text-[10px] gap-1">
+                          <CheckCircle2 className="h-2.5 w-2.5" /> loaded
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{formatBytes(m.size)}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {m.loaded ? (
+                      <Button size="sm" variant="outline" onClick={handleUnload}>Unload</Button>
+                    ) : (
+                      <Button size="sm" onClick={() => handleLoad(m.name)} disabled={!status?.available}>Load</Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(m.name)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </ScrollArea>
+  );
+}
