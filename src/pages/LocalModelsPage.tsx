@@ -56,6 +56,14 @@ export default function LocalModelsPage() {
   const [pullProgress, setPullProgress] = useState(0);
   const [pullTotal, setPullTotal] = useState(0);
 
+  // Import (Ollama / LM Studio) dialog state
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [external, setExternal] = useState<ExternalModel[]>([]);
+  const [searchedDirs, setSearchedDirs] = useState<string[]>([]);
+  const [importMode, setImportMode] = useState<'symlink' | 'copy'>('symlink');
+
   const refresh = async () => {
     setLoading(true);
     setError('');
