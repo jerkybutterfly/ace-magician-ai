@@ -410,3 +410,25 @@ export default function LocalModelsPage() {
     </ScrollArea>
   );
 }
+
+function ImportRow({ m, importing, onImport }: { m: ExternalModel; importing: boolean; onImport: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 p-2.5 rounded-md border border-border/50 bg-secondary/20">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{m.display}</p>
+        <p className="text-[11px] text-muted-foreground truncate" title={m.path}>
+          {formatBytes(m.size)} · <code className="text-[10px]">{m.path}</code>
+        </p>
+      </div>
+      {m.imported ? (
+        <Badge variant="secondary" className="h-6 text-[10px] gap-1">
+          <CheckCircle2 className="h-2.5 w-2.5" /> Imported
+        </Badge>
+      ) : (
+        <Button size="sm" variant="outline" disabled={importing} onClick={onImport}>
+          <FolderInput className="h-3.5 w-3.5 mr-1" /> Import
+        </Button>
+      )}
+    </div>
+  );
+}
