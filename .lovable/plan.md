@@ -1,61 +1,69 @@
 
 
-# Wrap App as Native Android (Capacitor) — Keep Web App for PC
-
 ## Goal
-Add Capacitor so you get a true native Android APK installable on your S26 Ultra, while the existing web app continues to work unchanged on PC. Same codebase, two delivery targets.
+Build a tiny in-app local LLM runtime (an "Ollama-lite") so you don't need the external Ollama daemon. It runs GGUF models on your PC via the existing Python agent and exposes the same chat API your UI already speaks.
 
-## Approach
+## Reality check (important)
+A real Ollama clone = a native binary that loads GGUF weights via llama.cpp and serves them over HTTP. Lovable can't ship a compiled binary, but we **can** wrap `llama-cpp-python` (the official Python binding to llama.cpp — the same C++ engine Ollama uses) inside your existing `public/agent.py`. Result: same engine as Ollama, served from your own agent, no Ollama install needed.
 
-Capacitor wraps the existing React build in a native Android shell. No code is removed — the PC web app keeps working exactly as today. The Android app loads the same UI but runs as a real installable app.
+You keep Ollama as an option; this just adds a second provider called **"Local (built-in)"**.
 
-To avoid maintaining two UIs, we'll use **runtime detection** (`Capacitor.isNativePlatform()`) for the few places where mobile vs PC behavior should differ (e.g. default agent URL — PC uses `localhost`, phone needs your PC's LAN IP).
+## Architecture
 
-## Changes
+```text
+Chat UI ──► /llm/* endpoints on agent.py (port 8484)
+                │
+                ├── /llm/models   list GGUF files in ~/.pesto-ai/models/
+                ├── /llm/pull     download GGUF from HuggingFace URL
+                ├── /llm/delete   remove a GGUF
+                ├── /llm/load     load model into RAM (llama-cpp-python)
+                └── /llm/chat     SSE stream, OpenAI-compatible deltas
+```
 
-### 1. Install Capacitor
-- `@capacitor/core`, `@capacitor/cli` (dev), `@capacitor/android`
+Models live in `~/.pesto-ai/models/*.gguf`. One model loaded at a time (kept warm in memory); swapping unloads the previous.
 
-### 2. Initialize Capacitor (`capacitor.config.ts`)
-- `appId`: `app.lovable.dd929543953e496bb868520995a0352c`
-- `appName`: `Pesto Steve's AI`
-- `webDir`: `dist`
-- `server.url`: `https://dd929543-953e-496b-b868-520995a0352c.lovableproject.com?forceHideBadge=true` + `cleartext: true` for hot-reload during dev
-- Note: for the final installable APK that talks to your home PC, you'll later swap `server.url` to point at the production build (or remove it to use bundled assets).
+## Backend changes (`public/agent.py`)
+1. Add optional dependency `llama-cpp-python` (graceful fallback: endpoints return "not installed, run `pip install llama-cpp-python`" if missing).
+2. New module-level `LLMRuntime` singleton: holds current `Llama` instance, model name, context size, n_gpu_layers.
+3. Endpoints:
+   - `GET /llm/models` → list `.gguf` files + sizes + which is loaded.
+   - `POST /llm/pull` `{url, filename}` → stream download from HuggingFace with progress (SSE).
+   - `DELETE /llm/models/{name}`
+   - `POST /llm/load` `{name, n_ctx, n_gpu_layers}` → load into RAM.
+   - `POST /llm/chat` `{messages, temperature, max_tokens, stream}` → SSE in OpenAI delta format so the existing frontend parser works unchanged.
 
-### 3. Mobile-aware defaults (`src/lib/settings.ts`)
-- Detect native platform via `Capacitor.isNativePlatform()`
-- When running on Android, default `ollamaUrl` / `agentUrl` / `lmStudioUrl` to a placeholder LAN IP (e.g. `http://192.168.1.50:11434`) instead of `localhost`, since `localhost` on the phone = the phone itself, not your PC
-- PC behavior unchanged
+## Frontend changes
+1. **`src/lib/local-llm.ts`** (new) — client for the above endpoints: `listLocalModels()`, `pullLocalModel(url)` async generator, `deleteLocalModel()`, `loadLocalModel()`, `streamLocalChat(messages)` async generator that yields the same `StreamChunk` shape `streamChat()` already uses.
+2. **`src/lib/ollama.ts`** — extend `LLMProvider` with `'local'`; route to `streamLocalChat` when selected. Keep existing Ollama code untouched.
+3. **`src/components/ModelSelector.tsx`** — when provider is `local`, fetch from `/llm/models` instead of Ollama; show "Load" button next to unloaded models.
+4. **New page `src/pages/LocalModelsPage.tsx`** + sidebar entry "Local Models" (icon `Cpu`):
+   - List installed GGUFs with size, loaded indicator, Load/Unload/Delete buttons.
+   - "Add model" dialog: paste HuggingFace GGUF URL (with 4 curated suggestions: Hermes-3-Llama-3.2-3B Q4, Llama-3.2-3B Q4, Qwen2.5-3B Q4, Phi-3.5-mini Q4), shows download progress.
+   - Settings: context size slider (2k–32k), GPU layers (0 = CPU only, -1 = all).
+5. **`src/pages/SettingsPage.tsx`** — add "Local (built-in)" to provider dropdown; show one-time install hint: `pip install llama-cpp-python` (with `--prefer-binary` note for Windows).
+6. **`src/pages/Chat.tsx`** — add `'local'` branch in the provider switch that calls `streamLocalChat`. Memory/learning loop and tool-tag execution work unchanged because output format is identical.
 
-### 4. Settings page hint (`src/pages/SettingsPage.tsx`)
-- Small banner shown only on native: "Running on Android — point these URLs at your PC's LAN IP, not localhost"
+## Routing & nav
+- `App.tsx` + `Index.tsx`: register `/local-models` route.
+- `AppSidebar.tsx`: add "Local Models" link.
 
-### 5. Mobile UX sanity (current viewport is 384px)
-- Verify sidebar auto-collapses (already handled by `use-mobile` hook + sidebar component) — no changes expected, just confirm
-- No layout rewrites — keep the desktop UI
+## README updates
+One section: "Built-in LLM runtime" — explains it uses llama.cpp via `llama-cpp-python`, where models live, how to add GPU support (`CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --no-cache-dir`).
 
-### 6. Build & run instructions (README section)
-Document the standard Capacitor flow you'll run locally after exporting to GitHub:
-1. `git pull` your exported repo
-2. `npm install`
-3. `npx cap add android`
-4. `npm run build`
-5. `npx cap sync`
-6. `npx cap run android` (needs Android Studio)
+## What stays the same
+- Ollama provider still works.
+- Chat UI, system prompt, Hermes memory/learning, tool-tag execution, Spec Kit — untouched.
+- Permissions and reflection loop apply to local-runtime responses identically.
 
-## Files Modified / Added
-- `package.json` — add Capacitor deps
-- `capacitor.config.ts` — new
-- `src/lib/settings.ts` — native-aware defaults
-- `src/pages/SettingsPage.tsx` — native banner
-- `README.md` — Android build steps
+## Files touched
+**New:** `src/lib/local-llm.ts`, `src/pages/LocalModelsPage.tsx`
+**Edited:** `public/agent.py`, `src/lib/ollama.ts`, `src/components/ModelSelector.tsx`, `src/pages/Chat.tsx`, `src/pages/SettingsPage.tsx`, `src/components/AppSidebar.tsx`, `src/App.tsx`, `src/pages/Index.tsx`, `README.md`
 
-## What Stays the Same
-- Web app at the preview/published URL — unchanged, still works on PC
-- Python agent + Ollama — still run on your PC; phone connects over LAN
-- All existing features (chat, terminal, files, skills, cron, mission, chain-of-thought)
-
-## After Approval
-Once built and exported to GitHub, you'll run `npx cap add android` + `npx cap run android` on a machine with Android Studio to produce the APK for your S26 Ultra. I'll include exact commands. Per Capacitor guidance, also read: https://lovable.dev/blog/2025-06-13-the-most-complete-guide-for-using-capacitor-with-lovable
+## One-time PC setup you'll run after this ships
+```bash
+pip install llama-cpp-python fastapi-sse  # CPU
+# or for NVIDIA GPU:
+# CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --no-cache-dir
+```
+Then restart `python public/agent.py` and download a model from the new Local Models page.
 
