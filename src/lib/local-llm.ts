@@ -60,6 +60,38 @@ export async function deleteLocalModel(name: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
 }
 
+export interface ExternalModel {
+  source: 'ollama' | 'lmstudio';
+  path: string;
+  name: string;
+  display: string;
+  size: number;
+  imported: boolean;
+}
+
+export async function scanExternalModels(): Promise<{ models: ExternalModel[]; searched_dirs: string[] }> {
+  const res = await fetch(`${base()}/llm/scan-external`);
+  if (!res.ok) throw new Error(`Scan failed: ${res.status}`);
+  return res.json();
+}
+
+export async function importExternalModel(
+  path: string,
+  name?: string,
+  mode: 'symlink' | 'copy' = 'symlink',
+): Promise<{ name: string; mode: string; fallback_reason?: string }> {
+  const res = await fetch(`${base()}/llm/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, name, mode }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || `Import failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function* pullLocalModel(url: string, filename?: string): AsyncGenerator<LocalPullProgress> {
   const res = await fetch(`${base()}/llm/pull`, {
     method: 'POST',
