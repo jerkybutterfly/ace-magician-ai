@@ -1,6 +1,6 @@
 import { getSettings } from './settings';
 
-export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio';
+export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'local';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
@@ -86,7 +86,7 @@ export interface PullProgress {
   completed?: number;
 }
 
-const RUNTIME_EXECUTION_PROMPT = `You are operating inside Pesto Steve's AI — an autonomous PC control agent with FULL, UNRESTRICTED access to this Windows PC and the internet.
+export const RUNTIME_EXECUTION_PROMPT = `You are operating inside Pesto Steve's AI — an autonomous PC control agent with FULL, UNRESTRICTED access to this Windows PC and the internet.
 
 ## TOOLS (auto-executed by the runtime — just emit the tags)
 
