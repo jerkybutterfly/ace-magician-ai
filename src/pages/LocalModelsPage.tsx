@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Cpu, Download, Trash2, Plus, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Cpu, Download, Trash2, Plus, RefreshCw, CheckCircle2, AlertCircle, Link2, Copy as CopyIcon, FolderInput } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   listLocalModels,
@@ -17,8 +17,11 @@ import {
   deleteLocalModel,
   pullLocalModel,
   getLocalLLMStatus,
+  scanExternalModels,
+  importExternalModel,
   type LocalModel,
   type LocalLLMStatus,
+  type ExternalModel,
 } from '@/lib/local-llm';
 
 const SUGGESTED = [
