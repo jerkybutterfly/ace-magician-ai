@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
@@ -78,6 +79,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [lmStudioModel, setLmStudioModel] = useState('');
   const [lmStudioError, setLmStudioError] = useState('');
   const [lmStudioLoading, setLmStudioLoading] = useState(false);
+  const [localModels, setLocalModels] = useState<LocalModel[]>([]);
+  const [localModel, setLocalModel] = useState('');
+  const [localError, setLocalError] = useState('');
 
   const loadLmStudioModels = () => {
     setLmStudioLoading(true);
@@ -92,8 +96,21 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     }).finally(() => setLmStudioLoading(false));
   };
 
+  const loadLocalRuntimeModels = () => {
+    setLocalError('');
+    listLocalModels().then((res) => {
+      setLocalModels(res.models);
+      const loaded = res.models.find((m) => m.loaded);
+      if (loaded) setLocalModel(loaded.name);
+      else if (res.models.length > 0 && !localModel) setLocalModel(res.models[0].name);
+    }).catch((e) => {
+      setLocalError(e instanceof Error ? e.message : 'Cannot reach agent');
+    });
+  };
+
   useEffect(() => {
     if (provider === 'lmstudio') loadLmStudioModels();
+    if (provider === 'local') loadLocalRuntimeModels();
   }, [provider]);
 
   const [streaming, setStreaming] = useState(false);

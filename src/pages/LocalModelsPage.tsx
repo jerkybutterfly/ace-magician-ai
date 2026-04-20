@@ -156,7 +156,7 @@ export default function LocalModelsPage() {
         )}
 
         {status && !status.available && (
-          <Card className="border-amber-500/40">
+          <Card className="border-primary/40">
             <CardContent className="pt-6 space-y-2">
               <p className="text-sm font-medium">⚠️ <code>llama-cpp-python</code> is not installed on the agent.</p>
               <p className="text-xs text-muted-foreground">Install it on your PC, then restart the agent:</p>
