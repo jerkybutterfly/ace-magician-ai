@@ -39,6 +39,19 @@ After any code update, repeat steps 5 + 6 (`npm run build && npx cap sync`).
    - Set env var `OLLAMA_HOST=0.0.0.0:11434` and restart Ollama
 5. The Python agent (`uvicorn`) already listens on `0.0.0.0:8484` by default
 
+## Spec Kit (Spec-Driven Development)
+
+The **Spec Kit** page wraps GitHub's [spec-kit](https://github.com/github/spec-kit) CLI so you can scaffold spec-driven projects from inside the app.
+
+PC prereqs:
+- Python 3.11+
+- `uv` (`pip install uv`) — or click the "Install uv" button on the Spec Kit page
+- Git
+
+Projects are created in `~/SpecKitProjects/<name>`. Each project has `spec.md`, `plan.md`, `tasks.md` — edit them in the app or have your local LLM (Ollama / Hermes etc.) draft them with the **Generate with local LLM** button.
+
+The agent can also drive Spec Kit from chat via the `spec_kit` skill: `[RUN_SKILL:spec_kit|init my-app]`.
+
 ### Hot-reload during development
 
 `capacitor.config.ts` points `server.url` at the Lovable preview URL, so the Android app live-reloads from the sandbox while you iterate. For a final standalone APK that runs offline against bundled assets, remove the `server.url` block before building.

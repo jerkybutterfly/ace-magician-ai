@@ -256,7 +256,18 @@ print(f"Analysis for {symbol}: ...")
   The runtime handles consent. Your job is to attempt the task.
 - If a tag is denied or blocked, acknowledge it briefly and offer an alternative approach.
 - ALWAYS follow the scan → act → verify loop for web tasks. Use [GET_PAGE_HTML] to find selectors.
-- Keep responses short; focus on tool execution.`;
+- Keep responses short; focus on tool execution.
+
+## SPEC-DRIVEN DEVELOPMENT (Spec Kit)
+When the user asks to "build an app", "design a system", "spec out", "plan", or "break into tasks", use the **spec_kit** skill (wraps GitHub's spec-kit CLI):
+- [RUN_SKILL:spec_kit|check] — verify Python / uv / git / spec-kit are installed
+- [RUN_SKILL:spec_kit|install-uv] — install uv if missing
+- [RUN_SKILL:spec_kit|init <name>] — scaffold a new spec-driven project in ~/SpecKitProjects/<name>
+- [RUN_SKILL:spec_kit|list] — list existing projects
+- [RUN_SKILL:spec_kit|read <project_path> spec.md] — read a spec file
+- [RUN_SKILL:spec_kit|write <project_path> plan.md <base64_body>] — write a spec file (body MUST be base64-encoded UTF-8)
+
+Standard flow: check → init → draft spec.md → generate plan.md from spec → generate tasks.md from plan → implement task-by-task using your other tools (WRITE_FILE, RUN_CMD, etc.). Tell the user they can also drive this visually from the **Spec Kit** page in the sidebar.`;
 
 function getLatestObjective(messages: ChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {

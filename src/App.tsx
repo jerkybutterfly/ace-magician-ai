@@ -22,6 +22,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/files" element={<Index />} />
             <Route path="/skills" element={<Index />} />
+            <Route path="/speckit" element={<Index />} />
             <Route path="/cron" element={<Index />} />
             <Route path="/settings" element={<Index />} />
             <Route path="/memory" element={<Index />} />
