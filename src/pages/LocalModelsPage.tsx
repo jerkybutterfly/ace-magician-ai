@@ -245,10 +245,14 @@ export default function LocalModelsPage() {
               <CardTitle className="text-base">Installed models</CardTitle>
               <CardDescription>{status?.models_dir || '~/.pesto-ai/models/'}</CardDescription>
             </div>
-            <Dialog open={pullOpen} onOpenChange={setPullOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add model</Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={openImport} disabled={!status?.available}>
+                <FolderInput className="h-4 w-4 mr-1" /> Import
+              </Button>
+              <Dialog open={pullOpen} onOpenChange={setPullOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add model</Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Download a GGUF model</DialogTitle>
