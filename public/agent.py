@@ -1743,6 +1743,149 @@ async def list_installed():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ═══════════════════════════════════════════════════════
+#  Hermes-style Memory & Learning
+#  Episodes (action log) + Lessons (corrections from mistakes)
+# ═══════════════════════════════════════════════════════
+import json as _mem_json
+
+MEMORY_DIR = Path.home() / ".pesto-ai" / "memory"
+MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+EPISODES_FILE = MEMORY_DIR / "episodes.jsonl"
+LESSONS_FILE = MEMORY_DIR / "lessons.md"
+_mem_lock = threading.Lock()
+MAX_EPISODES = 5000  # rolling cap
+
+
+class EpisodeRequest(BaseModel):
+    request: str = ""
+    tag: str = ""
+    tool: str = ""
+    outcome: str = "success"  # success | error | denied | blocked
+    summary: str = ""
+
+
+class LessonRequest(BaseModel):
+    text: str
+    source_tag: str = ""
+    source_error: str = ""
+
+
+def _read_episodes(limit: int = 0) -> list[dict]:
+    if not EPISODES_FILE.exists():
+        return []
+    out: list[dict] = []
+    with _mem_lock:
+        with EPISODES_FILE.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(_mem_json.loads(line))
+                except Exception:
+                    continue
+    if limit > 0:
+        out = out[-limit:]
+    return out
+
+
+def _write_episode(ep: dict) -> None:
+    with _mem_lock:
+        existing = []
+        if EPISODES_FILE.exists():
+            with EPISODES_FILE.open("r", encoding="utf-8") as f:
+                existing = [l for l in f if l.strip()]
+        existing.append(_mem_json.dumps(ep) + "\n")
+        if len(existing) > MAX_EPISODES:
+            existing = existing[-MAX_EPISODES:]
+        EPISODES_FILE.write_text("".join(existing), encoding="utf-8")
+
+
+@app.get("/memory/episodes")
+async def get_episodes(limit: int = 200):
+    return {"episodes": _read_episodes(limit)}
+
+
+@app.post("/memory/episodes")
+async def add_episode(req: EpisodeRequest):
+    ep = {
+        "ts": datetime.utcnow().isoformat() + "Z",
+        "request": req.request[:500],
+        "tag": req.tag[:300],
+        "tool": req.tool,
+        "outcome": req.outcome,
+        "summary": req.summary[:1000],
+    }
+    _write_episode(ep)
+    return {"status": "ok", "episode": ep}
+
+
+@app.delete("/memory/episodes")
+async def clear_episodes():
+    with _mem_lock:
+        if EPISODES_FILE.exists():
+            EPISODES_FILE.unlink()
+    return {"status": "ok"}
+
+
+@app.get("/memory/episodes/search")
+async def search_episodes(q: str, limit: int = 5):
+    eps = _read_episodes(0)
+    terms = [t.lower() for t in re.findall(r"\w+", q) if len(t) > 2]
+    if not terms:
+        return {"matches": []}
+    scored: list[tuple[int, dict]] = []
+    for ep in eps:
+        hay = f"{ep.get('request','')} {ep.get('tag','')} {ep.get('summary','')}".lower()
+        score = sum(hay.count(t) for t in terms)
+        if score > 0:
+            scored.append((score, ep))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return {"matches": [ep for _, ep in scored[:limit]]}
+
+
+@app.get("/memory/lessons")
+async def get_lessons():
+    if not LESSONS_FILE.exists():
+        return {"content": ""}
+    return {"content": LESSONS_FILE.read_text(encoding="utf-8")}
+
+
+@app.post("/memory/lessons")
+async def add_lesson(req: LessonRequest):
+    with _mem_lock:
+        existing = LESSONS_FILE.read_text(encoding="utf-8") if LESSONS_FILE.exists() else "# Lessons Learned\n\n"
+        ts = datetime.utcnow().isoformat() + "Z"
+        entry = f"\n- **{ts}** — {req.text}"
+        if req.source_tag:
+            entry += f"\n  - Tag: `{req.source_tag}`"
+        if req.source_error:
+            err = req.source_error.replace("\n", " ")[:200]
+            entry += f"\n  - Error: {err}"
+        LESSONS_FILE.write_text(existing + entry + "\n", encoding="utf-8")
+    return {"status": "ok"}
+
+
+class LessonsOverwrite(BaseModel):
+    content: str
+
+
+@app.put("/memory/lessons")
+async def overwrite_lessons(req: LessonsOverwrite):
+    with _mem_lock:
+        LESSONS_FILE.write_text(req.content, encoding="utf-8")
+    return {"status": "ok"}
+
+
+@app.delete("/memory/lessons")
+async def clear_lessons():
+    with _mem_lock:
+        if LESSONS_FILE.exists():
+            LESSONS_FILE.unlink()
+    return {"status": "ok"}
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
