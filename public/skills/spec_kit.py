@@ -26,9 +26,13 @@ UVX_SOURCE = "git+https://github.com/github/spec-kit.git"
 
 
 def _run(cmd, cwd=None, timeout=300):
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
     try:
         res = subprocess.run(
-            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, shell=False
+            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+            shell=False, env=env, encoding="utf-8", errors="replace",
         )
         return res.returncode, res.stdout, res.stderr
     except FileNotFoundError as e:
