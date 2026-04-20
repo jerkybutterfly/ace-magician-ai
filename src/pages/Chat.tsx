@@ -259,6 +259,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
                 setStatusLogs(prev => [...prev.slice(-4), status]);
               },
               requestPermission,
+              { request },
             );
             const assistantMsg: ChatMessage = { role: 'assistant', content: processed };
             currentMessages = [...currentMessages, assistantMsg];
