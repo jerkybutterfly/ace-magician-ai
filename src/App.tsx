@@ -26,6 +26,8 @@ const App = () => (
             <Route path="/cron" element={<Index />} />
             <Route path="/settings" element={<Index />} />
             <Route path="/memory" element={<Index />} />
+            <Route path="/local-models" element={<Index />} />
+            <Route path="/permissions" element={<Index />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </SidebarProvider>
