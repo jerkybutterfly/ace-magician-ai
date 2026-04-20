@@ -9,6 +9,7 @@ import MemoryPage from './MemoryPage';
 import SkillsPage from './SkillsPage';
 import CronPage from './CronPage';
 import PermissionsPage from './PermissionsPage';
+import SpecKitPage from './SpecKitPage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
@@ -62,6 +63,8 @@ export default function Index() {
         return <FilesPage />;
       case '/skills':
         return <SkillsPage />;
+      case '/speckit':
+        return <SpecKitPage />;
       case '/cron':
         return <CronPage />;
       case '/memory':
