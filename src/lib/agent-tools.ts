@@ -1,5 +1,6 @@
 import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar } from './agent';
 import { checkPermission, isSessionAllowed, sessionAllowOnce, getToolName } from './permissions';
+import { logEpisode, recordLesson, deriveLesson, type EpisodeOutcome } from './learning';
 
 export interface ToolResult {
   tag: string;
@@ -453,15 +454,31 @@ export function hasToolCommands(text: string): boolean {
 /**
  * Execute all tool commands in the AI response, gated by the permissions system.
  * If a tag requires confirmation, `requestPermission` is called and the user's
- * decision determines whether it runs.
+ * decision determines whether it runs. Every outcome is logged as an episode,
+ * and errors/denials are auto-reflected into lessons learned.
  */
 export async function executeToolCommands(
   text: string,
   onStatus?: (status: string) => void,
   requestPermission?: PermissionPrompt,
+  context?: { request?: string },
 ): Promise<{ processed: string; executed: boolean }> {
   let processed = text;
   let executed = false;
+  const userRequest = context?.request ?? '';
+
+  const record = async (
+    tag: string,
+    tool: string,
+    outcome: EpisodeOutcome,
+    summary: string,
+  ) => {
+    await logEpisode({ request: userRequest, tag, tool, outcome, summary });
+    if (outcome !== 'success') {
+      const lesson = deriveLesson(tag, outcome, summary);
+      await recordLesson(lesson, tag, summary);
+    }
+  };
 
   for (const { regex, handler } of TOOL_PATTERNS) {
     regex.lastIndex = 0;
@@ -478,14 +495,15 @@ export async function executeToolCommands(
       if (!allowed && mode === 'deny') {
         processed = processed.replace(tag, `\n🚫 **Blocked by permissions** — \`${tag}\` is denied (${reason}). Edit Permissions to change this.`);
         executed = true;
+        await record(tag, toolName, 'blocked', reason || 'denied by permission rule');
         continue;
       }
 
       if (!allowed && mode === 'ask') {
         if (!requestPermission) {
-          // No prompt available — skip rather than auto-execute
           processed = processed.replace(tag, `\n⏸️ **Awaiting approval** — \`${tag}\` requires confirmation but no prompt handler is attached.`);
           executed = true;
+          await record(tag, toolName, 'blocked', 'no prompt handler attached');
           continue;
         }
         if (onStatus) onStatus(`Awaiting approval for ${toolName}...`);
@@ -493,6 +511,7 @@ export async function executeToolCommands(
         if (decision === 'deny') {
           processed = processed.replace(tag, `\n🚫 **Denied by user** — \`${tag}\` was not executed.`);
           executed = true;
+          await record(tag, toolName, 'denied', 'user denied');
           continue;
         }
         if (decision === 'approve-session') sessionAllowOnce(tag);
@@ -502,10 +521,20 @@ export async function executeToolCommands(
       if (!allowed) continue;
 
       if (onStatus) onStatus(`Running ${toolName}...`);
-      const result = await handler(match);
-      processed = processed.replace(tag, result.result);
-      executed = true;
-      if (onStatus) onStatus(`Finished ${toolName}`);
+      try {
+        const result = await handler(match);
+        processed = processed.replace(tag, result.result);
+        executed = true;
+        const r = result.result || '';
+        const looksLikeError = /^\s*\n?⚠️|\bfail|\berror\b|\bnot found\b|\bdenied\b/i.test(r);
+        await record(tag, toolName, looksLikeError ? 'error' : 'success', r.slice(0, 400));
+        if (onStatus) onStatus(`Finished ${toolName}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'unknown error';
+        processed = processed.replace(tag, `\n⚠️ **Tool error** — \`${tag}\`: ${msg}`);
+        executed = true;
+        await record(tag, toolName, 'error', msg);
+      }
     }
   }
 

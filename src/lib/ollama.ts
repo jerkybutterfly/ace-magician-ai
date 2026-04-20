@@ -327,10 +327,14 @@ export async function* streamChat(
   const { ollamaUrl, systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
+  const memoryContext = currentObjective
+    ? await (await import('./learning')).buildMemoryContext(currentObjective)
+    : '';
   const fullSystemPrompt = [
     systemPrompt.trim(),
     RUNTIME_EXECUTION_PROMPT,
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    memoryContext,
     currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
   ]
     .filter(Boolean)
@@ -378,10 +382,14 @@ export async function* streamCloudChat(
   const { systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
+  const memoryContext = currentObjective
+    ? await (await import('./learning')).buildMemoryContext(currentObjective)
+    : '';
   const fullSystemPrompt = [
     systemPrompt.trim(),
     RUNTIME_EXECUTION_PROMPT,
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    memoryContext,
     currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
   ]
     .filter(Boolean)
