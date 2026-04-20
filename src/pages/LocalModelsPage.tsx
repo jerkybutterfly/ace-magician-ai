@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Cpu, Download, Trash2, Plus, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Cpu, Download, Trash2, Plus, RefreshCw, CheckCircle2, AlertCircle, Link2, Copy as CopyIcon, FolderInput } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   listLocalModels,
@@ -17,8 +17,11 @@ import {
   deleteLocalModel,
   pullLocalModel,
   getLocalLLMStatus,
+  scanExternalModels,
+  importExternalModel,
   type LocalModel,
   type LocalLLMStatus,
+  type ExternalModel,
 } from '@/lib/local-llm';
 
 const SUGGESTED = [
@@ -52,6 +55,14 @@ export default function LocalModelsPage() {
   const [pulling, setPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState(0);
   const [pullTotal, setPullTotal] = useState(0);
+
+  // Import (Ollama / LM Studio) dialog state
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [external, setExternal] = useState<ExternalModel[]>([]);
+  const [searchedDirs, setSearchedDirs] = useState<string[]>([]);
+  const [importMode, setImportMode] = useState<'symlink' | 'copy'>('symlink');
 
   const refresh = async () => {
     setLoading(true);
@@ -127,6 +138,43 @@ export default function LocalModelsPage() {
 
   const pct = pullTotal > 0 ? Math.round((pullProgress / pullTotal) * 100) : 0;
 
+  const openImport = async () => {
+    setImportOpen(true);
+    setScanning(true);
+    try {
+      const r = await scanExternalModels();
+      setExternal(r.models);
+      setSearchedDirs(r.searched_dirs);
+    } catch (e) {
+      toast({ title: 'Scan failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleImport = async (m: ExternalModel) => {
+    setImporting(true);
+    try {
+      const result = await importExternalModel(m.path, m.name, importMode);
+      toast({
+        title: 'Imported',
+        description: result.fallback_reason
+          ? `${result.name} (copied — symlink unavailable)`
+          : `${result.name} (${result.mode})`,
+      });
+      // Update inline so user sees it marked imported
+      setExternal((prev) => prev.map((x) => (x.path === m.path ? { ...x, imported: true } : x)));
+      refresh();
+    } catch (e) {
+      toast({ title: 'Import failed', description: e instanceof Error ? e.message : 'Error', variant: 'destructive' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const ollamaCount = external.filter((m) => m.source === 'ollama').length;
+  const lmstudioCount = external.filter((m) => m.source === 'lmstudio').length;
+
   return (
     <ScrollArea className="flex-1 min-h-0">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -197,10 +245,14 @@ export default function LocalModelsPage() {
               <CardTitle className="text-base">Installed models</CardTitle>
               <CardDescription>{status?.models_dir || '~/.pesto-ai/models/'}</CardDescription>
             </div>
-            <Dialog open={pullOpen} onOpenChange={setPullOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add model</Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={openImport} disabled={!status?.available}>
+                <FolderInput className="h-4 w-4 mr-1" /> Import
+              </Button>
+              <Dialog open={pullOpen} onOpenChange={setPullOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add model</Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Download a GGUF model</DialogTitle>
@@ -244,6 +296,82 @@ export default function LocalModelsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <Dialog open={importOpen} onOpenChange={setImportOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Import from Ollama / LM Studio</DialogTitle>
+                  <DialogDescription>
+                    GGUFs found on your PC. Symlink keeps one copy on disk; copy duplicates the file.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-muted-foreground">Mode:</span>
+                  <button
+                    onClick={() => setImportMode('symlink')}
+                    className={`px-2.5 py-1 rounded-md border flex items-center gap-1.5 transition-colors ${importMode === 'symlink' ? 'bg-primary/15 border-primary/40 text-primary' : 'border-border/50 hover:bg-secondary/60'}`}
+                  >
+                    <Link2 className="h-3 w-3" /> Symlink (recommended)
+                  </button>
+                  <button
+                    onClick={() => setImportMode('copy')}
+                    className={`px-2.5 py-1 rounded-md border flex items-center gap-1.5 transition-colors ${importMode === 'copy' ? 'bg-primary/15 border-primary/40 text-primary' : 'border-border/50 hover:bg-secondary/60'}`}
+                  >
+                    <CopyIcon className="h-3 w-3" /> Copy
+                  </button>
+                  <Button variant="ghost" size="sm" className="ml-auto" onClick={openImport} disabled={scanning}>
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${scanning ? 'animate-spin' : ''}`} /> Rescan
+                  </Button>
+                </div>
+
+                <ScrollArea className="max-h-[420px] pr-2">
+                  {scanning ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Scanning…</p>
+                  ) : external.length === 0 ? (
+                    <div className="text-center py-8 space-y-2">
+                      <p className="text-sm text-muted-foreground">No GGUF files found in Ollama or LM Studio folders.</p>
+                      {searchedDirs.length > 0 && (
+                        <details className="text-xs text-muted-foreground">
+                          <summary className="cursor-pointer">Searched {searchedDirs.length} location(s)</summary>
+                          <ul className="mt-1 text-left inline-block">
+                            {searchedDirs.map((d) => <li key={d}><code>{d}</code></li>)}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {ollamaCount > 0 && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Ollama ({ollamaCount})</p>
+                          <div className="space-y-1.5">
+                            {external.filter((m) => m.source === 'ollama').map((m) => (
+                              <ImportRow key={m.path} m={m} importing={importing} onImport={() => handleImport(m)} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {lmstudioCount > 0 && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">LM Studio ({lmstudioCount})</p>
+                          <div className="space-y-1.5">
+                            {external.filter((m) => m.source === 'lmstudio').map((m) => (
+                              <ImportRow key={m.path} m={m} importing={importing} onImport={() => handleImport(m)} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </ScrollArea>
+
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setImportOpen(false)}>Close</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            </div>
           </CardHeader>
           <CardContent>
             {models.length === 0 && !loading && (
@@ -280,5 +408,27 @@ export default function LocalModelsPage() {
         </Card>
       </div>
     </ScrollArea>
+  );
+}
+
+function ImportRow({ m, importing, onImport }: { m: ExternalModel; importing: boolean; onImport: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 p-2.5 rounded-md border border-border/50 bg-secondary/20">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{m.display}</p>
+        <p className="text-[11px] text-muted-foreground truncate" title={m.path}>
+          {formatBytes(m.size)} · <code className="text-[10px]">{m.path}</code>
+        </p>
+      </div>
+      {m.imported ? (
+        <Badge variant="secondary" className="h-6 text-[10px] gap-1">
+          <CheckCircle2 className="h-2.5 w-2.5" /> Imported
+        </Badge>
+      ) : (
+        <Button size="sm" variant="outline" disabled={importing} onClick={onImport}>
+          <FolderInput className="h-3.5 w-3.5 mr-1" /> Import
+        </Button>
+      )}
+    </div>
   );
 }

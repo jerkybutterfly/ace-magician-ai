@@ -2015,8 +2015,137 @@ async def llm_delete(name: str):
         raise HTTPException(status_code=404, detail="Model not found")
     if _LLM.name == name:
         _LLM.unload()
+    # If it's a symlink, only unlink the link (keep original file)
     path.unlink()
     return {"status": "ok"}
+
+
+# ───────── Import GGUFs from Ollama / LM Studio ─────────
+def _ollama_search_dirs() -> list[Path]:
+    home = Path.home()
+    candidates = [
+        home / ".ollama" / "models",                                   # Linux/macOS default
+        Path(os.environ.get("OLLAMA_MODELS", "")) if os.environ.get("OLLAMA_MODELS") else None,
+        home / "AppData" / "Local" / "Ollama" / "models",              # Windows (older)
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Ollama" / "models" if os.environ.get("LOCALAPPDATA") else None,
+        Path("/usr/share/ollama/.ollama/models"),                      # Linux service install
+    ]
+    return [c for c in candidates if c and c.exists()]
+
+
+def _lmstudio_search_dirs() -> list[Path]:
+    home = Path.home()
+    candidates = [
+        home / ".cache" / "lm-studio" / "models",      # Linux
+        home / ".lmstudio" / "models",                 # newer LM Studio
+        home / "Library" / "Caches" / "lm-studio" / "models",  # macOS
+        home / "AppData" / "Roaming" / "LMStudio" / "models",  # Windows (older)
+        home / ".cache" / "LMStudio" / "models",
+    ]
+    return [c for c in candidates if c.exists()]
+
+
+def _scan_ggufs(root: Path, source: str) -> list[dict]:
+    found: list[dict] = []
+    try:
+        for p in root.rglob("*.gguf"):
+            try:
+                # Friendly display name: parent folder + filename for context
+                rel = p.relative_to(root)
+                parts = rel.parts
+                display = parts[-1] if len(parts) == 1 else f"{parts[-2]}/{parts[-1]}"
+                found.append({
+                    "source": source,
+                    "path": str(p),
+                    "name": p.name,
+                    "display": display,
+                    "size": p.stat().st_size,
+                })
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return found
+
+
+@app.get("/llm/scan-external")
+async def llm_scan_external():
+    """Find GGUF files installed by Ollama or LM Studio so we can import them."""
+    results: list[dict] = []
+    searched: list[str] = []
+    for d in _ollama_search_dirs():
+        searched.append(str(d))
+        results.extend(_scan_ggufs(d, "ollama"))
+    for d in _lmstudio_search_dirs():
+        searched.append(str(d))
+        results.extend(_scan_ggufs(d, "lmstudio"))
+    # Note: Ollama stores models as content-addressed blobs (sha256-...) without .gguf extension.
+    # If nothing found in ollama dirs, scan blobs/ for likely-gguf files (>50MB, GGUF magic).
+    if not any(r["source"] == "ollama" for r in results):
+        for d in _ollama_search_dirs():
+            blobs = d / "blobs"
+            if not blobs.exists():
+                continue
+            for p in blobs.iterdir():
+                try:
+                    if not p.is_file() or p.stat().st_size < 50 * 1024 * 1024:
+                        continue
+                    with open(p, "rb") as f:
+                        magic = f.read(4)
+                    if magic == b"GGUF":
+                        results.append({
+                            "source": "ollama",
+                            "path": str(p),
+                            "name": p.name + ".gguf",
+                            "display": f"blobs/{p.name[:16]}…",
+                            "size": p.stat().st_size,
+                        })
+                except Exception:
+                    continue
+    # Mark already-imported (same path or same filename in MODELS_DIR)
+    existing_targets = {p.resolve() for p in MODELS_DIR.glob("*.gguf")}
+    existing_names = {p.name for p in MODELS_DIR.glob("*.gguf")}
+    for r in results:
+        try:
+            src = Path(r["path"]).resolve()
+            r["imported"] = src in existing_targets or r["name"] in existing_names
+        except Exception:
+            r["imported"] = False
+    return {"models": results, "searched_dirs": searched}
+
+
+class LLMImportReq(BaseModel):
+    path: str
+    name: Optional[str] = None
+    mode: str = "symlink"  # "symlink" or "copy"
+
+
+@app.post("/llm/import")
+async def llm_import(req: LLMImportReq):
+    src = Path(req.path)
+    if not src.exists() or not src.is_file():
+        raise HTTPException(status_code=404, detail=f"Source file not found: {req.path}")
+    fname = req.name or src.name
+    if not fname.endswith(".gguf"):
+        fname += ".gguf"
+    # Sanitize: no path separators
+    fname = Path(fname).name
+    dest = MODELS_DIR / fname
+    if dest.exists():
+        raise HTTPException(status_code=409, detail=f"Already exists: {fname}")
+    try:
+        if req.mode == "copy":
+            shutil.copy2(src, dest)
+        else:
+            try:
+                os.symlink(src, dest)
+            except (OSError, NotImplementedError) as e:
+                # Windows without dev-mode/admin can't symlink — fall back to copy
+                shutil.copy2(src, dest)
+                return {"status": "ok", "name": fname, "mode": "copy", "fallback_reason": str(e)}
+        return {"status": "ok", "name": fname, "mode": req.mode}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class LLMLoadReq(BaseModel):
