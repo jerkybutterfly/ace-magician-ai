@@ -1886,6 +1886,202 @@ async def clear_lessons():
     return {"status": "ok"}
 
 
+# ═══════════════════════════════════════════════════════
+#  Built-in LLM Runtime (llama.cpp via llama-cpp-python)
+#  Acts as an Ollama-replacement: load GGUF, chat via SSE.
+# ═══════════════════════════════════════════════════════
+import json as _llm_json
+from fastapi.responses import StreamingResponse
+
+MODELS_DIR = Path.home() / ".pesto-ai" / "models"
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+class _LLMRuntime:
+    def __init__(self):
+        self.llm = None
+        self.name: Optional[str] = None
+        self.n_ctx: int = 4096
+        self.n_gpu_layers: int = 0
+        self.lock = threading.Lock()
+
+    def is_available(self) -> bool:
+        try:
+            import llama_cpp  # noqa: F401
+            return True
+        except Exception:
+            return False
+
+    def load(self, name: str, n_ctx: int = 4096, n_gpu_layers: int = 0):
+        if not self.is_available():
+            raise HTTPException(status_code=400, detail="llama-cpp-python not installed. Run: pip install llama-cpp-python")
+        path = MODELS_DIR / name
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"Model not found: {name}")
+        from llama_cpp import Llama
+        with self.lock:
+            self.unload()
+            self.llm = Llama(
+                model_path=str(path),
+                n_ctx=n_ctx,
+                n_gpu_layers=n_gpu_layers,
+                verbose=False,
+            )
+            self.name = name
+            self.n_ctx = n_ctx
+            self.n_gpu_layers = n_gpu_layers
+
+    def unload(self):
+        if self.llm is not None:
+            try:
+                del self.llm
+            except Exception:
+                pass
+        self.llm = None
+        self.name = None
+
+
+_LLM = _LLMRuntime()
+
+
+@app.get("/llm/status")
+async def llm_status():
+    return {
+        "available": _LLM.is_available(),
+        "loaded": _LLM.name,
+        "n_ctx": _LLM.n_ctx,
+        "n_gpu_layers": _LLM.n_gpu_layers,
+        "models_dir": str(MODELS_DIR),
+    }
+
+
+@app.get("/llm/models")
+async def llm_models():
+    models = []
+    for p in sorted(MODELS_DIR.glob("*.gguf")):
+        try:
+            models.append({
+                "name": p.name,
+                "size": p.stat().st_size,
+                "loaded": p.name == _LLM.name,
+            })
+        except Exception:
+            pass
+    return {"models": models, "available": _LLM.is_available(), "loaded": _LLM.name}
+
+
+class LLMPullReq(BaseModel):
+    url: str
+    filename: Optional[str] = None
+
+
+@app.post("/llm/pull")
+async def llm_pull(req: LLMPullReq):
+    import requests as _rq
+    fname = req.filename or req.url.rstrip("/").split("/")[-1].split("?")[0]
+    if not fname.endswith(".gguf"):
+        fname += ".gguf"
+    dest = MODELS_DIR / fname
+
+    def _gen():
+        try:
+            with _rq.get(req.url, stream=True, timeout=60) as r:
+                r.raise_for_status()
+                total = int(r.headers.get("content-length", 0))
+                done = 0
+                tmp = dest.with_suffix(dest.suffix + ".part")
+                with open(tmp, "wb") as f:
+                    last = 0
+                    for chunk in r.iter_content(chunk_size=1024 * 256):
+                        if not chunk:
+                            continue
+                        f.write(chunk)
+                        done += len(chunk)
+                        now = time.time()
+                        if now - last > 0.3:
+                            last = now
+                            yield f"data: {_llm_json.dumps({'status':'downloading','filename':fname,'completed':done,'total':total})}\n\n"
+                tmp.rename(dest)
+            yield f"data: {_llm_json.dumps({'status':'done','filename':fname,'total':done})}\n\n"
+        except Exception as e:
+            yield f"data: {_llm_json.dumps({'status':'error','error':str(e)})}\n\n"
+
+    return StreamingResponse(_gen(), media_type="text/event-stream")
+
+
+@app.delete("/llm/models/{name}")
+async def llm_delete(name: str):
+    path = MODELS_DIR / name
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Model not found")
+    if _LLM.name == name:
+        _LLM.unload()
+    path.unlink()
+    return {"status": "ok"}
+
+
+class LLMLoadReq(BaseModel):
+    name: str
+    n_ctx: int = 4096
+    n_gpu_layers: int = 0
+
+
+@app.post("/llm/load")
+async def llm_load(req: LLMLoadReq):
+    _LLM.load(req.name, req.n_ctx, req.n_gpu_layers)
+    return {"status": "ok", "loaded": _LLM.name}
+
+
+@app.post("/llm/unload")
+async def llm_unload():
+    _LLM.unload()
+    return {"status": "ok"}
+
+
+class LLMChatMsg(BaseModel):
+    role: str
+    content: str
+
+
+class LLMChatReq(BaseModel):
+    messages: list[LLMChatMsg]
+    model: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: int = 2048
+    stream: bool = True
+
+
+@app.post("/llm/chat")
+async def llm_chat(req: LLMChatReq):
+    if not _LLM.is_available():
+        raise HTTPException(status_code=400, detail="llama-cpp-python not installed. Run: pip install llama-cpp-python")
+    # Auto-load if model name given and not loaded
+    if req.model and req.model != _LLM.name:
+        _LLM.load(req.model, _LLM.n_ctx or 4096, _LLM.n_gpu_layers or 0)
+    if _LLM.llm is None:
+        raise HTTPException(status_code=400, detail="No model loaded. POST /llm/load first.")
+
+    msgs = [{"role": m.role, "content": m.content} for m in req.messages]
+
+    def _gen():
+        try:
+            with _LLM.lock:
+                stream = _LLM.llm.create_chat_completion(
+                    messages=msgs,
+                    temperature=req.temperature,
+                    max_tokens=req.max_tokens,
+                    stream=True,
+                )
+                for chunk in stream:
+                    # Re-emit OpenAI-style delta SSE so frontend parser works unchanged.
+                    yield f"data: {_llm_json.dumps(chunk)}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            err = {"error": str(e)}
+            yield f"data: {_llm_json.dumps(err)}\n\n"
+
+    return StreamingResponse(_gen(), media_type="text/event-stream")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
