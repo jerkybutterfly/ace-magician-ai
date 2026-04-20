@@ -296,6 +296,82 @@ export default function LocalModelsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <Dialog open={importOpen} onOpenChange={setImportOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Import from Ollama / LM Studio</DialogTitle>
+                  <DialogDescription>
+                    GGUFs found on your PC. Symlink keeps one copy on disk; copy duplicates the file.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-muted-foreground">Mode:</span>
+                  <button
+                    onClick={() => setImportMode('symlink')}
+                    className={`px-2.5 py-1 rounded-md border flex items-center gap-1.5 transition-colors ${importMode === 'symlink' ? 'bg-primary/15 border-primary/40 text-primary' : 'border-border/50 hover:bg-secondary/60'}`}
+                  >
+                    <Link2 className="h-3 w-3" /> Symlink (recommended)
+                  </button>
+                  <button
+                    onClick={() => setImportMode('copy')}
+                    className={`px-2.5 py-1 rounded-md border flex items-center gap-1.5 transition-colors ${importMode === 'copy' ? 'bg-primary/15 border-primary/40 text-primary' : 'border-border/50 hover:bg-secondary/60'}`}
+                  >
+                    <CopyIcon className="h-3 w-3" /> Copy
+                  </button>
+                  <Button variant="ghost" size="sm" className="ml-auto" onClick={openImport} disabled={scanning}>
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${scanning ? 'animate-spin' : ''}`} /> Rescan
+                  </Button>
+                </div>
+
+                <ScrollArea className="max-h-[420px] pr-2">
+                  {scanning ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Scanning…</p>
+                  ) : external.length === 0 ? (
+                    <div className="text-center py-8 space-y-2">
+                      <p className="text-sm text-muted-foreground">No GGUF files found in Ollama or LM Studio folders.</p>
+                      {searchedDirs.length > 0 && (
+                        <details className="text-xs text-muted-foreground">
+                          <summary className="cursor-pointer">Searched {searchedDirs.length} location(s)</summary>
+                          <ul className="mt-1 text-left inline-block">
+                            {searchedDirs.map((d) => <li key={d}><code>{d}</code></li>)}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {ollamaCount > 0 && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Ollama ({ollamaCount})</p>
+                          <div className="space-y-1.5">
+                            {external.filter((m) => m.source === 'ollama').map((m) => (
+                              <ImportRow key={m.path} m={m} importing={importing} onImport={() => handleImport(m)} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {lmstudioCount > 0 && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">LM Studio ({lmstudioCount})</p>
+                          <div className="space-y-1.5">
+                            {external.filter((m) => m.source === 'lmstudio').map((m) => (
+                              <ImportRow key={m.path} m={m} importing={importing} onImport={() => handleImport(m)} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </ScrollArea>
+
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setImportOpen(false)}>Close</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            </div>
           </CardHeader>
           <CardContent>
             {models.length === 0 && !loading && (
