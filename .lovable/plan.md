@@ -1,69 +1,56 @@
 
 
 ## Goal
-Build a tiny in-app local LLM runtime (an "Ollama-lite") so you don't need the external Ollama daemon. It runs GGUF models on your PC via the existing Python agent and exposes the same chat API your UI already speaks.
+Give your local AI assistant the ability to fetch live data from the web (sports schedules, news, anything current) so it stops saying "I can't access external data."
 
-## Reality check (important)
-A real Ollama clone = a native binary that loads GGUF weights via llama.cpp and serves them over HTTP. Lovable can't ship a compiled binary, but we **can** wrap `llama-cpp-python` (the official Python binding to llama.cpp — the same C++ engine Ollama uses) inside your existing `public/agent.py`. Result: same engine as Ollama, served from your own agent, no Ollama install needed.
+## Why it's failing now
+Your agent already has `browserNavigate` / `browserGetText` (Selenium) and `httpRequest` tools, but:
+1. The model isn't reliably picking them for "live data" questions — no clear tool for "search the web."
+2. Selenium is heavy and breaks on JS-heavy sports sites (ESPN, Sky Sports) without login.
+3. There's no dedicated "web search" tool tag, so the model gives up.
 
-You keep Ollama as an option; this just adds a second provider called **"Local (built-in)"**.
+## Solution: add a real web-search tool
 
-## Architecture
+Add two new agent tools the LLM can call, plus a system-prompt nudge so it actually uses them.
 
-```text
-Chat UI ──► /llm/* endpoints on agent.py (port 8484)
-                │
-                ├── /llm/models   list GGUF files in ~/.pesto-ai/models/
-                ├── /llm/pull     download GGUF from HuggingFace URL
-                ├── /llm/delete   remove a GGUF
-                ├── /llm/load     load model into RAM (llama-cpp-python)
-                └── /llm/chat     SSE stream, OpenAI-compatible deltas
-```
+### 1. New backend endpoints in `public/agent.py`
+- **`POST /web/search`** → DuckDuckGo HTML search (no API key needed). Returns top 5 `{title, url, snippet}`.
+- **`POST /web/fetch`** → fetches a URL and returns clean readable text (strips nav/scripts using `trafilatura` or a simple BeautifulSoup fallback). Handles redirects, sets a real User-Agent.
+- Optional fallback: if the user has set a `SERPAPI_KEY` or `BRAVE_SEARCH_KEY` env var, prefer that over DDG scraping for reliability.
 
-Models live in `~/.pesto-ai/models/*.gguf`. One model loaded at a time (kept warm in memory); swapping unloads the previous.
+Dependencies (one-time `pip install`): `beautifulsoup4`, `lxml`, `trafilatura` (already have `requests`).
 
-## Backend changes (`public/agent.py`)
-1. Add optional dependency `llama-cpp-python` (graceful fallback: endpoints return "not installed, run `pip install llama-cpp-python`" if missing).
-2. New module-level `LLMRuntime` singleton: holds current `Llama` instance, model name, context size, n_gpu_layers.
-3. Endpoints:
-   - `GET /llm/models` → list `.gguf` files + sizes + which is loaded.
-   - `POST /llm/pull` `{url, filename}` → stream download from HuggingFace with progress (SSE).
-   - `DELETE /llm/models/{name}`
-   - `POST /llm/load` `{name, n_ctx, n_gpu_layers}` → load into RAM.
-   - `POST /llm/chat` `{messages, temperature, max_tokens, stream}` → SSE in OpenAI delta format so the existing frontend parser works unchanged.
+### 2. New client wrappers in `src/lib/agent.ts`
+- `webSearch(query: string)` → `WebSearchResult[]`
+- `webFetch(url: string)` → `{ title, text, url }`
 
-## Frontend changes
-1. **`src/lib/local-llm.ts`** (new) — client for the above endpoints: `listLocalModels()`, `pullLocalModel(url)` async generator, `deleteLocalModel()`, `loadLocalModel()`, `streamLocalChat(messages)` async generator that yields the same `StreamChunk` shape `streamChat()` already uses.
-2. **`src/lib/ollama.ts`** — extend `LLMProvider` with `'local'`; route to `streamLocalChat` when selected. Keep existing Ollama code untouched.
-3. **`src/components/ModelSelector.tsx`** — when provider is `local`, fetch from `/llm/models` instead of Ollama; show "Load" button next to unloaded models.
-4. **New page `src/pages/LocalModelsPage.tsx`** + sidebar entry "Local Models" (icon `Cpu`):
-   - List installed GGUFs with size, loaded indicator, Load/Unload/Delete buttons.
-   - "Add model" dialog: paste HuggingFace GGUF URL (with 4 curated suggestions: Hermes-3-Llama-3.2-3B Q4, Llama-3.2-3B Q4, Qwen2.5-3B Q4, Phi-3.5-mini Q4), shows download progress.
-   - Settings: context size slider (2k–32k), GPU layers (0 = CPU only, -1 = all).
-5. **`src/pages/SettingsPage.tsx`** — add "Local (built-in)" to provider dropdown; show one-time install hint: `pip install llama-cpp-python` (with `--prefer-binary` note for Windows).
-6. **`src/pages/Chat.tsx`** — add `'local'` branch in the provider switch that calls `streamLocalChat`. Memory/learning loop and tool-tag execution work unchanged because output format is identical.
+### 3. Two new tool tags in `src/lib/agent-tools.ts`
+- `<web-search query="next Liverpool match" />`
+- `<web-fetch url="https://..." />`
 
-## Routing & nav
-- `App.tsx` + `Index.tsx`: register `/local-models` route.
-- `AppSidebar.tsx`: add "Local Models" link.
+Both default to `allow` permission (read-only, safe).
 
-## README updates
-One section: "Built-in LLM runtime" — explains it uses llama.cpp via `llama-cpp-python`, where models live, how to add GPU support (`CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --no-cache-dir`).
+### 4. System-prompt update in `src/lib/ollama-prompt.ts`
+Add an explicit rule:
+> When the user asks about anything time-sensitive (sports fixtures, news, prices, weather, "latest", "today", "this week"), you MUST call `<web-search>` first, then `<web-fetch>` on the most relevant result, then answer using that text. Never reply "I can't access live data" — use the tools.
 
-## What stays the same
-- Ollama provider still works.
-- Chat UI, system prompt, Hermes memory/learning, tool-tag execution, Spec Kit — untouched.
-- Permissions and reflection loop apply to local-runtime responses identically.
+### 5. Permissions page
+Auto-register `web-search` and `web-fetch` with default `allow` so they don't prompt every time.
 
 ## Files touched
-**New:** `src/lib/local-llm.ts`, `src/pages/LocalModelsPage.tsx`
-**Edited:** `public/agent.py`, `src/lib/ollama.ts`, `src/components/ModelSelector.tsx`, `src/pages/Chat.tsx`, `src/pages/SettingsPage.tsx`, `src/components/AppSidebar.tsx`, `src/App.tsx`, `src/pages/Index.tsx`, `README.md`
+- `public/agent.py` — add `/web/search`, `/web/fetch`
+- `src/lib/agent.ts` — add `webSearch`, `webFetch`
+- `src/lib/agent-tools.ts` — register two new tool patterns + handlers
+- `src/lib/ollama-prompt.ts` — add live-data instruction block
+- `src/lib/permissions.ts` — add defaults for new tools
+- `README.md` — note the new pip deps
 
-## One-time PC setup you'll run after this ships
-```bash
-pip install llama-cpp-python fastapi-sse  # CPU
-# or for NVIDIA GPU:
-# CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --no-cache-dir
-```
-Then restart `python public/agent.py` and download a model from the new Local Models page.
+## After it ships
+1. Run once on your PC: `pip install beautifulsoup4 lxml trafilatura`
+2. Restart `python public/agent.py`
+3. Ask: *"When is Liverpool's next match?"* — the model will search, fetch, and answer with a source link.
+
+## Optional upgrades (say the word)
+- Swap DDG scraping for the **Firecrawl** connector (more reliable, handles JS sites, 500 free scrapes/month) — no PC deps needed.
+- Add a **Perplexity** connector tool tag for one-shot grounded answers with citations.
 
