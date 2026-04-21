@@ -46,6 +46,10 @@ const DEFAULT_CONFIG: PermissionConfig = {
     SET_CLIPBOARD: 'allow',
     UPDATE_MISSION: 'allow',
 
+    // Web search / fetch — read-only, safe
+    WEB_SEARCH: 'allow',
+    WEB_FETCH: 'allow',
+
     // Browser navigation / interaction — allow (you control the browser)
     OPEN_URL: 'allow',
     CLICK: 'allow',
