@@ -1,4 +1,4 @@
-import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar } from './agent';
+import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar, webSearch, webFetch } from './agent';
 import { checkPermission, isSessionAllowed, sessionAllowOnce, getToolName } from './permissions';
 import { logEpisode, recordLesson, deriveLesson, type EpisodeOutcome } from './learning';
 
@@ -48,7 +48,35 @@ const TOOL_PATTERNS = [
   { regex: /\[LIST_INSTALLED\]/g, handler: handleListInstalled },
   { regex: /\[GET_ENV\]/g, handler: handleGetEnv },
   { regex: /\[SET_ENV:(.*?)\|(.*?)\]/g, handler: handleSetEnv },
+  { regex: /\[WEB_SEARCH:([\s\S]*?)\]/g, handler: handleWebSearch },
+  { regex: /\[WEB_FETCH:(.*?)\]/g, handler: handleWebFetch },
 ];
+
+async function handleWebSearch(match: RegExpMatchArray): Promise<ToolResult> {
+  const query = match[1].trim();
+  try {
+    const { results, provider } = await webSearch(query, 5);
+    if (!results.length) {
+      return { tag: match[0], result: `\n🔎 **Web search** "${query}" — no results.` };
+    }
+    const listing = results
+      .map((r, i) => `${i + 1}. **${r.title}**\n   ${r.url}\n   ${r.snippet}`)
+      .join('\n\n');
+    return { tag: match[0], result: `\n🔎 **Web search** "${query}" (via ${provider}):\n${listing}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Web search failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleWebFetch(match: RegExpMatchArray): Promise<ToolResult> {
+  const url = match[1].trim();
+  try {
+    const { title, text, url: finalUrl } = await webFetch(url);
+    return { tag: match[0], result: `\n📄 **${title}**\n${finalUrl}\n\n\`\`\`\n${text}\n\`\`\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Web fetch failed for \`${url}\`: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
 
 async function handleListDir(match: RegExpMatchArray): Promise<ToolResult> {
   const path = match[1].trim();
