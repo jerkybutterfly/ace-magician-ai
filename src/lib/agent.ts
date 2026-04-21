@@ -1,5 +1,33 @@
 import { getSettings } from './settings';
 
+// ── Web search & fetch (live data) ──
+
+export interface WebSearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export async function webSearch(query: string, limit = 5): Promise<{ results: WebSearchResult[]; provider: string }> {
+  const res = await fetch(agentUrl('/web/search'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, limit }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Web search failed'));
+  return res.json();
+}
+
+export async function webFetch(url: string): Promise<{ url: string; title: string; text: string }> {
+  const res = await fetch(agentUrl('/web/fetch'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Web fetch failed'));
+  return res.json();
+}
+
 // ── Browser automation helpers ──
 
 export async function browserNavigate(url: string): Promise<{ status: string; url: string; title: string }> {

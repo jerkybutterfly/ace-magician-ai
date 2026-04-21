@@ -116,6 +116,171 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ═══════════════════════════════════════════════════════
+#  Web Search & Fetch (live data for the LLM)
+# ═══════════════════════════════════════════════════════
+import requests as _requests
+from urllib.parse import quote_plus as _quote_plus, urlparse as _urlparse
+
+_WEB_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
+
+
+class WebSearchRequest(BaseModel):
+    query: str
+    limit: Optional[int] = 5
+
+
+class WebFetchRequest(BaseModel):
+    url: str
+
+
+def _ddg_search(query: str, limit: int = 5) -> list[dict]:
+    """DuckDuckGo HTML search — no API key required."""
+    from bs4 import BeautifulSoup  # type: ignore
+    url = f"https://html.duckduckgo.com/html/?q={_quote_plus(query)}"
+    r = _requests.post(
+        url,
+        data={"q": query},
+        headers={"User-Agent": _WEB_UA, "Accept-Language": "en-US,en;q=0.9"},
+        timeout=15,
+    )
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "lxml")
+    out: list[dict] = []
+    for result in soup.select("div.result")[: limit * 2]:
+        a = result.select_one("a.result__a")
+        snippet_el = result.select_one("a.result__snippet, .result__snippet")
+        if not a:
+            continue
+        href = a.get("href", "")
+        # DDG redirect → strip
+        if "uddg=" in href:
+            from urllib.parse import parse_qs, urlparse as _u
+            qs = parse_qs(_u(href).query)
+            href = qs.get("uddg", [href])[0]
+        title = a.get_text(strip=True)
+        snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+        if href and title:
+            out.append({"title": title, "url": href, "snippet": snippet})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _serpapi_search(query: str, limit: int, key: str) -> list[dict]:
+    r = _requests.get(
+        "https://serpapi.com/search.json",
+        params={"q": query, "api_key": key, "num": limit},
+        timeout=15,
+    )
+    r.raise_for_status()
+    data = r.json()
+    out = []
+    for item in (data.get("organic_results") or [])[:limit]:
+        out.append({
+            "title": item.get("title", ""),
+            "url": item.get("link", ""),
+            "snippet": item.get("snippet", ""),
+        })
+    return out
+
+
+def _brave_search(query: str, limit: int, key: str) -> list[dict]:
+    r = _requests.get(
+        "https://api.search.brave.com/res/v1/web/search",
+        params={"q": query, "count": limit},
+        headers={"X-Subscription-Token": key, "Accept": "application/json"},
+        timeout=15,
+    )
+    r.raise_for_status()
+    data = r.json()
+    out = []
+    for item in ((data.get("web") or {}).get("results") or [])[:limit]:
+        out.append({
+            "title": item.get("title", ""),
+            "url": item.get("url", ""),
+            "snippet": item.get("description", ""),
+        })
+    return out
+
+
+@app.post("/web/search")
+def web_search(req: WebSearchRequest):
+    limit = max(1, min(req.limit or 5, 10))
+    query = (req.query or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+    serp = os.environ.get("SERPAPI_KEY")
+    brave = os.environ.get("BRAVE_SEARCH_KEY")
+    try:
+        if serp:
+            return {"results": _serpapi_search(query, limit, serp), "provider": "serpapi"}
+        if brave:
+            return {"results": _brave_search(query, limit, brave), "provider": "brave"}
+        return {"results": _ddg_search(query, limit), "provider": "duckduckgo"}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Search failed: {e}")
+
+
+@app.post("/web/fetch")
+def web_fetch(req: WebFetchRequest):
+    url = (req.url or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    if not _urlparse(url).scheme:
+        url = "https://" + url
+    try:
+        r = _requests.get(
+            url,
+            headers={"User-Agent": _WEB_UA, "Accept-Language": "en-US,en;q=0.9"},
+            timeout=20,
+            allow_redirects=True,
+        )
+        r.raise_for_status()
+        html = r.text
+        title = ""
+        text = ""
+        # Try trafilatura first (clean readable extraction)
+        try:
+            import trafilatura  # type: ignore
+            extracted = trafilatura.extract(
+                html, include_comments=False, include_tables=True, favor_recall=True
+            )
+            if extracted:
+                text = extracted
+        except Exception:
+            pass
+        # Fallback: BeautifulSoup
+        if not text:
+            from bs4 import BeautifulSoup  # type: ignore
+            soup = BeautifulSoup(html, "lxml")
+            for tag in soup(["script", "style", "noscript", "nav", "footer", "header", "aside"]):
+                tag.decompose()
+            if soup.title and soup.title.string:
+                title = soup.title.string.strip()
+            text = "\n".join(line.strip() for line in soup.get_text("\n").splitlines() if line.strip())
+        if not title:
+            try:
+                from bs4 import BeautifulSoup  # type: ignore
+                soup2 = BeautifulSoup(html, "lxml")
+                if soup2.title and soup2.title.string:
+                    title = soup2.title.string.strip()
+            except Exception:
+                pass
+        # Cap length
+        if len(text) > 8000:
+            text = text[:8000] + "\n...(truncated)"
+        return {"url": r.url, "title": title or url, "text": text}
+    except _requests.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"HTTP {e.response.status_code} fetching {url}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Fetch failed: {e}")
+
+
 # ── Safety: no blocked commands (unrestricted for virtual network testing) ──
 BLOCKED_COMMANDS = set()
 

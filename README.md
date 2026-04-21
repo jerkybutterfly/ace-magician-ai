@@ -8,6 +8,8 @@ The web app at the preview / published URL works as-is on PC. Make sure:
 
 - Ollama is running at `http://localhost:11434`
 - The Python agent is running at `http://localhost:8484` (`python public/agent.py`)
+- For live web search & fetch, install once: `pip install beautifulsoup4 lxml trafilatura`
+  (optional: set `SERPAPI_KEY` or `BRAVE_SEARCH_KEY` env var for more reliable search)
 
 ## Run on Android (Galaxy S26 Ultra etc.) via Capacitor
 
