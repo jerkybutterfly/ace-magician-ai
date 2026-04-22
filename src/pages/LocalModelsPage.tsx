@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Cpu, Download, Trash2, Plus, RefreshCw, CheckCircle2, AlertCircle, Link2, Copy as CopyIcon, FolderInput } from 'lucide-react';
+import { Cpu, Download, Trash2, Plus, RefreshCw, CheckCircle2, AlertCircle, Link2, Copy as CopyIcon, FolderInput, Zap, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   listLocalModels,
@@ -23,12 +23,19 @@ import {
   type LocalLLMStatus,
   type ExternalModel,
 } from '@/lib/local-llm';
+import { getSystemInfo, type SystemInfo } from '@/lib/agent';
 
 const SUGGESTED = [
   { label: 'Hermes-3-Llama-3.2-3B Q4', url: 'https://huggingface.co/NousResearch/Hermes-3-Llama-3.2-3B-GGUF/resolve/main/Hermes-3-Llama-3.2-3B.Q4_K_M.gguf' },
   { label: 'Llama-3.2-3B-Instruct Q4', url: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf' },
   { label: 'Qwen2.5-3B-Instruct Q4', url: 'https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf' },
   { label: 'Phi-3.5-mini-Instruct Q4', url: 'https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf' },
+];
+
+const RECOMMENDED = [
+  { label: 'Phi-3.5 Mini Q5_K_M', size: '~2.8 GB', speed: '~25+ tok/s', url: 'https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q5_K_M.gguf', note: 'Fastest overall' },
+  { label: 'Llama 3.1 8B Q4_K_M', size: '~4.7 GB', speed: '~12-18 tok/s', url: 'https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf', note: 'Best quality/speed balance' },
+  { label: 'Qwen 2.5 7B Q4_K_M', size: '~4.4 GB', speed: '~13-18 tok/s', url: 'https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf', note: 'Strong reasoning' },
 ];
 
 function formatBytes(bytes: number): string {
