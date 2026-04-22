@@ -228,6 +228,40 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Ollama Performance Tuning</CardTitle>
+          <CardDescription>Environment variables to set on your PC for faster Ollama responses</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Set these on your PC, then restart Ollama. They keep one model warm in RAM and enable flash attention — typically 10–30% faster on AMD/Intel CPUs with iGPUs.
+          </p>
+          <pre className="text-xs bg-muted/60 rounded p-3 overflow-x-auto leading-relaxed">{`OLLAMA_NUM_PARALLEL=1
+OLLAMA_MAX_LOADED_MODELS=1
+OLLAMA_KEEP_ALIVE=30m
+OLLAMA_FLASH_ATTENTION=1`}</pre>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer hover:text-foreground">How to apply (Windows / Linux / macOS)</summary>
+            <div className="mt-2 space-y-2">
+              <p><strong>Windows:</strong> Settings → System → About → Advanced system settings → Environment Variables → New (User), add each one. Restart Ollama from the system tray.</p>
+              <p><strong>Linux (systemd):</strong> <code className="bg-muted px-1 rounded">sudo systemctl edit ollama</code>, add <code className="bg-muted px-1 rounded">Environment="OLLAMA_KEEP_ALIVE=30m"</code> etc., then <code className="bg-muted px-1 rounded">sudo systemctl restart ollama</code>.</p>
+              <p><strong>macOS:</strong> <code className="bg-muted px-1 rounded">launchctl setenv OLLAMA_KEEP_ALIVE 30m</code> then restart Ollama.app.</p>
+            </div>
+          </details>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText('OLLAMA_NUM_PARALLEL=1\nOLLAMA_MAX_LOADED_MODELS=1\nOLLAMA_KEEP_ALIVE=30m\nOLLAMA_FLASH_ATTENTION=1');
+              toast({ title: 'Copied env vars to clipboard' });
+            }}
+          >
+            Copy env vars
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">LM Studio Configuration</CardTitle>
           <CardDescription>Connect to a local LM Studio server for running models</CardDescription>
         </CardHeader>
