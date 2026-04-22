@@ -522,6 +522,7 @@ export default function LocalModelsPage() {
           </CardContent>
         </Card>
       </div>
+      <TuneWizard open={wizardOpen} onOpenChange={setWizardOpen} onApplied={applyTuned} />
     </ScrollArea>
   );
 }
