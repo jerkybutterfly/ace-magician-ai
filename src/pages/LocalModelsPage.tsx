@@ -103,20 +103,15 @@ export default function LocalModelsPage() {
 
   useEffect(() => { refresh(); }, []);
 
-  const tuneForCpu = () => {
-    const physical = sysInfo?.cpu?.physical_cores || 8;
-    setNThreads(physical);
-    setNBatch(512);
-    setNCtx(4096);
-    setNGpuLayers(0);
-    setUseMmap(true);
-    setUseMlock(false);
-    setFlashAttn(true);
+  const applyTuned = (p: TunedParams) => {
+    setNThreads(p.n_threads);
+    setNBatch(p.n_batch);
+    setNCtx(p.n_ctx);
+    setNGpuLayers(p.n_gpu_layers);
+    setUseMmap(p.use_mmap);
+    setUseMlock(p.use_mlock);
+    setFlashAttn(p.flash_attn);
     setShowAdvanced(true);
-    toast({
-      title: 'Tuned for your CPU',
-      description: `${physical} threads, batch 512, flash-attn on. Click Load on a model to apply.`,
-    });
   };
 
   const handleLoad = async (name: string) => {
