@@ -8,6 +8,7 @@ import argparse
 import os
 import re
 import shutil
+import platform
 import subprocess
 import threading
 import time
