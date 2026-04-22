@@ -288,7 +288,7 @@ export default function LocalModelsPage() {
               <CardTitle className="text-base">Runtime settings</CardTitle>
               <CardDescription>Applied when loading a model.</CardDescription>
             </div>
-            <Button size="sm" variant="outline" onClick={tuneForCpu}>
+            <Button size="sm" variant="outline" onClick={() => setWizardOpen(true)}>
               <Zap className="h-4 w-4 mr-1" /> Tune for my CPU
             </Button>
           </CardHeader>
