@@ -24,6 +24,7 @@ import {
   type ExternalModel,
 } from '@/lib/local-llm';
 import { getSystemInfo, type SystemInfo } from '@/lib/agent';
+import { TuneWizard, type TunedParams } from '@/components/TuneWizard';
 
 const SUGGESTED = [
   { label: 'Hermes-3-Llama-3.2-3B Q4', url: 'https://huggingface.co/NousResearch/Hermes-3-Llama-3.2-3B-GGUF/resolve/main/Hermes-3-Llama-3.2-3B.Q4_K_M.gguf' },
