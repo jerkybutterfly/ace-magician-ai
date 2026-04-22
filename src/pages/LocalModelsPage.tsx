@@ -256,10 +256,44 @@ export default function LocalModelsPage() {
           </Card>
         )}
 
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" /> Recommended for your system
+            </CardTitle>
+            <CardDescription>
+              {sysInfo?.cpu?.model
+                ? `${sysInfo.cpu.model.replace(/\s+/g, ' ').trim()} · ${formatBytes(sysInfo.memory.total)} RAM`
+                : 'CPU-friendly models that run well on Ryzen mobile + 32 GB RAM.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {RECOMMENDED.map((r) => (
+              <div key={r.url} className="flex items-center justify-between gap-2 p-2.5 rounded-md border border-border/50 bg-background/40">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{r.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{r.size} · {r.speed} · {r.note}</p>
+                </div>
+                <Button size="sm" variant="outline" disabled={pulling} onClick={() => handlePull(r.url)}>
+                  <Download className="h-3.5 w-3.5 mr-1" /> Get
+                </Button>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground pt-1">
+              Avoid 13B+ models and Q8/F16 quants on integrated graphics — RAM bandwidth is the bottleneck.
+            </p>
+          </CardContent>
+        </Card>
+
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Runtime settings</CardTitle>
-            <CardDescription>Applied when loading a model.</CardDescription>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle className="text-base">Runtime settings</CardTitle>
+              <CardDescription>Applied when loading a model.</CardDescription>
+            </div>
+            <Button size="sm" variant="outline" onClick={tuneForCpu}>
+              <Zap className="h-4 w-4 mr-1" /> Tune for my CPU
+            </Button>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
@@ -275,8 +309,51 @@ export default function LocalModelsPage() {
                 <span className="text-muted-foreground">{nGpuLayers === -1 ? 'All' : nGpuLayers === 0 ? 'CPU only' : nGpuLayers}</span>
               </div>
               <Slider min={-1} max={80} step={1} value={[nGpuLayers]} onValueChange={(v) => setNGpuLayers(v[0])} />
-              <p className="text-xs text-muted-foreground">−1 = offload all layers to GPU, 0 = pure CPU.</p>
+              <p className="text-xs text-muted-foreground">−1 = offload all layers to GPU, 0 = pure CPU. AMD Vega iGPUs: keep at 0.</p>
             </div>
+
+            <button
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="text-xs text-primary hover:underline"
+            >
+              {showAdvanced ? '▾ Hide' : '▸ Show'} advanced CPU tuning
+            </button>
+
+            {showAdvanced && (
+              <div className="space-y-5 pt-2 border-t border-border/40">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <Label>Threads</Label>
+                    <span className="text-muted-foreground">
+                      {nThreads === 0 ? `Auto (${sysInfo?.cpu?.physical_cores ?? '?'} cores)` : nThreads}
+                    </span>
+                  </div>
+                  <Slider min={0} max={Math.max(16, sysInfo?.cpu?.logical_cores ?? 16)} step={1} value={[nThreads]} onValueChange={(v) => setNThreads(v[0])} />
+                  <p className="text-xs text-muted-foreground">Use physical core count, not SMT/HT — extra threads usually slow llama.cpp down.</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <Label>Batch size</Label>
+                    <span className="text-muted-foreground">{nBatch}</span>
+                  </div>
+                  <Slider min={64} max={2048} step={64} value={[nBatch]} onValueChange={(v) => setNBatch(v[0])} />
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={flashAttn} onChange={(e) => setFlashAttn(e.target.checked)} />
+                    Flash attention
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={useMmap} onChange={(e) => setUseMmap(e.target.checked)} />
+                    use_mmap
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={useMlock} onChange={(e) => setUseMlock(e.target.checked)} />
+                    use_mlock
+                  </label>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
