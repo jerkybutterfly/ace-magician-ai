@@ -39,11 +39,21 @@ export async function listLocalModels(): Promise<{ models: LocalModel[]; availab
   return res.json();
 }
 
-export async function loadLocalModel(name: string, n_ctx = 4096, n_gpu_layers = 0): Promise<void> {
+export interface LoadOptions {
+  n_ctx?: number;
+  n_gpu_layers?: number;
+  n_threads?: number;
+  n_batch?: number;
+  flash_attn?: boolean;
+  use_mmap?: boolean;
+  use_mlock?: boolean;
+}
+
+export async function loadLocalModel(name: string, n_ctx = 4096, n_gpu_layers = 0, opts: LoadOptions = {}): Promise<void> {
   const res = await fetch(`${base()}/llm/load`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, n_ctx, n_gpu_layers }),
+    body: JSON.stringify({ name, n_ctx, n_gpu_layers, ...opts }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
