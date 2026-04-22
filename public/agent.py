@@ -8,6 +8,7 @@ import argparse
 import os
 import re
 import shutil
+import platform
 import subprocess
 import threading
 import time
@@ -510,10 +511,141 @@ async def delete_file(req: FileDeleteRequest):
 
 
 # ── System Info ──
+def _detect_cpu_info() -> dict:
+    """Best-effort CPU detection: model name + AVX2/AVX512/FMA flags."""
+    info = {
+        "model": platform.processor() or platform.machine(),
+        "physical_cores": psutil.cpu_count(logical=False) or 0,
+        "logical_cores": psutil.cpu_count(logical=True) or 0,
+        "flags": [],
+        "has_avx2": False,
+        "has_avx512": False,
+        "has_fma": False,
+    }
+    try:
+        if platform.system() == "Linux":
+            with open("/proc/cpuinfo", "r") as f:
+                txt = f.read()
+            for line in txt.split("\n"):
+                if line.startswith("model name") and not info["model"]:
+                    info["model"] = line.split(":", 1)[1].strip()
+                if line.startswith("flags"):
+                    info["flags"] = line.split(":", 1)[1].split()
+                    break
+        elif platform.system() == "Windows":
+            try:
+                out = subprocess.run(
+                    ["wmic", "cpu", "get", "name"],
+                    capture_output=True, text=True, timeout=5
+                ).stdout
+                lines = [l.strip() for l in out.split("\n") if l.strip() and l.strip().lower() != "name"]
+                if lines:
+                    info["model"] = lines[0]
+            except Exception:
+                pass
+            # Try py-cpuinfo if available for flags
+            try:
+                import cpuinfo  # type: ignore
+                ci = cpuinfo.get_cpu_info()
+                info["flags"] = ci.get("flags", [])
+                if ci.get("brand_raw"):
+                    info["model"] = ci["brand_raw"]
+            except Exception:
+                pass
+        elif platform.system() == "Darwin":
+            try:
+                out = subprocess.run(
+                    ["sysctl", "-n", "machdep.cpu.brand_string"],
+                    capture_output=True, text=True, timeout=5
+                ).stdout.strip()
+                if out:
+                    info["model"] = out
+                feats = subprocess.run(
+                    ["sysctl", "-n", "machdep.cpu.features", "machdep.cpu.leaf7_features"],
+                    capture_output=True, text=True, timeout=5
+                ).stdout.lower()
+                info["flags"] = feats.split()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    flags_lower = [f.lower() for f in info["flags"]]
+    info["has_avx2"] = any("avx2" in f for f in flags_lower)
+    info["has_avx512"] = any("avx512" in f for f in flags_lower)
+    info["has_fma"] = any(f in ("fma", "fma3", "fma4") for f in flags_lower)
+    # Trim flags list for response size
+    info["flags"] = info["flags"][:32]
+    return info
+
+
+def _detect_ram_info() -> dict:
+    """Best-effort RAM detection: channel count + speed."""
+    info = {"channels": 0, "speed_mhz": 0, "type": "", "dual_channel": False}
+    try:
+        if platform.system() == "Windows":
+            out = subprocess.run(
+                ["wmic", "memorychip", "get", "Capacity,Speed,MemoryType"],
+                capture_output=True, text=True, timeout=5
+            ).stdout
+            populated = 0
+            speeds = []
+            for line in out.split("\n")[1:]:
+                parts = line.split()
+                if len(parts) >= 2 and parts[0].isdigit() and int(parts[0]) > 0:
+                    populated += 1
+                    # Speed is usually last numeric col
+                    for p in parts[1:]:
+                        if p.isdigit() and int(p) > 100:
+                            speeds.append(int(p))
+                            break
+            info["channels"] = populated
+            info["dual_channel"] = populated >= 2
+            if speeds:
+                info["speed_mhz"] = max(speeds)
+        elif platform.system() == "Linux":
+            try:
+                out = subprocess.run(
+                    ["dmidecode", "-t", "memory"],
+                    capture_output=True, text=True, timeout=5
+                ).stdout
+                populated = 0
+                speeds = []
+                for block in out.split("\n\n"):
+                    if "Size:" in block and "No Module Installed" not in block and "Size: None" not in block:
+                        if "DIMM" in block or "SODIMM" in block or "Memory Device" in block:
+                            populated += 1
+                            for line in block.split("\n"):
+                                if "Speed:" in line and "Configured" not in line:
+                                    parts = line.split()
+                                    for p in parts:
+                                        if p.isdigit():
+                                            speeds.append(int(p))
+                                            break
+                info["channels"] = populated
+                info["dual_channel"] = populated >= 2
+                if speeds:
+                    info["speed_mhz"] = max(speeds)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return info
+
+
+# Cache slow detections — they don't change at runtime
+_CPU_INFO_CACHE: Optional[dict] = None
+_RAM_INFO_CACHE: Optional[dict] = None
+
+
 @app.get("/system")
 async def system_info():
+    global _CPU_INFO_CACHE, _RAM_INFO_CACHE
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
+    if _CPU_INFO_CACHE is None:
+        _CPU_INFO_CACHE = _detect_cpu_info()
+    if _RAM_INFO_CACHE is None:
+        _RAM_INFO_CACHE = _detect_ram_info()
     return {
         "cpu_percent": psutil.cpu_percent(interval=0.5),
         "memory": {
@@ -526,6 +658,8 @@ async def system_info():
             "used": disk.used,
             "percent": disk.percent,
         },
+        "cpu": _CPU_INFO_CACHE,
+        "ram": _RAM_INFO_CACHE,
     }
 
 
@@ -2076,21 +2210,39 @@ class _LLMRuntime:
         except Exception:
             return False
 
-    def load(self, name: str, n_ctx: int = 4096, n_gpu_layers: int = 0):
+    def load(self, name: str, n_ctx: int = 4096, n_gpu_layers: int = 0,
+             n_threads: Optional[int] = None, n_batch: int = 512,
+             flash_attn: bool = False, use_mmap: bool = True, use_mlock: bool = False):
         if not self.is_available():
             raise HTTPException(status_code=400, detail="llama-cpp-python not installed. Run: pip install llama-cpp-python")
         path = MODELS_DIR / name
         if not path.exists():
             raise HTTPException(status_code=404, detail=f"Model not found: {name}")
         from llama_cpp import Llama
+        # Default threads = physical cores (SMT/HT generally hurts llama.cpp throughput)
+        if n_threads is None or n_threads <= 0:
+            n_threads = psutil.cpu_count(logical=False) or psutil.cpu_count(logical=True) or 4
+        kwargs = dict(
+            model_path=str(path),
+            n_ctx=n_ctx,
+            n_gpu_layers=n_gpu_layers,
+            n_threads=n_threads,
+            n_batch=n_batch,
+            use_mmap=use_mmap,
+            use_mlock=use_mlock,
+            verbose=False,
+        )
+        # flash_attn isn't supported on every llama-cpp-python build — try, then retry without on failure
         with self.lock:
             self.unload()
-            self.llm = Llama(
-                model_path=str(path),
-                n_ctx=n_ctx,
-                n_gpu_layers=n_gpu_layers,
-                verbose=False,
-            )
+            try:
+                if flash_attn:
+                    self.llm = Llama(flash_attn=True, **kwargs)
+                else:
+                    self.llm = Llama(**kwargs)
+            except TypeError:
+                # Older llama-cpp-python without one of these kwargs
+                self.llm = Llama(**kwargs)
             self.name = name
             self.n_ctx = n_ctx
             self.n_gpu_layers = n_gpu_layers
@@ -2317,11 +2469,20 @@ class LLMLoadReq(BaseModel):
     name: str
     n_ctx: int = 4096
     n_gpu_layers: int = 0
+    n_threads: Optional[int] = None
+    n_batch: int = 512
+    flash_attn: bool = False
+    use_mmap: bool = True
+    use_mlock: bool = False
 
 
 @app.post("/llm/load")
 async def llm_load(req: LLMLoadReq):
-    _LLM.load(req.name, req.n_ctx, req.n_gpu_layers)
+    _LLM.load(
+        req.name, req.n_ctx, req.n_gpu_layers,
+        n_threads=req.n_threads, n_batch=req.n_batch,
+        flash_attn=req.flash_attn, use_mmap=req.use_mmap, use_mlock=req.use_mlock,
+    )
     return {"status": "ok", "loaded": _LLM.name}
 
 

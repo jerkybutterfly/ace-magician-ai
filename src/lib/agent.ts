@@ -126,6 +126,21 @@ export interface SystemInfo {
   cpu_percent: number;
   memory: { total: number; used: number; percent: number };
   disk: { total: number; used: number; percent: number };
+  cpu?: {
+    model?: string;
+    physical_cores?: number;
+    logical_cores?: number;
+    flags?: string[];
+    has_avx2?: boolean;
+    has_avx512?: boolean;
+    has_fma?: boolean;
+  };
+  ram?: {
+    channels?: number;
+    speed_mhz?: number;
+    type?: string;
+    dual_channel?: boolean;
+  };
 }
 
 export async function getSystemInfo(): Promise<SystemInfo> {
