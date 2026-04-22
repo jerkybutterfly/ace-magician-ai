@@ -24,6 +24,7 @@ import {
   type ExternalModel,
 } from '@/lib/local-llm';
 import { getSystemInfo, type SystemInfo } from '@/lib/agent';
+import { TuneWizard, type TunedParams } from '@/components/TuneWizard';
 
 const SUGGESTED = [
   { label: 'Hermes-3-Llama-3.2-3B Q4', url: 'https://huggingface.co/NousResearch/Hermes-3-Llama-3.2-3B-GGUF/resolve/main/Hermes-3-Llama-3.2-3B.Q4_K_M.gguf' },
@@ -62,6 +63,7 @@ export default function LocalModelsPage() {
   const [useMlock, setUseMlock] = useState(false);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   // Pull dialog state
   const [pullOpen, setPullOpen] = useState(false);
@@ -101,20 +103,15 @@ export default function LocalModelsPage() {
 
   useEffect(() => { refresh(); }, []);
 
-  const tuneForCpu = () => {
-    const physical = sysInfo?.cpu?.physical_cores || 8;
-    setNThreads(physical);
-    setNBatch(512);
-    setNCtx(4096);
-    setNGpuLayers(0);
-    setUseMmap(true);
-    setUseMlock(false);
-    setFlashAttn(true);
+  const applyTuned = (p: TunedParams) => {
+    setNThreads(p.n_threads);
+    setNBatch(p.n_batch);
+    setNCtx(p.n_ctx);
+    setNGpuLayers(p.n_gpu_layers);
+    setUseMmap(p.use_mmap);
+    setUseMlock(p.use_mlock);
+    setFlashAttn(p.flash_attn);
     setShowAdvanced(true);
-    toast({
-      title: 'Tuned for your CPU',
-      description: `${physical} threads, batch 512, flash-attn on. Click Load on a model to apply.`,
-    });
   };
 
   const handleLoad = async (name: string) => {
@@ -291,7 +288,7 @@ export default function LocalModelsPage() {
               <CardTitle className="text-base">Runtime settings</CardTitle>
               <CardDescription>Applied when loading a model.</CardDescription>
             </div>
-            <Button size="sm" variant="outline" onClick={tuneForCpu}>
+            <Button size="sm" variant="outline" onClick={() => setWizardOpen(true)}>
               <Zap className="h-4 w-4 mr-1" /> Tune for my CPU
             </Button>
           </CardHeader>
@@ -525,6 +522,7 @@ export default function LocalModelsPage() {
           </CardContent>
         </Card>
       </div>
+      <TuneWizard open={wizardOpen} onOpenChange={setWizardOpen} onApplied={applyTuned} />
     </ScrollArea>
   );
 }
