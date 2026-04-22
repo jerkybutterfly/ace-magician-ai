@@ -55,6 +55,13 @@ export default function LocalModelsPage() {
   const [error, setError] = useState('');
   const [nCtx, setNCtx] = useState(4096);
   const [nGpuLayers, setNGpuLayers] = useState(0);
+  const [nThreads, setNThreads] = useState(0); // 0 = auto (physical cores)
+  const [nBatch, setNBatch] = useState(512);
+  const [flashAttn, setFlashAttn] = useState(false);
+  const [useMmap, setUseMmap] = useState(true);
+  const [useMlock, setUseMlock] = useState(false);
+  const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Pull dialog state
   const [pullOpen, setPullOpen] = useState(false);
@@ -75,9 +82,14 @@ export default function LocalModelsPage() {
     setLoading(true);
     setError('');
     try {
-      const [s, m] = await Promise.all([getLocalLLMStatus(), listLocalModels()]);
+      const [s, m, sys] = await Promise.all([
+        getLocalLLMStatus(),
+        listLocalModels(),
+        getSystemInfo().catch(() => null),
+      ]);
       setStatus(s);
       setModels(m.models);
+      setSysInfo(sys);
       if (s.n_ctx) setNCtx(s.n_ctx);
       if (typeof s.n_gpu_layers === 'number') setNGpuLayers(s.n_gpu_layers);
     } catch (e) {
@@ -89,9 +101,31 @@ export default function LocalModelsPage() {
 
   useEffect(() => { refresh(); }, []);
 
+  const tuneForCpu = () => {
+    const physical = sysInfo?.cpu?.physical_cores || 8;
+    setNThreads(physical);
+    setNBatch(512);
+    setNCtx(4096);
+    setNGpuLayers(0);
+    setUseMmap(true);
+    setUseMlock(false);
+    setFlashAttn(true);
+    setShowAdvanced(true);
+    toast({
+      title: 'Tuned for your CPU',
+      description: `${physical} threads, batch 512, flash-attn on. Click Load on a model to apply.`,
+    });
+  };
+
   const handleLoad = async (name: string) => {
     try {
-      await loadLocalModel(name, nCtx, nGpuLayers);
+      await loadLocalModel(name, nCtx, nGpuLayers, {
+        n_threads: nThreads || undefined,
+        n_batch: nBatch,
+        flash_attn: flashAttn,
+        use_mmap: useMmap,
+        use_mlock: useMlock,
+      });
       toast({ title: 'Model loaded', description: name });
       refresh();
     } catch (e) {
