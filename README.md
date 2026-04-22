@@ -59,3 +59,43 @@ The agent can also drive Spec Kit from chat via the `spec_kit` skill: `[RUN_SKIL
 `capacitor.config.ts` points `server.url` at the Lovable preview URL, so the Android app live-reloads from the sandbox while you iterate. For a final standalone APK that runs offline against bundled assets, remove the `server.url` block before building.
 
 For a deeper guide see: https://lovable.dev/blog/2025-06-13-the-most-complete-guide-for-using-capacitor-with-lovable
+
+## Performance tuning for AMD Ryzen mobile (e.g. AceMagician AM09 Pro, 5700U)
+
+The mini-PC sweet spot is **CPU inference with AVX2 + dual-channel RAM**. Vega 8 / 7 iGPUs are not usable for `llama.cpp` on Windows, so don't bother with `n_gpu_layers`.
+
+### 1. Click "Tune for my CPU" on the Local Models page
+This sets:
+- `n_threads` = your physical core count (8 on 5700U) — **never** the SMT count, it slows things down
+- `n_batch` = 512
+- `n_gpu_layers` = 0
+- `flash_attn` = on (when supported)
+- `use_mmap` = on, `use_mlock` = off
+
+### 2. Confirm dual-channel RAM
+The System panel in the sidebar shows your RAM channel count. **Single-channel halves your tokens/sec.** Open the case and add a second matched SO-DIMM if only one slot is populated.
+
+### 3. Rebuild llama-cpp-python with native AVX2 (1.5–2× faster)
+The pip-installed wheel is built generic. Rebuild against your CPU:
+```bash
+CMAKE_ARGS="-DGGML_NATIVE=on -DGGML_AVX2=on -DGGML_FMA=on" \
+  pip install llama-cpp-python --force-reinstall --no-cache-dir
+```
+Restart `agent.py` afterwards.
+
+### 4. Apply Ollama env vars (Settings → Ollama Performance Tuning)
+```
+OLLAMA_NUM_PARALLEL=1
+OLLAMA_MAX_LOADED_MODELS=1
+OLLAMA_KEEP_ALIVE=30m
+OLLAMA_FLASH_ATTENTION=1
+```
+
+### 5. Pick the right model size
+| Model | Size | Expected tok/s on 5700U |
+|---|---|---|
+| Phi-3.5 Mini Q5_K_M | 2.8 GB | 25+ |
+| Llama 3.1 8B Q4_K_M | 4.7 GB | 12–18 |
+| Qwen 2.5 7B Q4_K_M | 4.4 GB | 13–18 |
+| Anything 13B+ or Q8/F16 | — | bandwidth-starved, avoid |
+
