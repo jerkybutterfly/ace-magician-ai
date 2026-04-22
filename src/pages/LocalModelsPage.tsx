@@ -63,6 +63,7 @@ export default function LocalModelsPage() {
   const [useMlock, setUseMlock] = useState(false);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   // Pull dialog state
   const [pullOpen, setPullOpen] = useState(false);
