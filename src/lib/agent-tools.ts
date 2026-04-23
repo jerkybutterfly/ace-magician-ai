@@ -51,7 +51,88 @@ const TOOL_PATTERNS = [
   { regex: /\[WEB_SEARCH:([\s\S]*?)\]/g, handler: handleWebSearch },
   { regex: /\[WEB_FETCH:(.*?)\]/g, handler: handleWebFetch },
   { regex: /\[NOTIFY:(.*?)\|([\s\S]*?)\]/g, handler: handleNotifyUser },
+  { regex: /\[MQTT_PUBLISH:(.*?)\|([\s\S]*?)\]/g, handler: handleMqttPublish },
+  { regex: /\[MQTT_SUBSCRIBE:(.*?)\]/g, handler: handleMqttSubscribe },
+  { regex: /\[MQTT_RECENT:(.*?)\]/g, handler: handleMqttRecent },
+  { regex: /\[SCAN_NETWORK\]/g, handler: handleScanNetwork },
+  { regex: /\[RAG_QUERY:([\s\S]*?)\]/g, handler: handleRagQuery },
 ];
+
+async function handleMqttPublish(match: RegExpMatchArray): Promise<ToolResult> {
+  const topic = match[1].trim();
+  const payload = match[2].trim();
+  try {
+    const { mqttPublish } = await import('./mqtt');
+    await mqttPublish(topic, payload);
+    return { tag: match[0], result: `\n📡 MQTT → \`${topic}\`: \`${payload}\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ MQTT publish failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
+
+async function handleMqttSubscribe(match: RegExpMatchArray): Promise<ToolResult> {
+  const topic = match[1].trim();
+  try {
+    const { mqttSubscribe } = await import('./mqtt');
+    await mqttSubscribe(topic);
+    return { tag: match[0], result: `\n📡 Subscribed to \`${topic}\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ MQTT subscribe failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
+
+async function handleMqttRecent(match: RegExpMatchArray): Promise<ToolResult> {
+  const filter = match[1].trim();
+  try {
+    const { getMqttMessages } = await import('./mqtt');
+    const { messages } = await getMqttMessages(0);
+    const matched = messages.filter(m => !filter || m.topic.includes(filter)).slice(-20);
+    if (!matched.length) return { tag: match[0], result: `\n📡 No recent MQTT messages for \`${filter || '*'}\`` };
+    const list = matched.map(m => `- \`${m.topic}\`: ${m.payload}`).join('\n');
+    return { tag: match[0], result: `\n📡 **Recent MQTT** (\`${filter || '*'}\`):\n${list}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ MQTT read failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
+
+async function handleScanNetwork(match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const { startNetworkScan, getScanStatus } = await import('./network');
+    const { scan_id } = await startNetworkScan();
+    // Poll until done (max 60s)
+    let status;
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      status = await getScanStatus(scan_id);
+      if (status.status !== 'running') break;
+    }
+    if (!status || status.status === 'running') {
+      return { tag: match[0], result: `\n🌐 Network scan still running — check the Network page.` };
+    }
+    if (status.status === 'error') {
+      return { tag: match[0], result: `\n⚠️ Scan failed: ${status.error || 'unknown'}` };
+    }
+    const lines = status.devices
+      .map(d => `- ${d.ip} | ${d.hostname || '—'} | ${d.mac || '—'} | ${d.vendor || 'Unknown'}`)
+      .join('\n');
+    return { tag: match[0], result: `\n🌐 **${status.devices.length} devices on LAN:**\n${lines}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Network scan failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
+
+async function handleRagQuery(match: RegExpMatchArray): Promise<ToolResult> {
+  const q = match[1].trim();
+  try {
+    const { ragQuery } = await import('./rag');
+    const { chunks } = await ragQuery(q, 5);
+    if (!chunks.length) return { tag: match[0], result: `\n📚 No matching document chunks for "${q}".` };
+    const out = chunks.map((c, i) => `${i + 1}. **${c.path}** (score ${c.score.toFixed(3)})\n   > ${c.text.slice(0, 400).replace(/\n/g, ' ')}`).join('\n\n');
+    return { tag: match[0], result: `\n📚 **RAG results for** "${q}":\n${out}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ RAG query failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
 
 async function handleNotifyUser(match: RegExpMatchArray): Promise<ToolResult> {
   const title = match[1].trim();
