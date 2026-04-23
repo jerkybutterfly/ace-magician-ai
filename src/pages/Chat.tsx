@@ -228,12 +228,12 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     setStreamedContent('');
     setStreamedThinking('');
 
+    let aggregatedToolText = '';
     try {
       let currentMessages = [...visibleHistory];
       const actionableRequest = isActionableRequest(request);
       let forcedTagRetries = 0;
       let round = 0;
-      let aggregatedToolText = '';
 
       while (round < MAX_TOOL_ROUNDS) {
         round++;
