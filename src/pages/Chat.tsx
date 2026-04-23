@@ -270,6 +270,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         const hitsRefusal = REFUSAL_PATTERNS.test(full);
 
         if (containsToolCommands) {
+          aggregatedToolText += '\n' + full;
           setExecutingTools(true);
           setStatusLogs([]);
           setStreamedContent(full);
@@ -353,6 +354,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       setStreamedContent('');
       setStreamedThinking('');
       setExecutingTools(false);
+      if (aggregatedToolText.trim()) {
+        const suggestion = recordSequence(aggregatedToolText);
+        if (suggestion) setSkillSuggestion(suggestion);
+      }
     }
   };
 
