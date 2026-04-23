@@ -1,79 +1,65 @@
 
 
 ## Goal
-Tune the local AI runtime for your **AceMagician AM09 Pro** (Ryzen 7 5700U, 32GB DDR4, Radeon Vega 8 iGPU) so models respond noticeably faster.
+Implement my top 3 picks: **Conversation search**, **Auto-skill creation**, and **Push notifications from agent** (web + Capacitor).
 
-## Hardware reality check
-- **5700U = Zen 2, 8c/16t, no AVX-512** — but it has **AVX2 + FMA**, which `llama.cpp` loves.
-- **Vega 8 iGPU**: technically ROCm-capable but unsupported on Windows for `llama.cpp` in practice. GPU offload won't help — **CPU is your path**.
-- **32GB RAM** is your superpower: you can run 13B Q4 models comfortably and use big context windows.
-- DDR4 SO-DIMM memory bandwidth (~38GB/s dual-channel) is the real bottleneck for token speed. **Confirm both SO-DIMM slots are populated** — single-channel halves your tokens/sec.
+## 1. Conversation search
+Full-text search across every past chat, accessible from the sidebar.
 
-## What I'll change
+- New `<ConversationSearch />` component opened by a search icon next to the "+" in the History header (and `Ctrl/Cmd+K` shortcut).
+- Built on existing `cmdk` (`src/components/ui/command.tsx`) — a `CommandDialog` listing matching conversations with the matched message snippet highlighted.
+- Searches across `title` + every `message.content` in `localStorage` conversations. Case-insensitive, ranked by recency then match count.
+- Clicking a result calls `onSelectConvo(id)` and closes the dialog.
+- No backend needed — pure client-side over the existing `Conversation[]`.
 
-### 1. Local Models page — add a "Tune for my CPU" preset button
-One click applies optimal defaults for your chip:
-- `n_threads = 8` (physical cores, not 16 — SMT hurts llama.cpp)
-- `n_batch = 512`
-- `n_ctx = 4096` (default; slider to raise)
-- `n_gpu_layers = 0` (Vega 8 won't help on Windows)
-- `use_mmap = true`, `use_mlock = false`
-- `flash_attn = true` if model supports it
+**Files:** `src/components/ConversationSearch.tsx` (new), `src/components/AppSidebar.tsx` (wire in icon + shortcut), `src/pages/Index.tsx` (pass conversations through if needed).
 
-### 2. Backend (`public/agent.py`) — accept and pass these params
-Extend `/llm/load` to accept `n_threads`, `n_batch`, `flash_attn`, `use_mmap`, `use_mlock` and forward them to `llama_cpp.Llama(...)`. Currently only `n_ctx` and `n_gpu_layers` are wired.
+## 2. Auto-skill creation
+After the agent completes a successful multi-step tool sequence, offer to save it as a reusable skill.
 
-### 3. Model recommendations panel
-Add a "Recommended for your system" card on the Local Models page suggesting models that hit the sweet spot for 5700U + 32GB:
-- **Llama 3.1 8B Q4_K_M** (~4.7GB) — fastest good model, ~12-18 tok/s expected
-- **Qwen 2.5 7B Q4_K_M** — strong reasoning, similar speed
-- **Phi-3.5 Mini Q5_K_M** (~2.8GB) — fastest overall, ~25+ tok/s
-- Avoid: anything >13B, anything Q8/F16 (RAM-bandwidth starved)
+- New `src/lib/skill-detector.ts`: tracks tool-call sequences per conversation. When the same ordered sequence of `[RUN_CMD]` / `[BROWSER_*]` / `[WRITE_FILE]` calls (normalized — args templated as `{{arg1}}`) appears **twice** across any conversations, surface a suggestion.
+- Tracking persisted to `localStorage` under `skill-suggestions`.
+- New `<SkillSuggestionToast />` shown in `Chat.tsx` after a successful agent turn — *"You've done this twice. Save as skill 'fetch_fixtures'?"* with **Save** / **Dismiss**.
+- Save action posts a generated Python skill to `POST /skills` (already exists in `agent.py`). Template wraps the command sequence with `argparse` for the templated args.
+- A new "Suggestions" tab on `SkillsPage.tsx` shows pending suggestions to review/accept/reject.
 
-### 4. Ollama-side tuning (if you keep using Ollama as primary)
-Add a Settings panel section that writes these env vars into the Ollama service config note (shown to user, since we can't edit their system):
-- `OLLAMA_NUM_PARALLEL=1`
-- `OLLAMA_MAX_LOADED_MODELS=1`
-- `OLLAMA_KEEP_ALIVE=30m` (avoid reload cost)
-- `OLLAMA_FLASH_ATTENTION=1`
+**Files:** `src/lib/skill-detector.ts` (new), `src/components/SkillSuggestionToast.tsx` (new), `src/pages/Chat.tsx` (hook detector into tool-call loop), `src/pages/SkillsPage.tsx` (Suggestions tab).
 
-### 5. System diagnostics widget upgrade
-Extend `SystemInfoPanel` to show:
-- RAM channel config (dual vs single) — warns if single-channel detected
-- CPU model + AVX2/AVX512 flags
-- Currently loaded model size vs free RAM
-This makes it obvious *why* a model is slow.
+## 3. Push notifications from agent
+Notify the user (browser + Android via Capacitor) when long-running tasks finish or cron jobs fire.
 
-### 6. README — add "Performance tuning for AMD Ryzen mobile" section
-Documents the rebuild command for max speed:
-```
-CMAKE_ARGS="-DGGML_NATIVE=on -DGGML_AVX2=on -DGGML_FMA=on" \
-pip install llama-cpp-python --force-reinstall --no-cache-dir
-```
-This rebuilds `llama-cpp-python` with native CPU instructions — **typically 1.5-2× faster** than the generic prebuilt wheel.
+**Backend (`public/agent.py`)**
+- New table-less `notifications` queue stored in JSON file `notifications.json`.
+- `POST /notifications` — agent or cron jobs append `{title, body, ts, kind}`.
+- `GET /notifications/poll?since=<ts>` — returns new entries since timestamp.
+- Modify cron job runner to push a notification on each successful run (configurable per-job).
+- Add `POST /notify` tool tag handler so the LLM can self-notify: `[NOTIFY title="Done" body="Build finished"]`.
 
-## Files touched
-- `src/pages/LocalModelsPage.tsx` — preset button, recommendations card, advanced sliders
-- `src/components/SystemInfo.tsx` — RAM channel + CPU flags
-- `src/lib/local-llm.ts` — new params in `loadLocalModel`
-- `src/lib/agent.ts` — extend `getSystemInfo` types
-- `public/agent.py` — extend `/llm/load`, extend `/system/info` to report CPU flags + RAM channels
-- `src/pages/SettingsPage.tsx` — Ollama tuning env-var helper
-- `README.md` — performance section
+**Frontend**
+- New `src/lib/notifications.ts`:
+  - On app load, request `Notification.permission`.
+  - Long-poll `GET /notifications/poll` every 10s.
+  - For each new entry: web `new Notification(...)` OR Capacitor `LocalNotifications.schedule(...)`.
+- Detects Capacitor environment via `Capacitor.isNativePlatform()` — uses `@capacitor/local-notifications` plugin when available, falls back to Web Notifications API in browser.
+- Add `@capacitor/local-notifications` to `package.json`.
 
-## Expected gains on your AM09 Pro
-| Change | Speedup |
-|---|---|
-| Correct thread count (8 not 16) | +15-25% |
-| Native AVX2 rebuild of llama-cpp-python | +50-100% |
-| Dual-channel RAM (if currently single) | +80-90% |
-| Switching from 13B to 8B Q4 | +60% |
-| `OLLAMA_FLASH_ATTENTION=1` | +10-20% |
+**Settings panel addition (`SettingsPage.tsx`)**
+- Toggle "Enable push notifications"
+- Per-source toggles (Cron jobs, Long tool calls > 30s, Agent self-notify)
+- "Test notification" button.
 
-Realistic target: **15-20 tokens/sec on Llama 3.1 8B Q4** vs the ~5-8 you're probably seeing now.
+**Cron tag in tool docs (`src/lib/agent-tools.ts` / system prompt)**
+- Document the new `[NOTIFY ...]` tag so the model knows it can ping the user.
+
+**Files:** `public/agent.py` (notifications endpoints + cron hook + NOTIFY tag), `src/lib/notifications.ts` (new), `src/lib/agent.ts` (typed `pollNotifications` helper), `src/lib/agent-tools.ts` (document NOTIFY), `src/pages/SettingsPage.tsx` (toggles + test), `src/App.tsx` (start poller on mount), `package.json` (Capacitor plugin), `capacitor.config.ts` (notification permissions if needed).
+
+## Order of implementation
+1. Conversation search (smallest, pure frontend, instant value)
+2. Push notifications (touches backend + frontend + Capacitor — biggest unlock)
+3. Auto-skill creation (most logic-heavy, builds on existing skills system)
 
 ## After it ships
-1. Open Local Models → click **"Tune for my CPU"**
-2. Check System panel — if it says "single-channel RAM", add a second SO-DIMM
-3. Optional: run the AVX2 rebuild command from README for max speed
+1. **Search**: press `Ctrl+K` anywhere to find old chats.
+2. **Notifications**: visit Settings → enable push, click "Test notification" to grant permission. On Android, run `npx cap sync` after pulling.
+3. **Auto-skills**: just use the agent normally — after the second time you do a similar task, a toast will offer to save it.
 
