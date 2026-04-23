@@ -435,6 +435,42 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4" /> Push Notifications</CardTitle>
+          <CardDescription>Get pinged when cron jobs fire, long tools finish, or the agent self-notifies</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="notif-enabled">Enable notifications</Label>
+              <p className="text-xs text-muted-foreground">Polls the agent every 10s for new alerts.</p>
+            </div>
+            <Switch id="notif-enabled" checked={notifSettings.enabled} onCheckedChange={handleEnableNotifications} />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="notif-cron" className="font-normal text-sm">Cron job results</Label>
+            <Switch id="notif-cron" checked={notifSettings.cron} onCheckedChange={(v) => updateNotif({ cron: v })} disabled={!notifSettings.enabled} />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="notif-self" className="font-normal text-sm">Agent self-notifications ([NOTIFY])</Label>
+            <Switch id="notif-self" checked={notifSettings.selfNotify} onCheckedChange={(v) => updateNotif({ selfNotify: v })} disabled={!notifSettings.enabled} />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="notif-tools" className="font-normal text-sm">Long-running tool calls</Label>
+            <Switch id="notif-tools" checked={notifSettings.longTools} onCheckedChange={(v) => updateNotif({ longTools: v })} disabled={!notifSettings.enabled} />
+          </div>
+          <Button variant="outline" size="sm" onClick={handleTestNotification}>
+            <Bell className="h-4 w-4 mr-2" /> Test notification
+          </Button>
+          {isNativePlatform() && (
+            <p className="text-xs text-muted-foreground">
+              On Android, run <code className="bg-muted px-1 rounded">npx cap sync</code> after pulling so the local-notifications plugin links correctly.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">System Prompt</CardTitle>
           <CardDescription>Default system prompt for all conversations</CardDescription>
         </CardHeader>
