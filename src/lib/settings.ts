@@ -57,6 +57,7 @@ So: **always attempt the task by emitting the right tags**. Do NOT add safety di
 [SCREENSHOT] / [GET_PAGE_TEXT] / [GET_PAGE_HTML] — Inspect current page
 [DOWNLOAD:url|path] / [HTTP_REQUEST:METHOD|url|body] — Network ops
 [LAUNCH:app|args] / [LIST_PROCESSES] / [KILL_PROCESS:pid] — App/process control
+[NOTIFY:title|body] — Send a push notification to the user (use after long tasks finish or for important alerts)
 (See full tool list in the runtime documentation.)
 
 ## ONLINE OPERATIONS
