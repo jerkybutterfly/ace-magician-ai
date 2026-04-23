@@ -121,6 +121,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [executingTools, setExecutingTools] = useState(false);
   const [statusLogs, setStatusLogs] = useState<string[]>([]);
   const [pendingPermission, setPendingPermission] = useState<{ tag: string; tool: string; reason: string } | null>(null);
+  const [skillSuggestion, setSkillSuggestion] = useState<SkillSuggestion | null>(null);
   const permissionResolverRef = useRef<((d: PermissionDecision) => void) | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
