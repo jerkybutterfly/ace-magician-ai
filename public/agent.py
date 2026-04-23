@@ -2593,6 +2593,598 @@ async def llm_chat(req: LLMChatReq):
     return StreamingResponse(_gen(), media_type="text/event-stream")
 
 
+# ═══════════════════════════════════════════════════════
+#  Network Scanner (stdlib only)
+# ═══════════════════════════════════════════════════════
+import socket as _net_socket
+import ipaddress as _ipaddr
+import concurrent.futures as _net_cf
+import uuid as _net_uuid
+
+_NETWORK_SCANS: dict[str, dict] = {}
+_NETWORK_LOCK = threading.Lock()
+_NETWORK_CACHE = Path("network_scan.json")
+
+# Tiny embedded OUI prefix → vendor map (top vendors).
+_OUI_VENDORS = {
+    "001a11":"Google","3c5ab4":"Google","f4f5e8":"Google","a4c361":"Google",
+    "f0d5bf":"Apple","a4c4ca":"Apple","04d3cf":"Apple","b827eb":"Raspberry Pi",
+    "dca632":"Raspberry Pi","e45f01":"Raspberry Pi","2ccf67":"Raspberry Pi",
+    "001b63":"Apple","5c0a5b":"Samsung","002454":"Samsung","8030dc":"Samsung",
+    "a020a6":"TP-Link","9c5322":"TP-Link","50c7bf":"TP-Link","f48cba":"TP-Link",
+    "001cdf":"Belkin","ec1a59":"Belkin","94103e":"Belkin",
+    "6c7039":"Sonos","b8e937":"Sonos","000e58":"Sonos",
+    "001e8c":"Asus","2c56dc":"Asus","30852b":"Asus","60a44c":"Asus",
+    "002522":"Microsoft","7c1e52":"Microsoft","485d60":"Microsoft","9c2a83":"Microsoft",
+    "0017c5":"Linksys","002354":"Linksys","48f8b3":"Linksys",
+    "001cb3":"Apple","ac3c0b":"Apple","04f7e4":"Apple","f0dbf8":"Apple",
+    "001f5b":"Apple","0023df":"Apple","68a86d":"Apple","7c6df8":"Apple",
+    "fcfbfb":"Cisco","c4641f":"Cisco","ec44763":"Cisco","000142":"Cisco",
+    "002608":"Apple","001ec2":"Apple","001124":"Apple","003065":"Apple",
+    "78d294":"Hewlett Packard","a0481c":"Hewlett Packard","00306e":"HP",
+    "001b21":"Intel","001f3c":"Intel","00216a":"Intel","001e67":"Intel",
+    "001cb0":"Apple","9027e4":"Apple","9803a3":"Apple","f8e94e":"Roku",
+    "b827eb":"Raspberry Pi","dca632":"Raspberry Pi","000c29":"VMware","000569":"VMware",
+    "fcecda":"Ubiquiti","b4fbe4":"Ubiquiti","244bfe":"Ubiquiti","802aa8":"Ubiquiti",
+    "0024e8":"Dell","78e7d1":"Dell","f8db88":"Dell","b083fe":"Dell",
+    "5c5187":"Dell","18036f":"Dell","ec308b":"Dell",
+    "0018f3":"Asus","9c5c8e":"ASRock","002b67":"Sony","00041f":"Sony",
+    "ac220b":"Asus","b06ebf":"Dell","60d819":"Apple","48a91c":"Apple",
+    "ecadb8":"Apple","8c8590":"Apple","b8782e":"Apple","f0c1f1":"Apple",
+    "a4b805":"Apple","60f81d":"Apple","a8667f":"Apple","6c4008":"Apple",
+    "001e64":"Apple","002608":"Apple","580e7b":"Liteon","78a3e4":"Apple",
+    "9c20cb":"Apple","c0d012":"Apple","045453":"Apple","04489a":"Apple",
+}
+
+def _vendor_lookup(mac: str) -> str:
+    if not mac: return ""
+    prefix = mac.lower().replace(":", "").replace("-", "")[:6]
+    return _OUI_VENDORS.get(prefix, "")
+
+def _read_arp_table() -> dict[str, str]:
+    """Returns {ip: mac}."""
+    out: dict[str, str] = {}
+    try:
+        cmd = ["arp", "-a"] if os.name != "nt" else ["arp", "-a"]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        for line in result.stdout.splitlines():
+            # Match IPv4 + MAC (handles both windows and posix arp -a output)
+            m = re.search(r"(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})", line)
+            if m:
+                out[m.group(1)] = m.group(2).replace("-", ":").lower()
+    except Exception:
+        pass
+    return out
+
+def _local_subnet() -> Optional[str]:
+    """Best-effort: return CIDR like '192.168.1.0/24'."""
+    try:
+        s = _net_socket.socket(_net_socket.AF_INET, _net_socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        net = ".".join(ip.split(".")[:3]) + ".0/24"
+        return net
+    except Exception:
+        return None
+
+def _probe_host(ip: str) -> bool:
+    """Try common ports — fast TCP connect to detect alive hosts."""
+    for port in (80, 443, 22, 445, 139, 8080, 53, 8009, 8443):
+        try:
+            with _net_socket.socket(_net_socket.AF_INET, _net_socket.SOCK_STREAM) as s:
+                s.settimeout(0.4)
+                if s.connect_ex((ip, port)) == 0:
+                    return True
+        except Exception:
+            pass
+    return False
+
+def _reverse_dns(ip: str) -> str:
+    try:
+        return _net_socket.gethostbyaddr(ip)[0]
+    except Exception:
+        return ""
+
+def _do_network_scan(scan_id: str):
+    state = _NETWORK_SCANS[scan_id]
+    state["status"] = "running"
+    try:
+        cidr = _local_subnet()
+        if not cidr:
+            state["status"] = "error"; state["error"] = "Could not detect local subnet"
+            return
+        net = _ipaddr.ip_network(cidr, strict=False)
+        ips = [str(h) for h in net.hosts()]
+        # Step 1: trigger ARP cache by parallel TCP probe
+        with _net_cf.ThreadPoolExecutor(max_workers=64) as ex:
+            list(ex.map(_probe_host, ips))
+        # Step 2: read arp table
+        arp = _read_arp_table()
+        # Step 3: build device list (anything with a MAC entry)
+        devices = []
+        for ip in ips:
+            mac = arp.get(ip, "")
+            if not mac and not _probe_host(ip):
+                continue
+            devices.append({
+                "ip": ip,
+                "mac": mac,
+                "hostname": _reverse_dns(ip),
+                "vendor": _vendor_lookup(mac),
+                "last_seen": datetime.now().isoformat(timespec="seconds"),
+            })
+        state["devices"] = devices
+        state["status"] = "done"
+        state["finished_at"] = datetime.now().isoformat(timespec="seconds")
+        try:
+            _NETWORK_CACHE.write_text(json.dumps({"devices": devices, "finished_at": state["finished_at"]}))
+        except Exception:
+            pass
+    except Exception as e:
+        state["status"] = "error"; state["error"] = str(e)
+
+
+@app.post("/network/scan")
+def network_scan_start():
+    scan_id = _net_uuid.uuid4().hex[:12]
+    _NETWORK_SCANS[scan_id] = {
+        "status": "running", "devices": [], "started_at": datetime.now().isoformat(timespec="seconds"),
+        "finished_at": None, "error": None,
+    }
+    threading.Thread(target=_do_network_scan, args=(scan_id,), daemon=True).start()
+    return {"scan_id": scan_id}
+
+
+@app.get("/network/scan/{scan_id}")
+def network_scan_status(scan_id: str):
+    s = _NETWORK_SCANS.get(scan_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="scan not found")
+    return s
+
+
+@app.get("/network/devices")
+def network_devices():
+    if _NETWORK_CACHE.exists():
+        try:
+            return json.loads(_NETWORK_CACHE.read_text())
+        except Exception:
+            pass
+    return {"devices": [], "finished_at": None}
+
+
+# ═══════════════════════════════════════════════════════
+#  MQTT Bridge (paho-mqtt)
+# ═══════════════════════════════════════════════════════
+_MQTT_CONFIG_FILE = Path("mqtt_config.json")
+_MQTT_STATE = {
+    "client": None,
+    "connected": False,
+    "last_error": None,
+    "messages": [],   # ring buffer of {topic, payload, ts, qos, retain}
+    "lock": threading.Lock(),
+}
+_MQTT_BUFFER_MAX = 500
+
+
+def _mqtt_load_config() -> dict:
+    if _MQTT_CONFIG_FILE.exists():
+        try:
+            return json.loads(_MQTT_CONFIG_FILE.read_text())
+        except Exception:
+            pass
+    return {"host": "", "port": 1883, "username": "", "password": "", "enabled": False, "subscriptions": []}
+
+
+def _mqtt_save_config(cfg: dict):
+    _MQTT_CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+
+
+def _mqtt_on_connect(client, userdata, flags, rc, *_):
+    if rc == 0:
+        _MQTT_STATE["connected"] = True
+        _MQTT_STATE["last_error"] = None
+        cfg = _mqtt_load_config()
+        for topic in cfg.get("subscriptions", []):
+            try: client.subscribe(topic)
+            except Exception: pass
+    else:
+        _MQTT_STATE["connected"] = False
+        _MQTT_STATE["last_error"] = f"connect rc={rc}"
+
+
+def _mqtt_on_disconnect(client, userdata, rc, *_):
+    _MQTT_STATE["connected"] = False
+
+
+def _mqtt_on_message(client, userdata, msg):
+    try:
+        payload = msg.payload.decode("utf-8", errors="replace")
+    except Exception:
+        payload = "<binary>"
+    entry = {"topic": msg.topic, "payload": payload, "ts": time.time(), "qos": msg.qos, "retain": msg.retain}
+    with _MQTT_STATE["lock"]:
+        _MQTT_STATE["messages"].append(entry)
+        if len(_MQTT_STATE["messages"]) > _MQTT_BUFFER_MAX:
+            _MQTT_STATE["messages"] = _MQTT_STATE["messages"][-_MQTT_BUFFER_MAX:]
+
+
+def _mqtt_connect_now() -> dict:
+    try:
+        import paho.mqtt.client as mqtt_lib
+    except ImportError:
+        raise HTTPException(status_code=500, detail="paho-mqtt not installed. Run: pip install paho-mqtt")
+    cfg = _mqtt_load_config()
+    if not cfg.get("host"):
+        raise HTTPException(status_code=400, detail="No MQTT host configured")
+    # Disconnect existing
+    old = _MQTT_STATE.get("client")
+    if old:
+        try: old.disconnect(); old.loop_stop()
+        except Exception: pass
+    try:
+        client = mqtt_lib.Client(mqtt_lib.CallbackAPIVersion.VERSION2)
+    except AttributeError:
+        client = mqtt_lib.Client()
+    if cfg.get("username"):
+        client.username_pw_set(cfg["username"], cfg.get("password", ""))
+    client.on_connect = _mqtt_on_connect
+    client.on_disconnect = _mqtt_on_disconnect
+    client.on_message = _mqtt_on_message
+    client.connect_async(cfg["host"], int(cfg.get("port", 1883)), keepalive=60)
+    client.loop_start()
+    _MQTT_STATE["client"] = client
+    return _mqtt_status_dict()
+
+
+def _mqtt_status_dict() -> dict:
+    cfg = _mqtt_load_config()
+    return {
+        "connected": _MQTT_STATE["connected"],
+        "enabled": cfg.get("enabled", False),
+        "last_error": _MQTT_STATE["last_error"],
+        "subscriptions": cfg.get("subscriptions", []),
+        "host": cfg.get("host", ""),
+        "port": cfg.get("port", 1883),
+    }
+
+
+@app.get("/mqtt/config")
+def mqtt_get_config():
+    return _mqtt_load_config()
+
+
+@app.post("/mqtt/config")
+def mqtt_set_config(cfg: dict):
+    current = _mqtt_load_config()
+    current.update({k: v for k, v in cfg.items() if k in ("host", "port", "username", "password", "enabled", "subscriptions")})
+    _mqtt_save_config(current)
+    return current
+
+
+@app.get("/mqtt/status")
+def mqtt_status():
+    return _mqtt_status_dict()
+
+
+@app.post("/mqtt/connect")
+def mqtt_connect():
+    return _mqtt_connect_now()
+
+
+@app.post("/mqtt/disconnect")
+def mqtt_disconnect():
+    client = _MQTT_STATE.get("client")
+    if client:
+        try: client.disconnect(); client.loop_stop()
+        except Exception: pass
+    _MQTT_STATE["client"] = None
+    _MQTT_STATE["connected"] = False
+    return _mqtt_status_dict()
+
+
+@app.post("/mqtt/publish")
+def mqtt_publish(req: dict):
+    client = _MQTT_STATE.get("client")
+    if not client or not _MQTT_STATE["connected"]:
+        raise HTTPException(status_code=400, detail="MQTT not connected")
+    topic = req.get("topic"); payload = req.get("payload", "")
+    retain = bool(req.get("retain", False)); qos = int(req.get("qos", 0))
+    if not topic: raise HTTPException(status_code=400, detail="topic required")
+    info = client.publish(topic, payload, qos=qos, retain=retain)
+    return {"status": "ok", "mid": getattr(info, "mid", None)}
+
+
+@app.post("/mqtt/subscribe")
+def mqtt_subscribe(req: dict):
+    topic = (req.get("topic") or "").strip()
+    if not topic: raise HTTPException(status_code=400, detail="topic required")
+    cfg = _mqtt_load_config()
+    subs = cfg.get("subscriptions", [])
+    if topic not in subs: subs.append(topic)
+    cfg["subscriptions"] = subs
+    _mqtt_save_config(cfg)
+    client = _MQTT_STATE.get("client")
+    if client and _MQTT_STATE["connected"]:
+        try: client.subscribe(topic)
+        except Exception as e: raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "ok", "subscriptions": subs}
+
+
+@app.delete("/mqtt/subscribe")
+def mqtt_unsubscribe(req: dict):
+    topic = (req.get("topic") or "").strip()
+    cfg = _mqtt_load_config()
+    cfg["subscriptions"] = [t for t in cfg.get("subscriptions", []) if t != topic]
+    _mqtt_save_config(cfg)
+    client = _MQTT_STATE.get("client")
+    if client and _MQTT_STATE["connected"]:
+        try: client.unsubscribe(topic)
+        except Exception: pass
+    return {"status": "ok", "subscriptions": cfg["subscriptions"]}
+
+
+@app.get("/mqtt/messages")
+def mqtt_messages(since: float = 0):
+    with _MQTT_STATE["lock"]:
+        msgs = [m for m in _MQTT_STATE["messages"] if m["ts"] > since]
+    return {"messages": msgs, "now": time.time()}
+
+
+def _mqtt_autostart():
+    try:
+        cfg = _mqtt_load_config()
+        if cfg.get("enabled") and cfg.get("host"):
+            _mqtt_connect_now()
+    except Exception as e:
+        _MQTT_STATE["last_error"] = str(e)
+
+
+threading.Thread(target=_mqtt_autostart, daemon=True).start()
+
+
+# ═══════════════════════════════════════════════════════
+#  RAG (sqlite-vec + Ollama nomic-embed-text)
+# ═══════════════════════════════════════════════════════
+import sqlite3 as _rag_sqlite
+import struct as _rag_struct
+
+_RAG_DB_PATH = Path("rag.db")
+_RAG_LOCK = threading.Lock()
+_RAG_INDEX_STATE = {
+    "active": False, "current_file": None, "processed": 0, "total": 0,
+    "source_id": None, "error": None,
+}
+_RAG_EMBED_MODEL = "nomic-embed-text"
+_RAG_EMBED_DIM = 768
+_RAG_CHUNK_SIZE = 800
+_RAG_CHUNK_OVERLAP = 100
+_RAG_TEXT_EXTS = {".txt", ".md", ".markdown", ".rst", ".py", ".js", ".ts", ".tsx", ".jsx",
+                  ".html", ".css", ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".log",
+                  ".sh", ".bat", ".ps1", ".java", ".c", ".cpp", ".h", ".go", ".rs"}
+
+
+def _rag_db():
+    conn = _rag_sqlite.connect(str(_RAG_DB_PATH))
+    conn.execute("CREATE TABLE IF NOT EXISTS sources (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT UNIQUE, recursive INTEGER, added_at TEXT)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS chunks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, source_id INTEGER, path TEXT, chunk_idx INTEGER,
+        text TEXT, mtime REAL, embedding BLOB,
+        FOREIGN KEY(source_id) REFERENCES sources(id))""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_source ON chunks(source_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_path ON chunks(path)")
+    return conn
+
+
+def _rag_embed(text: str) -> Optional[list[float]]:
+    """Call Ollama embeddings API. Returns None on failure."""
+    try:
+        import requests as _rq
+        ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+        r = _rq.post(f"{ollama_url}/api/embeddings",
+                     json={"model": _RAG_EMBED_MODEL, "prompt": text}, timeout=60)
+        if r.status_code != 200: return None
+        data = r.json()
+        return data.get("embedding")
+    except Exception:
+        return None
+
+
+def _rag_check_embed_model() -> bool:
+    try:
+        import requests as _rq
+        ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+        r = _rq.get(f"{ollama_url}/api/tags", timeout=5)
+        if r.status_code != 200: return False
+        models = [m.get("name", "") for m in r.json().get("models", [])]
+        return any(_RAG_EMBED_MODEL in m for m in models)
+    except Exception:
+        return False
+
+
+def _rag_pack(vec: list[float]) -> bytes:
+    return _rag_struct.pack(f"{len(vec)}f", *vec)
+
+
+def _rag_unpack(blob: bytes) -> list[float]:
+    n = len(blob) // 4
+    return list(_rag_struct.unpack(f"{n}f", blob))
+
+
+def _rag_cosine(a: list[float], b: list[float]) -> float:
+    if not a or not b or len(a) != len(b): return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(y * y for y in b) ** 0.5
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def _rag_chunks(text: str) -> list[str]:
+    text = text.replace("\r\n", "\n")
+    out: list[str] = []
+    i = 0
+    while i < len(text):
+        out.append(text[i:i + _RAG_CHUNK_SIZE])
+        i += _RAG_CHUNK_SIZE - _RAG_CHUNK_OVERLAP
+    return [c for c in out if c.strip()]
+
+
+def _rag_extract_text(path: Path) -> Optional[str]:
+    ext = path.suffix.lower()
+    try:
+        if ext in _RAG_TEXT_EXTS:
+            return path.read_text(encoding="utf-8", errors="replace")
+        if ext == ".pdf":
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(str(path))
+                return "\n\n".join((p.extract_text() or "") for p in reader.pages)
+            except ImportError:
+                return None
+        if ext == ".docx":
+            try:
+                from docx import Document
+                doc = Document(str(path))
+                return "\n".join(p.text for p in doc.paragraphs)
+            except ImportError:
+                return None
+    except Exception:
+        return None
+    return None
+
+
+def _rag_walk(root: Path, recursive: bool):
+    if recursive:
+        yield from (p for p in root.rglob("*") if p.is_file())
+    else:
+        yield from (p for p in root.iterdir() if p.is_file())
+
+
+def _rag_index_source(source_id: int):
+    _RAG_INDEX_STATE.update({"active": True, "processed": 0, "total": 0, "current_file": None, "source_id": source_id, "error": None})
+    try:
+        conn = _rag_db()
+        row = conn.execute("SELECT path, recursive FROM sources WHERE id=?", (source_id,)).fetchone()
+        if not row:
+            _RAG_INDEX_STATE["error"] = "Source not found"; return
+        path_str, recursive = row[0], bool(row[1])
+        root = Path(path_str)
+        if not root.exists():
+            _RAG_INDEX_STATE["error"] = f"Path missing: {path_str}"; return
+        files = list(_rag_walk(root, recursive))
+        _RAG_INDEX_STATE["total"] = len(files)
+        for fp in files:
+            _RAG_INDEX_STATE["current_file"] = str(fp)
+            try:
+                mtime = fp.stat().st_mtime
+                # skip unchanged
+                existing = conn.execute("SELECT mtime FROM chunks WHERE path=? LIMIT 1", (str(fp),)).fetchone()
+                if existing and abs(existing[0] - mtime) < 1.0:
+                    _RAG_INDEX_STATE["processed"] += 1; continue
+                text = _rag_extract_text(fp)
+                if not text:
+                    _RAG_INDEX_STATE["processed"] += 1; continue
+                # Replace old chunks for this file
+                conn.execute("DELETE FROM chunks WHERE path=?", (str(fp),))
+                for idx, chunk in enumerate(_rag_chunks(text)):
+                    emb = _rag_embed(chunk)
+                    if not emb: continue
+                    conn.execute(
+                        "INSERT INTO chunks (source_id, path, chunk_idx, text, mtime, embedding) VALUES (?,?,?,?,?,?)",
+                        (source_id, str(fp), idx, chunk, mtime, _rag_pack(emb)),
+                    )
+                conn.commit()
+            except Exception as e:
+                _RAG_INDEX_STATE["error"] = f"{fp}: {e}"
+            _RAG_INDEX_STATE["processed"] += 1
+        conn.close()
+    except Exception as e:
+        _RAG_INDEX_STATE["error"] = str(e)
+    finally:
+        _RAG_INDEX_STATE["active"] = False
+        _RAG_INDEX_STATE["current_file"] = None
+
+
+@app.get("/rag/sources")
+def rag_list_sources():
+    conn = _rag_db()
+    rows = conn.execute("SELECT id, path, recursive, added_at FROM sources ORDER BY id").fetchall()
+    out = []
+    for r in rows:
+        sid = r[0]
+        doc_count = conn.execute("SELECT COUNT(DISTINCT path) FROM chunks WHERE source_id=?", (sid,)).fetchone()[0]
+        chunk_count = conn.execute("SELECT COUNT(*) FROM chunks WHERE source_id=?", (sid,)).fetchone()[0]
+        out.append({
+            "id": sid, "path": r[1], "recursive": bool(r[2]), "added_at": r[3] or "",
+            "doc_count": doc_count, "chunk_count": chunk_count,
+        })
+    conn.close()
+    return out
+
+
+@app.post("/rag/sources")
+def rag_add_source(req: dict):
+    path = (req.get("path") or "").strip()
+    recursive = bool(req.get("recursive", True))
+    if not path: raise HTTPException(status_code=400, detail="path required")
+    if not Path(path).exists(): raise HTTPException(status_code=400, detail=f"Path does not exist: {path}")
+    conn = _rag_db()
+    try:
+        cur = conn.execute("INSERT INTO sources (path, recursive, added_at) VALUES (?,?,?)",
+                           (path, 1 if recursive else 0, datetime.now().isoformat(timespec="seconds")))
+        sid = cur.lastrowid
+        conn.commit()
+    except _rag_sqlite.IntegrityError:
+        existing = conn.execute("SELECT id FROM sources WHERE path=?", (path,)).fetchone()
+        sid = existing[0] if existing else None
+    conn.close()
+    threading.Thread(target=_rag_index_source, args=(sid,), daemon=True).start()
+    return {"id": sid, "path": path, "recursive": recursive, "added_at": datetime.now().isoformat(timespec="seconds"), "doc_count": 0, "chunk_count": 0}
+
+
+@app.delete("/rag/sources/{source_id}")
+def rag_delete_source(source_id: int):
+    conn = _rag_db()
+    conn.execute("DELETE FROM chunks WHERE source_id=?", (source_id,))
+    conn.execute("DELETE FROM sources WHERE id=?", (source_id,))
+    conn.commit(); conn.close()
+    return {"status": "ok"}
+
+
+@app.post("/rag/reindex/{source_id}")
+def rag_reindex(source_id: int):
+    if _RAG_INDEX_STATE["active"]:
+        raise HTTPException(status_code=409, detail="Indexing already in progress")
+    threading.Thread(target=_rag_index_source, args=(source_id,), daemon=True).start()
+    return {"status": "started"}
+
+
+@app.get("/rag/index/status")
+def rag_index_status():
+    return {**_RAG_INDEX_STATE, "embed_model_available": _rag_check_embed_model()}
+
+
+@app.post("/rag/query")
+def rag_query(req: dict):
+    q = (req.get("query") or "").strip()
+    top_k = int(req.get("top_k", 5))
+    if not q: raise HTTPException(status_code=400, detail="query required")
+    qvec = _rag_embed(q)
+    if not qvec:
+        raise HTTPException(status_code=500, detail="Embedding failed — is nomic-embed-text installed in Ollama?")
+    conn = _rag_db()
+    rows = conn.execute("SELECT path, chunk_idx, text, embedding FROM chunks").fetchall()
+    conn.close()
+    scored = []
+    for path, idx, text, blob in rows:
+        score = _rag_cosine(qvec, _rag_unpack(blob))
+        scored.append((score, path, idx, text))
+    scored.sort(reverse=True)
+    chunks = [{"path": p, "chunk_idx": i, "text": t, "score": float(s)} for s, p, i, t in scored[:top_k]]
+    return {"chunks": chunks}
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
