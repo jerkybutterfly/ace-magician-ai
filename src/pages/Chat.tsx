@@ -585,6 +585,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           </div>
         </div>
       </div>
+      <SkillSuggestionToast suggestion={skillSuggestion} onClose={() => setSkillSuggestion(null)} />
     </div>
   );
 }
+
