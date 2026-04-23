@@ -3,6 +3,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
+import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
+import { SkillSuggestionToast } from '@/components/SkillSuggestionToast';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
 import { VoiceInput } from '@/components/VoiceInput';
@@ -119,6 +121,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [executingTools, setExecutingTools] = useState(false);
   const [statusLogs, setStatusLogs] = useState<string[]>([]);
   const [pendingPermission, setPendingPermission] = useState<{ tag: string; tool: string; reason: string } | null>(null);
+  const [skillSuggestion, setSkillSuggestion] = useState<SkillSuggestion | null>(null);
   const permissionResolverRef = useRef<((d: PermissionDecision) => void) | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -225,6 +228,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     setStreamedContent('');
     setStreamedThinking('');
 
+    let aggregatedToolText = '';
     try {
       let currentMessages = [...visibleHistory];
       const actionableRequest = isActionableRequest(request);
@@ -266,6 +270,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         const hitsRefusal = REFUSAL_PATTERNS.test(full);
 
         if (containsToolCommands) {
+          aggregatedToolText += '\n' + full;
           setExecutingTools(true);
           setStatusLogs([]);
           setStreamedContent(full);
@@ -349,6 +354,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       setStreamedContent('');
       setStreamedThinking('');
       setExecutingTools(false);
+      if (aggregatedToolText.trim()) {
+        const suggestion = recordSequence(aggregatedToolText);
+        if (suggestion) setSkillSuggestion(suggestion);
+      }
     }
   };
 
@@ -576,6 +585,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           </div>
         </div>
       </div>
+      <SkillSuggestionToast suggestion={skillSuggestion} onClose={() => setSkillSuggestion(null)} />
     </div>
   );
 }
+

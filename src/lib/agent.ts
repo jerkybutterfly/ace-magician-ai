@@ -562,3 +562,27 @@ export async function getInstalledPrograms(): Promise<{ DisplayName: string; Dis
   if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get installed programs'));
   return res.json();
 }
+
+// ── Notifications queue (polled by frontend) ──
+
+export interface AgentNotificationRow {
+  title: string;
+  body: string;
+  ts: number;
+  kind?: string;
+}
+
+export async function postAgentNotification(title: string, body: string, kind = 'manual'): Promise<void> {
+  const res = await fetch(agentUrl('/notifications'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body, kind }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to push notification'));
+}
+
+export async function pollAgentNotifications(since: number): Promise<AgentNotificationRow[]> {
+  const res = await fetch(agentUrl(`/notifications/poll?since=${since}`));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to poll notifications'));
+  return res.json();
+}
