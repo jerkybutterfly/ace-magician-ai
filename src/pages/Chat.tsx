@@ -4,6 +4,7 @@ import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetc
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
+import { isRagAugmentEnabled, ragQuery } from '@/lib/rag';
 import { SkillSuggestionToast } from '@/components/SkillSuggestionToast';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
@@ -211,6 +212,17 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     if (attachedFiles.length > 0) {
       const fileContext = attachedFiles.map(f => `--- File: ${f.name} ---\n${f.content}`).join('\n\n');
       messageContent = fileContext + (request ? `\n\n${request}` : '\n\nPlease analyze the attached file(s).');
+    }
+
+    // Optional RAG auto-augment: prepend top doc chunks as context
+    if (isRagAugmentEnabled() && request.trim()) {
+      try {
+        const { chunks } = await ragQuery(request, 3);
+        if (chunks.length) {
+          const ctx = chunks.map(c => `[${c.path}]\n${c.text}`).join('\n\n---\n\n');
+          messageContent = `[Relevant context from your documents:\n${ctx}\n]\n\n${messageContent}`;
+        }
+      } catch {/* RAG offline — proceed without */}
     }
 
     const userMsg: ChatMessage = { role: 'user', content: messageContent };
