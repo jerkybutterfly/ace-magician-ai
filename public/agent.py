@@ -1490,11 +1490,66 @@ def _cron_loop():
                 try:
                     result = subprocess.run(job["command"], shell=True, capture_output=True, text=True, timeout=30)
                     job["last_result"] = {"stdout": result.stdout[:500], "stderr": result.stderr[:500], "returncode": result.returncode}
+                    if result.returncode == 0:
+                        _push_notification(f"Cron: {name}", (result.stdout or "completed").strip()[:200] or "completed", kind="cron")
+                    else:
+                        _push_notification(f"Cron failed: {name}", (result.stderr or "error").strip()[:200], kind="cron")
                 except Exception as e:
                     job["last_result"] = {"stdout": "", "stderr": str(e), "returncode": -1}
+                    _push_notification(f"Cron error: {name}", str(e)[:200], kind="cron")
                 job["last_run"] = now
                 job["run_count"] = job.get("run_count", 0) + 1
         _cron_stop.wait(5)
+
+
+# ═══════════════════════════════════════════════════════
+#  Notifications queue (polled by web/Capacitor frontend)
+# ═══════════════════════════════════════════════════════
+_NOTIFICATIONS_FILE = Path("notifications.json")
+_notifications_lock = threading.Lock()
+
+
+def _load_notifications() -> list[dict]:
+    if not _NOTIFICATIONS_FILE.exists():
+        return []
+    try:
+        return json.loads(_NOTIFICATIONS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _save_notifications(items: list[dict]) -> None:
+    try:
+        _NOTIFICATIONS_FILE.write_text(json.dumps(items[-200:]), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _push_notification(title: str, body: str, kind: str = "manual") -> None:
+    entry = {"title": str(title)[:200], "body": str(body)[:1000], "ts": time.time(), "kind": kind}
+    with _notifications_lock:
+        items = _load_notifications()
+        items.append(entry)
+        _save_notifications(items)
+
+
+class NotificationRequest(BaseModel):
+    title: str
+    body: str
+    kind: str = "manual"
+
+
+@app.post("/notifications")
+async def create_notification(req: NotificationRequest):
+    _push_notification(req.title, req.body, req.kind)
+    return {"status": "queued"}
+
+
+@app.get("/notifications/poll")
+async def poll_notifications(since: float = 0):
+    with _notifications_lock:
+        items = _load_notifications()
+    return [n for n in items if n.get("ts", 0) > since]
 
 
 def _ensure_cron_thread():

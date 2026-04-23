@@ -50,7 +50,20 @@ const TOOL_PATTERNS = [
   { regex: /\[SET_ENV:(.*?)\|(.*?)\]/g, handler: handleSetEnv },
   { regex: /\[WEB_SEARCH:([\s\S]*?)\]/g, handler: handleWebSearch },
   { regex: /\[WEB_FETCH:(.*?)\]/g, handler: handleWebFetch },
+  { regex: /\[NOTIFY:(.*?)\|([\s\S]*?)\]/g, handler: handleNotifyUser },
 ];
+
+async function handleNotifyUser(match: RegExpMatchArray): Promise<ToolResult> {
+  const title = match[1].trim();
+  const body = match[2].trim();
+  try {
+    const { postAgentNotification } = await import('./agent');
+    await postAgentNotification(title, body, 'self');
+    return { tag: match[0], result: `\n🔔 Notification queued: **${title}** — ${body}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Notification failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
 
 async function handleWebSearch(match: RegExpMatchArray): Promise<ToolResult> {
   const query = match[1].trim();

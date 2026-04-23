@@ -1,6 +1,8 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
+import { ConversationSearch } from '@/components/ConversationSearch';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter,
@@ -36,6 +38,18 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((s) => !s);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
@@ -82,9 +96,14 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
             <SidebarGroup>
               <div className="flex items-center justify-between px-3 py-1">
                 <SidebarGroupLabel className="p-0 text-[10px] uppercase tracking-wider text-muted-foreground/70">History</SidebarGroupLabel>
-                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 hover:text-primary" onClick={onNewChat}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-0.5">
+                  <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 hover:text-primary" onClick={() => setSearchOpen(true)} title="Search conversations (⌘K)">
+                    <Search className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-primary/10 hover:text-primary" onClick={onNewChat}>
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
               <SidebarGroupContent>
                 <SidebarMenu>
