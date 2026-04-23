@@ -11,6 +11,9 @@ import CronPage from './CronPage';
 import PermissionsPage from './PermissionsPage';
 import SpecKitPage from './SpecKitPage';
 import LocalModelsPage from './LocalModelsPage';
+import NetworkPage from './NetworkPage';
+import MqttPage from './MqttPage';
+import RagPage from './RagPage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
@@ -74,6 +77,12 @@ export default function Index() {
         return <PermissionsPage />;
       case '/local-models':
         return <LocalModelsPage />;
+      case '/network':
+        return <NetworkPage />;
+      case '/mqtt':
+        return <MqttPage />;
+      case '/documents':
+        return <RagPage />;
       case '/settings':
         return <SettingsPage />;
       default:
