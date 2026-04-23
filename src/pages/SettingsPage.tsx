@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
 import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, type AppSettings, type TelegramProvider } from '@/lib/settings';
+import { getNotificationSettings, saveNotificationSettings, requestNotificationPermission, showNotification, postNotification, type NotificationSettings } from '@/lib/notifications';
+import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Smartphone } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Save } from 'lucide-react';
+import { Bell, Loader2, Save } from 'lucide-react';
 
 function createEmptyTelegramStatus(): TelegramStatus {
   return {
@@ -46,6 +48,36 @@ export default function SettingsPage() {
   const [discordStatus, setDiscordStatus] = useState<DiscordStatus>({ enabled: false, connected: false, running: false, username: null, model: null, error: null, updated_at: null });
   const [discordLoading, setDiscordLoading] = useState(true);
   const [discordAction, setDiscordAction] = useState<'connect' | 'disconnect' | null>(null);
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings);
+
+  const updateNotif = (patch: Partial<NotificationSettings>) => {
+    const next = { ...notifSettings, ...patch };
+    setNotifSettings(next);
+    saveNotificationSettings(next);
+  };
+
+  const handleEnableNotifications = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        toast({ title: 'Permission denied', description: 'Enable notifications in your browser/OS settings to use this feature.' });
+        return;
+      }
+    }
+    updateNotif({ enabled });
+  };
+
+  const handleTestNotification = async () => {
+    const granted = await requestNotificationPermission();
+    if (!granted) {
+      toast({ title: 'Permission denied', description: 'Notifications are blocked.' });
+      return;
+    }
+    await showNotification({ title: 'Pesto Steve', body: 'Test notification — it works! 🦞' });
+    // also push through the agent queue if reachable, so end-to-end is verified
+    void postNotification('Pesto Steve', 'Test notification via agent queue.', 'manual');
+    toast({ title: 'Test sent' });
+  };
 
   const telegramBusy = telegramAction !== null;
 
