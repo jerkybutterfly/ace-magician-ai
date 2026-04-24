@@ -3185,7 +3185,122 @@ def rag_query(req: dict):
     return {"chunks": chunks}
 
 
-if __name__ == "__main__":
+# ============================================================================
+# PHONE BRIDGE — let chat clients dispatch [PHONE_*] tags to a paired phone
+# ============================================================================
+import threading as _phone_threading
+import asyncio as _phone_asyncio
+import uuid as _phone_uuid
+from typing import Dict
+from collections import deque as _phone_deque
+
+_phone_lock = _phone_threading.Lock()
+_phone_devices: Dict[str, Dict[str, Any]] = {}     # device_id -> {name, last_seen, battery, charging}
+_phone_queues: Dict[str, "_phone_deque[Dict[str, Any]]"] = {}  # device_id -> deque of {id, tag}
+_phone_results: Dict[str, Dict[str, Any]] = {}     # command_id -> {ok, output}
+_phone_events: Dict[str, _phone_threading.Event] = {}  # command_id -> Event
+
+
+def _phone_pick_device() -> Optional[str]:
+    """Pick the most-recently-seen device."""
+    with _phone_lock:
+        if not _phone_devices:
+            return None
+        return max(_phone_devices.keys(), key=lambda d: _phone_devices[d].get("last_seen", 0))
+
+
+@app.post("/phone/register")
+async def phone_register(req: Dict[str, Any] = Body(...)):
+    device_id = (req.get("device_id") or "").strip()
+    name = (req.get("name") or "").strip()
+    if not device_id:
+        raise HTTPException(status_code=400, detail="device_id required")
+    with _phone_lock:
+        _phone_devices.setdefault(device_id, {})
+        _phone_devices[device_id]["name"] = name or _phone_devices[device_id].get("name", "")
+        _phone_devices[device_id]["last_seen"] = int(time.time() * 1000)
+        _phone_queues.setdefault(device_id, _phone_deque(maxlen=200))
+    return {"ok": True, "device_id": device_id}
+
+
+@app.post("/phone/heartbeat")
+async def phone_heartbeat(req: Dict[str, Any] = Body(...)):
+    device_id = (req.get("device_id") or "").strip()
+    if not device_id:
+        raise HTTPException(status_code=400, detail="device_id required")
+    with _phone_lock:
+        d = _phone_devices.setdefault(device_id, {})
+        d["last_seen"] = int(time.time() * 1000)
+        if "battery" in req: d["battery"] = req.get("battery")
+        if "charging" in req: d["charging"] = bool(req.get("charging"))
+        _phone_queues.setdefault(device_id, _phone_deque(maxlen=200))
+    return {"ok": True}
+
+
+@app.get("/phone/status")
+async def phone_status():
+    with _phone_lock:
+        devices = [{"device_id": k, **v} for k, v in _phone_devices.items()]
+    return {"devices": devices}
+
+
+@app.get("/phone/commands")
+async def phone_commands(device_id: str):
+    with _phone_lock:
+        q = _phone_queues.get(device_id)
+        if q is None:
+            return {"commands": []}
+        cmds = list(q)
+        q.clear()
+        if device_id in _phone_devices:
+            _phone_devices[device_id]["last_seen"] = int(time.time() * 1000)
+    return {"commands": cmds}
+
+
+@app.post("/phone/results")
+async def phone_results(req: Dict[str, Any] = Body(...)):
+    cmd_id = (req.get("command_id") or "").strip()
+    if not cmd_id:
+        raise HTTPException(status_code=400, detail="command_id required")
+    with _phone_lock:
+        _phone_results[cmd_id] = {
+            "ok": bool(req.get("ok")),
+            "output": req.get("output", ""),
+        }
+        ev = _phone_events.get(cmd_id)
+    if ev:
+        ev.set()
+    return {"ok": True}
+
+
+@app.post("/phone/dispatch")
+async def phone_dispatch(req: Dict[str, Any] = Body(...)):
+    """Queue a [PHONE_*] tag to a paired phone and wait for the result."""
+    tag = (req.get("tag") or "").strip()
+    timeout_ms = int(req.get("timeout_ms", 30000))
+    device_id = (req.get("device_id") or "").strip() or _phone_pick_device()
+    if not tag.startswith("[PHONE_"):
+        raise HTTPException(status_code=400, detail="not a phone tag")
+    if not device_id:
+        raise HTTPException(status_code=503, detail="no paired phone")
+    cmd_id = _phone_uuid.uuid4().hex
+    ev = _phone_threading.Event()
+    with _phone_lock:
+        _phone_queues.setdefault(device_id, _phone_deque(maxlen=200)).append({"id": cmd_id, "tag": tag})
+        _phone_events[cmd_id] = ev
+
+    # Wait off the event loop
+    loop = _phone_asyncio.get_event_loop()
+    got = await loop.run_in_executor(None, ev.wait, timeout_ms / 1000.0)
+    with _phone_lock:
+        _phone_events.pop(cmd_id, None)
+        result = _phone_results.pop(cmd_id, None)
+    if not got or result is None:
+        return {"ok": False, "output": f"phone {device_id} did not reply within {timeout_ms}ms"}
+    return result
+
+
+
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
     parser.add_argument("--model", default="gemma3:4b", help="Ollama model to use (default: gemma3:4b)")

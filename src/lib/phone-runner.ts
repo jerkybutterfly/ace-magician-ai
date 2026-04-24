@@ -1,0 +1,100 @@
+// Phone runner — only active inside the Capacitor app on a real device.
+// Long-polls the AM09 agent for queued [PHONE_*] commands, executes them
+// locally via Capacitor plugins, and posts results back.
+
+import { getSettings } from './settings';
+import { executePhoneTag, isPhone } from './phone';
+
+const DEVICE_ID_KEY = 'phone-device-id';
+const HEARTBEAT_MS = 60_000;
+const POLL_MS = 5_000;
+
+interface QueuedCommand {
+  id: string;
+  tag: string;
+}
+
+let started = false;
+
+export function getOrCreateDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = `phone-${crypto.randomUUID().slice(0, 8)}`;
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+async function register(deviceId: string): Promise<void> {
+  const { agentUrl } = getSettings();
+  try {
+    await fetch(`${agentUrl}/phone/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, name: navigator.userAgent.slice(0, 80) }),
+    });
+  } catch {}
+}
+
+async function poll(deviceId: string): Promise<QueuedCommand[]> {
+  const { agentUrl } = getSettings();
+  try {
+    const r = await fetch(`${agentUrl}/phone/commands?device_id=${encodeURIComponent(deviceId)}`);
+    if (!r.ok) return [];
+    const j = await r.json();
+    return Array.isArray(j.commands) ? j.commands : [];
+  } catch { return []; }
+}
+
+async function postResult(deviceId: string, id: string, ok: boolean, output: string): Promise<void> {
+  const { agentUrl } = getSettings();
+  try {
+    await fetch(`${agentUrl}/phone/results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, command_id: id, ok, output }),
+    });
+  } catch {}
+}
+
+async function heartbeat(deviceId: string): Promise<void> {
+  const { agentUrl } = getSettings();
+  try {
+    let battery: number | null = null;
+    let charging = false;
+    try {
+      const { Device } = await import('@capacitor/device');
+      const b = await Device.getBatteryInfo();
+      battery = b.batteryLevel != null ? Math.round(b.batteryLevel * 100) : null;
+      charging = !!b.isCharging;
+    } catch {}
+    await fetch(`${agentUrl}/phone/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, battery, charging, ts: Date.now() }),
+    });
+  } catch {}
+}
+
+export function startPhoneRunner(): void {
+  if (started || !isPhone()) return;
+  started = true;
+  const deviceId = getOrCreateDeviceId();
+
+  void register(deviceId);
+  void heartbeat(deviceId);
+
+  setInterval(() => void heartbeat(deviceId), HEARTBEAT_MS);
+
+  const loop = async () => {
+    while (true) {
+      const cmds = await poll(deviceId);
+      for (const c of cmds) {
+        const res = await executePhoneTag(c.tag);
+        await postResult(deviceId, c.id, res.ok, res.output);
+      }
+      await new Promise(r => setTimeout(r, POLL_MS));
+    }
+  };
+  void loop();
+}

@@ -73,6 +73,22 @@ const DEFAULT_CONFIG: PermissionConfig = {
     // Dangerous / irreversible — deny by default, user can flip to ask
     KILL_PROCESS: 'ask',
     POWER: 'deny',
+
+    // Phone capabilities — read-only/safe → allow; sensitive → ask
+    PHONE_BATTERY: 'allow',
+    PHONE_INFO: 'allow',
+    PHONE_NETWORK: 'allow',
+    PHONE_NOTIFY: 'allow',
+    PHONE_VIBRATE: 'allow',
+    PHONE_SPEAK: 'allow',
+    PHONE_CLIPBOARD_GET: 'ask',
+    PHONE_CLIPBOARD_SET: 'allow',
+    PHONE_LOCATION: 'ask',
+    PHONE_CAMERA: 'ask',
+    PHONE_OPEN_URL: 'allow',
+    PHONE_SHARE: 'ask',
+    PHONE_LAUNCH: 'ask',
+    PHONE_TORCH: 'ask',
   },
   rules: [
     // Examples — user can edit these

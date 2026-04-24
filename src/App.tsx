@@ -8,12 +8,14 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
+import { startPhoneRunner } from "@/lib/phone-runner";
 
 const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
     startNotificationPoller();
+    startPhoneRunner();
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
@@ -32,6 +34,10 @@ const App = () => {
               <Route path="/memory" element={<Index />} />
               <Route path="/local-models" element={<Index />} />
               <Route path="/permissions" element={<Index />} />
+              <Route path="/phone" element={<Index />} />
+              <Route path="/network" element={<Index />} />
+              <Route path="/mqtt" element={<Index />} />
+              <Route path="/documents" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
