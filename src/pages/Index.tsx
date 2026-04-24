@@ -14,6 +14,7 @@ import LocalModelsPage from './LocalModelsPage';
 import NetworkPage from './NetworkPage';
 import MqttPage from './MqttPage';
 import RagPage from './RagPage';
+import PhonePage from './PhonePage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
@@ -83,6 +84,8 @@ export default function Index() {
         return <MqttPage />;
       case '/documents':
         return <RagPage />;
+      case '/phone':
+        return <PhonePage />;
       case '/settings':
         return <SettingsPage />;
       default:

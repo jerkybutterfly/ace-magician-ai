@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Smartphone, Battery, MapPin, Bell, Vibrate, Volume2, RefreshCw } from 'lucide-react';
 import { getSettings } from '@/lib/settings';
-import { isPhone, executePhoneTag, getOrCreateDeviceId } from '@/lib/phone';
-import { startPhoneRunner } from '@/lib/phone-runner';
+import { isPhone, executePhoneTag } from '@/lib/phone';
+import { startPhoneRunner, getOrCreateDeviceId } from '@/lib/phone-runner';
 import { toast } from 'sonner';
 
 interface PairedDevice {

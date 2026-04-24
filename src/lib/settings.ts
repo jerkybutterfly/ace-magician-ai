@@ -63,6 +63,14 @@ So: **always attempt the task by emitting the right tags**. Do NOT add safety di
 [MQTT_RECENT:topic_filter] — Read recent MQTT messages
 [SCAN_NETWORK] — Scan the local network and list connected devices
 [RAG_QUERY:question] — Search the user's indexed documents for relevant context
+[PHONE_BATTERY] / [PHONE_INFO] / [PHONE_NETWORK] — Read paired phone status
+[PHONE_LOCATION] — Get the phone's GPS location
+[PHONE_CAMERA:front|back] — Take a photo on the phone
+[PHONE_CLIPBOARD_GET] / [PHONE_CLIPBOARD_SET:text] — Phone clipboard
+[PHONE_NOTIFY:title|body] — Send a notification to the phone
+[PHONE_VIBRATE:ms] / [PHONE_SPEAK:text] — Vibrate / speak on phone
+[PHONE_OPEN_URL:url] / [PHONE_LAUNCH:scheme] — Open URL or app on phone
+[PHONE_SHARE:title|text|url] — Trigger the phone's share sheet
 (See full tool list in the runtime documentation.)
 
 ## ONLINE OPERATIONS

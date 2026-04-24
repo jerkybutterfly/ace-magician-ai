@@ -56,7 +56,33 @@ const TOOL_PATTERNS = [
   { regex: /\[MQTT_RECENT:(.*?)\]/g, handler: handleMqttRecent },
   { regex: /\[SCAN_NETWORK\]/g, handler: handleScanNetwork },
   { regex: /\[RAG_QUERY:([\s\S]*?)\]/g, handler: handleRagQuery },
+  { regex: /\[PHONE_[A-Z_]+(?::[\s\S]*?)?\]/g, handler: handlePhoneTag },
 ];
+
+async function handlePhoneTag(match: RegExpMatchArray): Promise<ToolResult> {
+  const tag = match[0];
+  try {
+    const { isPhone, executePhoneTag } = await import('./phone');
+    // Local execution path (chat is running on the phone)
+    if (isPhone()) {
+      const res = await executePhoneTag(tag);
+      return { tag, result: `\n📱 ${res.output}` };
+    }
+    // Remote path: send to AM09 agent which dispatches to a paired phone
+    const { getSettings } = await import('./settings');
+    const { agentUrl } = getSettings();
+    const r = await fetch(`${agentUrl}/phone/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag, timeout_ms: 30000 }),
+    });
+    if (!r.ok) return { tag, result: `\n⚠️ Phone dispatch failed (${r.status}). Is a phone paired?` };
+    const j = await r.json();
+    return { tag, result: `\n📱 ${j.output ?? '(no output)'}` };
+  } catch (e) {
+    return { tag, result: `\n⚠️ Phone tag failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
 
 async function handleMqttPublish(match: RegExpMatchArray): Promise<ToolResult> {
   const topic = match[1].trim();
