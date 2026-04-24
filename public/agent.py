@@ -3283,14 +3283,14 @@ async def phone_dispatch(req: Dict[str, Any] = Body(...)):
         raise HTTPException(status_code=400, detail="not a phone tag")
     if not device_id:
         raise HTTPException(status_code=503, detail="no paired phone")
-    cmd_id = uuid.uuid4().hex
+    cmd_id = _phone_uuid.uuid4().hex
     ev = _phone_threading.Event()
     with _phone_lock:
         _phone_queues.setdefault(device_id, _phone_deque(maxlen=200)).append({"id": cmd_id, "tag": tag})
         _phone_events[cmd_id] = ev
 
     # Wait off the event loop
-    loop = asyncio.get_event_loop()
+    loop = _phone_asyncio.get_event_loop()
     got = await loop.run_in_executor(None, ev.wait, timeout_ms / 1000.0)
     with _phone_lock:
         _phone_events.pop(cmd_id, None)
