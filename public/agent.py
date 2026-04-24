@@ -3189,6 +3189,9 @@ def rag_query(req: dict):
 # PHONE BRIDGE — let chat clients dispatch [PHONE_*] tags to a paired phone
 # ============================================================================
 import threading as _phone_threading
+import asyncio as _phone_asyncio
+import uuid as _phone_uuid
+from typing import Dict
 from collections import deque as _phone_deque
 
 _phone_lock = _phone_threading.Lock()
