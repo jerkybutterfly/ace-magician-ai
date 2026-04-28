@@ -86,6 +86,12 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [localModel, setLocalModel] = useState('');
   const [localError, setLocalError] = useState('');
+  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
+  const smartRouter = isSmartRouterEnabled();
+
+  useEffect(() => {
+    fetchModels().then(setOllamaModels).catch(() => setOllamaModels([]));
+  }, []);
 
   const loadLmStudioModels = () => {
     setLmStudioLoading(true);
