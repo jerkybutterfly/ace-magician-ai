@@ -120,6 +120,8 @@ export function tunedOllamaOptions(task: TaskKind): Record<string, unknown> {
       return { ...base, num_ctx: 8192, temperature: 0.5, top_p: 0.95, num_predict: 1536 };
     case 'tool':
       return { ...base, temperature: 0.3, top_p: 0.9, num_predict: 768 };
+    case 'live':
+      return { ...base, num_ctx: 8192, temperature: 0.2, top_p: 0.9, num_predict: 1024 };
   }
 }
 
