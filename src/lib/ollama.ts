@@ -1,4 +1,5 @@
 import { getSettings } from './settings';
+import { classifyRequest, truncateHistory, tunedOllamaOptions, tunedSamplingParams, type TaskKind } from './smart-router';
 
 export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'local';
 
