@@ -61,10 +61,15 @@ function scoreModel(name: string, task: TaskKind): number {
     if (/instruct|gemma|llama.*3|qwen.*2\.5|mistral/.test(n)) score += 6;
     if (/flash|mini|fast/.test(n)) score += 3; // speed helps in tool loops
     score += Math.min(billions, 8);
+  } else if (task === 'live') {
+    // Live data → must follow the WEB_SEARCH/WEB_FETCH instructions reliably.
+    // Prefer well-aligned instruct models, mid-size, that won't hallucinate refusals.
+    if (/instruct|gemma|llama.*3|qwen.*2\.5|mistral|gpt-5|gemini-2\.5|gemini-3/.test(n)) score += 8;
+    if (/flash|mini|fast/.test(n)) score += 2;
+    // Penalise tiny models that tend to refuse with "I can't access live data"
+    if (billions > 0 && billions < 4) score -= 5;
+    score += Math.min(billions, 14);
   }
-
-  return score;
-}
 
 export function pickModel(available: string[], task: TaskKind, fallback: string): string {
   if (!available || available.length === 0) return fallback;
