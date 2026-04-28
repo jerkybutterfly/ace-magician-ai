@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, fetchModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type OllamaModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
 import { isRagAugmentEnabled, ragQuery } from '@/lib/rag';
+import { classifyRequest, pickModel, isSmartRouterEnabled, type TaskKind } from '@/lib/smart-router';
 import { SkillSuggestionToast } from '@/components/SkillSuggestionToast';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
