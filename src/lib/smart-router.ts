@@ -71,6 +71,9 @@ function scoreModel(name: string, task: TaskKind): number {
     score += Math.min(billions, 14);
   }
 
+  return score;
+}
+
 export function pickModel(available: string[], task: TaskKind, fallback: string): string {
   if (!available || available.length === 0) return fallback;
   const ranked = [...available]
