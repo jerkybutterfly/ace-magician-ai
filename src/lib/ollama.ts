@@ -555,6 +555,7 @@ export async function* streamGoogleChat(
 export async function* streamLMStudioChat(
   model: string,
   messages: ChatMessage[],
+  taskHint?: TaskKind,
 ): AsyncGenerator<StreamChunk> {
   const { lmStudioUrl, systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
@@ -572,15 +573,18 @@ export async function* streamLMStudioChat(
     .filter(Boolean)
     .join('\n\n');
 
-  const allMessages: ChatMessage[] = [
+  const baseMessages: ChatMessage[] = [
     { role: 'system', content: fullSystemPrompt },
     ...messages,
   ];
+  const allMessages = truncateHistory(baseMessages, 14, 8000);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const sampling = tunedSamplingParams(task);
 
   const res = await fetch(`${lmStudioUrl}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: allMessages, stream: true }),
+    body: JSON.stringify({ model, messages: allMessages, stream: true, ...sampling }),
   });
 
   if (!res.ok) throw new Error(`LM Studio error: ${res.statusText}`);
