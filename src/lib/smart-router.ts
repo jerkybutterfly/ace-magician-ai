@@ -10,22 +10,32 @@
 
 import { getSettings } from './settings';
 
-export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool';
+export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool' | 'live';
 
 const CODE_HINTS = /```|\b(function|class|def |const |let |var |import |npm |pip |python|node|tsx|jsx|regex|stack ?trace|error:|exception)\b/i;
 const REASONING_HINTS = /\b(why|explain|analy[sz]e|compare|design|architect|plan|strategi[sz]e|prove|debate|trade[- ]off|step[- ]by[- ]step)\b/i;
 const TOOL_HINTS = /\b(open|launch|start|run|install|download|click|fill|type|navigate|browse|visit|go to|read|write|create|delete|move|copy|search files|list dir|screenshot|kill|notify|mqtt|wifi|ip|process)\b|[A-Za-z]:\\/i;
 const SIMPLE_HINTS = /^(hi|hey|hello|yo|sup|thanks|thank you|ok|okay|cool|nice|lol|good morning|good night|gn|gm)\b/i;
+// Live / time-sensitive queries that REQUIRE web search (sports, news, weather, prices, "next/latest/today")
+const LIVE_HINTS = /\b(next (match|game|fixture|episode|flight|train)|latest|today|tonight|tomorrow|yesterday|this (week|weekend|month|year)|current(ly)?|right now|score|scores|fixture|fixtures|standings|news|headline|weather|forecast|price of|stock|crypto|exchange rate|when (is|does|will|are)|who (won|is winning|is playing)|what time)\b/i;
 
 export function classifyRequest(text: string): TaskKind {
   const t = text.trim();
   if (!t) return 'simple';
+  if (LIVE_HINTS.test(t)) return 'live';
   if (t.length < 60 && SIMPLE_HINTS.test(t)) return 'simple';
   if (TOOL_HINTS.test(t)) return 'tool';
   if (CODE_HINTS.test(t)) return 'code';
   if (REASONING_HINTS.test(t) || t.length > 280) return 'reasoning';
   return 'simple';
 }
+
+/** Short, punchy nudge prepended for live-data tasks so small models don't refuse. */
+export const LIVE_DATA_NUDGE = `[LIVE-DATA TASK] The user is asking for current/real-time information. You MUST:
+1. Emit [WEB_SEARCH:<concise query>] as your FIRST action.
+2. Then emit [WEB_FETCH:<best result url>] on the most relevant result.
+3. Answer using the fetched text and cite the URL.
+DO NOT say "I cannot access live data" — you have working web tools. Just use them.`;
 
 /** Score model name by likely strength for a task. Higher = better fit. */
 function scoreModel(name: string, task: TaskKind): number {
