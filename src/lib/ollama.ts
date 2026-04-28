@@ -1,4 +1,5 @@
 import { getSettings } from './settings';
+import { classifyRequest, truncateHistory, tunedOllamaOptions, tunedSamplingParams, type TaskKind } from './smart-router';
 
 export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'local';
 
@@ -339,6 +340,7 @@ export async function deleteModel(modelName: string): Promise<void> {
 export async function* streamChat(
   model: string,
   messages: ChatMessage[],
+  taskHint?: TaskKind,
 ): AsyncGenerator<StreamChunk> {
   const { ollamaUrl, systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
@@ -355,14 +357,17 @@ export async function* streamChat(
   ]
     .filter(Boolean)
     .join('\n\n');
-  const allMessages: ChatMessage[] = fullSystemPrompt
+  const baseMessages: ChatMessage[] = fullSystemPrompt
     ? [{ role: 'system', content: fullSystemPrompt }, ...messages]
     : messages;
+  const allMessages = truncateHistory(baseMessages, 14, 8000);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const options = tunedOllamaOptions(task);
 
   const res = await fetch(`${ollamaUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: allMessages, stream: true }),
+    body: JSON.stringify({ model, messages: allMessages, stream: true, options, keep_alive: '30m' }),
   });
 
   if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
@@ -550,6 +555,7 @@ export async function* streamGoogleChat(
 export async function* streamLMStudioChat(
   model: string,
   messages: ChatMessage[],
+  taskHint?: TaskKind,
 ): AsyncGenerator<StreamChunk> {
   const { lmStudioUrl, systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
@@ -567,15 +573,18 @@ export async function* streamLMStudioChat(
     .filter(Boolean)
     .join('\n\n');
 
-  const allMessages: ChatMessage[] = [
+  const baseMessages: ChatMessage[] = [
     { role: 'system', content: fullSystemPrompt },
     ...messages,
   ];
+  const allMessages = truncateHistory(baseMessages, 14, 8000);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const sampling = tunedSamplingParams(task);
 
   const res = await fetch(`${lmStudioUrl}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: allMessages, stream: true }),
+    body: JSON.stringify({ model, messages: allMessages, stream: true, ...sampling }),
   });
 
   if (!res.ok) throw new Error(`LM Studio error: ${res.statusText}`);

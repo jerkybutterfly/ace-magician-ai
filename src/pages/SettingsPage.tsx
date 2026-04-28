@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
 import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, type AppSettings, type TelegramProvider } from '@/lib/settings';
+import { isSmartRouterEnabled, setSmartRouterEnabled } from '@/lib/smart-router';
 import { getNotificationSettings, saveNotificationSettings, requestNotificationPermission, showNotification, postNotification, type NotificationSettings } from '@/lib/notifications';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -479,6 +480,26 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
           <Button variant="outline" size="sm" onClick={() => update('systemPrompt', DEFAULT_SYSTEM_PROMPT)}>
             Reset to Default
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Smart Router</CardTitle>
+          <CardDescription>
+            Auto-picks the best available model per message (small for chit-chat, big for code/reasoning),
+            tunes sampling per task, trims long histories, and pre-warms Ollama on app start for faster first tokens.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="smart-router">Enable smart routing & speed boost</Label>
+            <Switch
+              id="smart-router"
+              defaultChecked={isSmartRouterEnabled()}
+              onCheckedChange={(v) => setSmartRouterEnabled(!!v)}
+            />
+          </div>
         </CardContent>
       </Card>
 
