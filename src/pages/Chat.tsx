@@ -274,6 +274,16 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             routedCloud = pickModel(CLOUD_MODELS.map(m => m.value), task, cloudModel);
           }
         }
+        // Live-data tasks: inject a focused nudge so small models actually use [WEB_SEARCH]
+        if (task === 'live' && round === 1 && !currentMessages.some(m => m.role === 'system' && m.content === LIVE_DATA_NUDGE)) {
+          const firstNonSystem = currentMessages.findIndex(m => m.role !== 'system');
+          const insertAt = firstNonSystem === -1 ? currentMessages.length : firstNonSystem;
+          currentMessages = [
+            ...currentMessages.slice(0, insertAt),
+            { role: 'system', content: LIVE_DATA_NUDGE },
+            ...currentMessages.slice(insertAt),
+          ];
+        }
         const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
         const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
