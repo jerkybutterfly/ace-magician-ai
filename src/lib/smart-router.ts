@@ -136,6 +136,8 @@ export function tunedSamplingParams(task: TaskKind): Record<string, unknown> {
       return { temperature: 0.5, top_p: 0.95, max_tokens: 1536 };
     case 'tool':
       return { temperature: 0.3, top_p: 0.9, max_tokens: 768 };
+    case 'live':
+      return { temperature: 0.2, top_p: 0.9, max_tokens: 1024 };
   }
 }
 
