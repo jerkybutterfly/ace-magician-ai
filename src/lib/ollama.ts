@@ -340,6 +340,7 @@ export async function deleteModel(modelName: string): Promise<void> {
 export async function* streamChat(
   model: string,
   messages: ChatMessage[],
+  taskHint?: TaskKind,
 ): AsyncGenerator<StreamChunk> {
   const { ollamaUrl, systemPrompt } = getSettings();
   const agentMemory = (await import('./memory')).getAgentMemory();
@@ -356,14 +357,17 @@ export async function* streamChat(
   ]
     .filter(Boolean)
     .join('\n\n');
-  const allMessages: ChatMessage[] = fullSystemPrompt
+  const baseMessages: ChatMessage[] = fullSystemPrompt
     ? [{ role: 'system', content: fullSystemPrompt }, ...messages]
     : messages;
+  const allMessages = truncateHistory(baseMessages, 14, 8000);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const options = tunedOllamaOptions(task);
 
   const res = await fetch(`${ollamaUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: allMessages, stream: true }),
+    body: JSON.stringify({ model, messages: allMessages, stream: true, options, keep_alive: '30m' }),
   });
 
   if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
