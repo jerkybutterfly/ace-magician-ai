@@ -10,22 +10,32 @@
 
 import { getSettings } from './settings';
 
-export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool';
+export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool' | 'live';
 
 const CODE_HINTS = /```|\b(function|class|def |const |let |var |import |npm |pip |python|node|tsx|jsx|regex|stack ?trace|error:|exception)\b/i;
 const REASONING_HINTS = /\b(why|explain|analy[sz]e|compare|design|architect|plan|strategi[sz]e|prove|debate|trade[- ]off|step[- ]by[- ]step)\b/i;
 const TOOL_HINTS = /\b(open|launch|start|run|install|download|click|fill|type|navigate|browse|visit|go to|read|write|create|delete|move|copy|search files|list dir|screenshot|kill|notify|mqtt|wifi|ip|process)\b|[A-Za-z]:\\/i;
 const SIMPLE_HINTS = /^(hi|hey|hello|yo|sup|thanks|thank you|ok|okay|cool|nice|lol|good morning|good night|gn|gm)\b/i;
+// Live / time-sensitive queries that REQUIRE web search (sports, news, weather, prices, "next/latest/today")
+const LIVE_HINTS = /\b(next (match|game|fixture|episode|flight|train)|latest|today|tonight|tomorrow|yesterday|this (week|weekend|month|year)|current(ly)?|right now|score|scores|fixture|fixtures|standings|news|headline|weather|forecast|price of|stock|crypto|exchange rate|when (is|does|will|are)|who (won|is winning|is playing)|what time)\b/i;
 
 export function classifyRequest(text: string): TaskKind {
   const t = text.trim();
   if (!t) return 'simple';
+  if (LIVE_HINTS.test(t)) return 'live';
   if (t.length < 60 && SIMPLE_HINTS.test(t)) return 'simple';
   if (TOOL_HINTS.test(t)) return 'tool';
   if (CODE_HINTS.test(t)) return 'code';
   if (REASONING_HINTS.test(t) || t.length > 280) return 'reasoning';
   return 'simple';
 }
+
+/** Short, punchy nudge prepended for live-data tasks so small models don't refuse. */
+export const LIVE_DATA_NUDGE = `[LIVE-DATA TASK] The user is asking for current/real-time information. You MUST:
+1. Emit [WEB_SEARCH:<concise query>] as your FIRST action.
+2. Then emit [WEB_FETCH:<best result url>] on the most relevant result.
+3. Answer using the fetched text and cite the URL.
+DO NOT say "I cannot access live data" — you have working web tools. Just use them.`;
 
 /** Score model name by likely strength for a task. Higher = better fit. */
 function scoreModel(name: string, task: TaskKind): number {
@@ -51,6 +61,14 @@ function scoreModel(name: string, task: TaskKind): number {
     if (/instruct|gemma|llama.*3|qwen.*2\.5|mistral/.test(n)) score += 6;
     if (/flash|mini|fast/.test(n)) score += 3; // speed helps in tool loops
     score += Math.min(billions, 8);
+  } else if (task === 'live') {
+    // Live data → must follow the WEB_SEARCH/WEB_FETCH instructions reliably.
+    // Prefer well-aligned instruct models, mid-size, that won't hallucinate refusals.
+    if (/instruct|gemma|llama.*3|qwen.*2\.5|mistral|gpt-5|gemini-2\.5|gemini-3/.test(n)) score += 8;
+    if (/flash|mini|fast/.test(n)) score += 2;
+    // Penalise tiny models that tend to refuse with "I can't access live data"
+    if (billions > 0 && billions < 4) score -= 5;
+    score += Math.min(billions, 14);
   }
 
   return score;
@@ -102,6 +120,8 @@ export function tunedOllamaOptions(task: TaskKind): Record<string, unknown> {
       return { ...base, num_ctx: 8192, temperature: 0.5, top_p: 0.95, num_predict: 1536 };
     case 'tool':
       return { ...base, temperature: 0.3, top_p: 0.9, num_predict: 768 };
+    case 'live':
+      return { ...base, num_ctx: 8192, temperature: 0.2, top_p: 0.9, num_predict: 1024 };
   }
 }
 
@@ -116,6 +136,8 @@ export function tunedSamplingParams(task: TaskKind): Record<string, unknown> {
       return { temperature: 0.5, top_p: 0.95, max_tokens: 1536 };
     case 'tool':
       return { temperature: 0.3, top_p: 0.9, max_tokens: 768 };
+    case 'live':
+      return { temperature: 0.2, top_p: 0.9, max_tokens: 1024 };
   }
 }
 
