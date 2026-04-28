@@ -260,7 +260,21 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         let fullThinking = '';
         setStreamedContent('');
         setStreamedThinking('');
-        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? lmStudioModel : provider === 'cloud' ? cloudModel : provider === 'local' ? localModel : model;
+        const task: TaskKind = classifyRequest(request);
+        // Smart router: auto-pick best available model for this task on local providers
+        let routedOllama = model;
+        let routedLmStudio = lmStudioModel;
+        let routedCloud = cloudModel;
+        if (smartRouter && round === 1) {
+          if (provider === 'ollama' && ollamaModels.length > 0) {
+            routedOllama = pickModel(ollamaModels.map(m => m.name), task, model);
+          } else if (provider === 'lmstudio' && lmStudioModels.length > 0) {
+            routedLmStudio = pickModel(lmStudioModels.map(m => m.id), task, lmStudioModel);
+          } else if (provider === 'cloud') {
+            routedCloud = pickModel(CLOUD_MODELS.map(m => m.value), task, cloudModel);
+          }
+        }
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
         const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           if (chunk.thinking) {
