@@ -10,6 +10,8 @@ import NotFound from "./pages/NotFound.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
+import { warmOllamaModel } from "@/lib/smart-router";
+import { fetchModels } from "@/lib/ollama";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +20,12 @@ const App = () => {
     startNotificationPoller();
     startPhoneRunner();
     startBriefingScheduler();
+    // Pre-warm the most recently used Ollama model so first reply is instant
+    fetchModels()
+      .then((models) => {
+        if (models.length > 0) warmOllamaModel(models[0].name);
+      })
+      .catch(() => {/* Ollama offline — skip warmup */});
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
