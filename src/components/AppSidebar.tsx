@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, Smartphone } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, Smartphone, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -22,6 +22,7 @@ const navItems = [
   { title: 'Local Models', url: '/local-models', icon: Cpu },
   { title: 'Documents', url: '/documents', icon: BookOpen },
   { title: 'Phone', url: '/phone', icon: Smartphone },
+  { title: 'Briefing', url: '/briefing', icon: Sun },
   { title: 'Network', url: '/network', icon: Network },
   { title: 'MQTT', url: '/mqtt', icon: Radio },
   { title: 'Cron', url: '/cron', icon: Clock },

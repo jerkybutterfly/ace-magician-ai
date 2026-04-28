@@ -15,6 +15,7 @@ import NetworkPage from './NetworkPage';
 import MqttPage from './MqttPage';
 import RagPage from './RagPage';
 import PhonePage from './PhonePage';
+import BriefingPage from './BriefingPage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
@@ -86,6 +87,8 @@ export default function Index() {
         return <RagPage />;
       case '/phone':
         return <PhonePage />;
+      case '/briefing':
+        return <BriefingPage />;
       case '/settings':
         return <SettingsPage />;
       default:

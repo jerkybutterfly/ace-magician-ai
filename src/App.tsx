@@ -9,6 +9,7 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
+import { startBriefingScheduler } from "@/lib/briefing";
 
 const queryClient = new QueryClient();
 
@@ -16,6 +17,7 @@ const App = () => {
   useEffect(() => {
     startNotificationPoller();
     startPhoneRunner();
+    startBriefingScheduler();
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
@@ -35,6 +37,7 @@ const App = () => {
               <Route path="/local-models" element={<Index />} />
               <Route path="/permissions" element={<Index />} />
               <Route path="/phone" element={<Index />} />
+              <Route path="/briefing" element={<Index />} />
               <Route path="/network" element={<Index />} />
               <Route path="/mqtt" element={<Index />} />
               <Route path="/documents" element={<Index />} />
