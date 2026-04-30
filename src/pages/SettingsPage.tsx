@@ -485,6 +485,26 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Hacker Terminal Theme</CardTitle>
+          <CardDescription>Matrix green-on-black, monospace UI, scanline overlay. Pure cosmetic.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="hacker-theme">Enable hacker theme</Label>
+            <Switch
+              id="hacker-theme"
+              defaultChecked={localStorage.getItem('hacker-theme') === 'yes'}
+              onCheckedChange={(v) => {
+                localStorage.setItem('hacker-theme', v ? 'yes' : 'no');
+                document.documentElement.classList.toggle('hacker', !!v);
+              }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Smart Router</CardTitle>
           <CardDescription>
             Auto-picks the best available model per message (small for chit-chat, big for code/reasoning),

@@ -16,6 +16,10 @@ import MqttPage from './MqttPage';
 import RagPage from './RagPage';
 import PhonePage from './PhonePage';
 import BriefingPage from './BriefingPage';
+import ReconPage from './ReconPage';
+import AuditPage from './AuditPage';
+import ForensicsPage from './ForensicsPage';
+import LabModePage from './LabModePage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
@@ -89,6 +93,14 @@ export default function Index() {
         return <PhonePage />;
       case '/briefing':
         return <BriefingPage />;
+      case '/recon':
+        return <ReconPage />;
+      case '/audit':
+        return <AuditPage />;
+      case '/forensics':
+        return <ForensicsPage />;
+      case '/labmode':
+        return <LabModePage />;
       case '/settings':
         return <SettingsPage />;
       default:
