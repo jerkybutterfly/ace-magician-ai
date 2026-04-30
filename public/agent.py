@@ -3300,6 +3300,423 @@ async def phone_dispatch(req: Dict[str, Any] = Body(...)):
     return result
 
 
+# ═══════════════════════════════════════════════════════
+#  Kali-inspired packs: Recon · Audit · Forensics · Lab Mode
+#  All operate on the local box / user-supplied targets.
+#  Lab Mode endpoints require an explicit "I_OWN_THIS=yes" header.
+# ═══════════════════════════════════════════════════════
+import socket as _ks
+import hashlib as _kh
+import struct as _kstruct
+import ipaddress as _kip
+import concurrent.futures as _kcf
+import urllib.request as _kreq
+import urllib.parse as _kparse
+import re as _kre
+import subprocess as _ksub
+import platform as _kplat
+
+
+COMMON_PORTS = [21,22,23,25,53,67,68,69,80,110,111,123,135,137,138,139,143,161,389,443,445,465,514,587,631,636,873,902,989,990,993,995,1080,1194,1433,1521,1723,1883,2049,2082,2083,2375,2376,2483,2484,3000,3128,3306,3389,4444,5000,5432,5555,5601,5672,5900,5984,6379,6443,7001,7077,8000,8008,8080,8081,8086,8088,8443,8888,9000,9090,9092,9200,9300,11211,15672,25565,27017,27018,32400,33060,49152,50000,50070]
+
+PORT_NAMES = {21:"ftp",22:"ssh",23:"telnet",25:"smtp",53:"dns",80:"http",110:"pop3",135:"msrpc",139:"netbios",143:"imap",389:"ldap",443:"https",445:"smb",465:"smtps",587:"submission",631:"ipp",993:"imaps",995:"pop3s",1433:"mssql",1883:"mqtt",2049:"nfs",2375:"docker",3000:"node/grafana",3306:"mysql",3389:"rdp",5000:"upnp/flask",5432:"postgres",5900:"vnc",5984:"couchdb",6379:"redis",6443:"k8s-api",8000:"http-alt",8080:"http-proxy",8086:"influxdb",8443:"https-alt",8888:"jupyter",9000:"portainer",9090:"prometheus",9200:"elasticsearch",11211:"memcached",27017:"mongodb",32400:"plex",50000:"sap"}
+
+
+def _scan_one(host: str, port: int, timeout: float) -> tuple[int, bool, str]:
+    s = _ks.socket(_ks.AF_INET, _ks.SOCK_STREAM)
+    s.settimeout(timeout)
+    banner = ""
+    try:
+        s.connect((host, port))
+        try:
+            s.settimeout(0.4)
+            data = s.recv(96)
+            banner = data.decode("utf-8", "replace").strip()
+        except Exception:
+            pass
+        return (port, True, banner)
+    except Exception:
+        return (port, False, "")
+    finally:
+        try: s.close()
+        except Exception: pass
+
+
+@app.post("/recon/portscan")
+def recon_portscan(req: dict):
+    target = (req.get("target") or "").strip()
+    if not target:
+        raise HTTPException(status_code=400, detail="target required")
+    ports_in = req.get("ports")
+    timeout = float(req.get("timeout", 0.5))
+    if isinstance(ports_in, str) and ports_in.strip():
+        ports = []
+        for chunk in ports_in.split(","):
+            chunk = chunk.strip()
+            if "-" in chunk:
+                a, b = chunk.split("-", 1)
+                ports.extend(range(int(a), int(b) + 1))
+            elif chunk.isdigit():
+                ports.append(int(chunk))
+        ports = [p for p in ports if 1 <= p <= 65535][:2048]
+    else:
+        ports = COMMON_PORTS
+    try:
+        ip = _ks.gethostbyname(target)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"resolve failed: {e}")
+    open_ports = []
+    with _kcf.ThreadPoolExecutor(max_workers=128) as ex:
+        for port, ok, banner in ex.map(lambda p: _scan_one(ip, p, timeout), ports):
+            if ok:
+                open_ports.append({"port": port, "service": PORT_NAMES.get(port, "?"), "banner": banner})
+    return {"target": target, "ip": ip, "scanned": len(ports), "open": open_ports}
+
+
+@app.post("/recon/traceroute")
+def recon_traceroute(req: dict):
+    target = (req.get("target") or "").strip()
+    if not target:
+        raise HTTPException(status_code=400, detail="target required")
+    cmd = ["tracert", "-h", "20", "-w", "1500", target] if _kplat.system() == "Windows" else ["traceroute", "-n", "-q", "1", "-w", "2", "-m", "20", target]
+    try:
+        out = _ksub.run(cmd, capture_output=True, text=True, timeout=60)
+        return {"target": target, "output": (out.stdout or "") + (out.stderr or "")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/recon/dns")
+def recon_dns(req: dict):
+    name = (req.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name required")
+    rec = {"A": [], "AAAA": [], "PTR": None, "CNAME": []}
+    try:
+        infos = _ks.getaddrinfo(name, None)
+        for info in infos:
+            addr = info[4][0]
+            if ":" in addr and addr not in rec["AAAA"]:
+                rec["AAAA"].append(addr)
+            elif "." in addr and addr not in rec["A"]:
+                rec["A"].append(addr)
+    except Exception as e:
+        rec["error"] = str(e)
+    if rec["A"]:
+        try:
+            rec["PTR"] = _ks.gethostbyaddr(rec["A"][0])[0]
+        except Exception:
+            pass
+    return {"name": name, "records": rec}
+
+
+@app.post("/recon/whois")
+def recon_whois(req: dict):
+    domain = (req.get("domain") or "").strip()
+    if not domain:
+        raise HTTPException(status_code=400, detail="domain required")
+    server = "whois.iana.org"
+    try:
+        out_text = ""
+        for srv in (server, "whois.verisign-grs.com"):
+            s = _ks.socket(_ks.AF_INET, _ks.SOCK_STREAM)
+            s.settimeout(8)
+            s.connect((srv, 43))
+            s.sendall(f"{domain}\r\n".encode())
+            chunks = []
+            while True:
+                try: data = s.recv(4096)
+                except Exception: break
+                if not data: break
+                chunks.append(data)
+            s.close()
+            text = b"".join(chunks).decode("utf-8", "replace")
+            out_text += f"\n--- {srv} ---\n" + text
+            m = _kre.search(r"refer:\s*(\S+)", text, _kre.I)
+            if m:
+                server = m.group(1).strip()
+                if server not in ("whois.verisign-grs.com",):
+                    try:
+                        s2 = _ks.socket(_ks.AF_INET, _ks.SOCK_STREAM)
+                        s2.settimeout(8); s2.connect((server, 43))
+                        s2.sendall(f"{domain}\r\n".encode())
+                        buf = b""
+                        while True:
+                            try: d = s2.recv(4096)
+                            except Exception: break
+                            if not d: break
+                            buf += d
+                        s2.close()
+                        out_text += f"\n--- {server} ---\n" + buf.decode("utf-8","replace")
+                    except Exception: pass
+            break
+        return {"domain": domain, "output": out_text.strip()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/recon/geoip")
+def recon_geoip(req: dict):
+    ip = (req.get("ip") or "").strip()
+    if not ip:
+        raise HTTPException(status_code=400, detail="ip required")
+    try:
+        with _kreq.urlopen(f"https://ipapi.co/{_kparse.quote(ip)}/json/", timeout=8) as r:
+            return json.loads(r.read().decode())
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.post("/recon/hash")
+def recon_hash(req: dict):
+    path = (req.get("path") or "").strip()
+    if not path or not Path(path).is_file():
+        raise HTTPException(status_code=400, detail="file not found")
+    p = Path(path)
+    md5 = _kh.md5(); sha1 = _kh.sha1(); sha256 = _kh.sha256()
+    size = 0
+    with p.open("rb") as f:
+        while True:
+            chunk = f.read(1024*1024)
+            if not chunk: break
+            size += len(chunk)
+            md5.update(chunk); sha1.update(chunk); sha256.update(chunk)
+    return {"path": str(p), "size": size, "md5": md5.hexdigest(), "sha1": sha1.hexdigest(), "sha256": sha256.hexdigest()}
+
+
+@app.post("/recon/strings")
+def recon_strings(req: dict):
+    path = (req.get("path") or "").strip()
+    minlen = int(req.get("min_len", 6))
+    limit = int(req.get("limit", 500))
+    if not path or not Path(path).is_file():
+        raise HTTPException(status_code=400, detail="file not found")
+    data = Path(path).read_bytes()[:8 * 1024 * 1024]
+    found = _kre.findall(rb"[\x20-\x7e]{%d,}" % minlen, data)
+    out = [s.decode("ascii", "replace") for s in found[:limit]]
+    return {"path": path, "count": len(found), "strings": out}
+
+
+@app.post("/recon/hexdump")
+def recon_hexdump(req: dict):
+    path = (req.get("path") or "").strip()
+    offset = int(req.get("offset", 0))
+    length = min(int(req.get("length", 512)), 16384)
+    if not path or not Path(path).is_file():
+        raise HTTPException(status_code=400, detail="file not found")
+    with Path(path).open("rb") as f:
+        f.seek(offset)
+        data = f.read(length)
+    lines = []
+    for i in range(0, len(data), 16):
+        chunk = data[i:i+16]
+        hexpart = " ".join(f"{b:02x}" for b in chunk).ljust(48)
+        ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+        lines.append(f"{offset+i:08x}  {hexpart}  {ascii_part}")
+    return {"path": path, "offset": offset, "length": len(data), "dump": "\n".join(lines)}
+
+
+@app.post("/recon/exif")
+def recon_exif(req: dict):
+    path = (req.get("path") or "").strip()
+    if not path or not Path(path).is_file():
+        raise HTTPException(status_code=400, detail="file not found")
+    try:
+        from PIL import Image, ExifTags
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Pillow not installed. Run: pip install pillow")
+    try:
+        img = Image.open(path)
+        raw = img._getexif() or {}
+        tags = {ExifTags.TAGS.get(k, str(k)): str(v)[:300] for k, v in raw.items()}
+        return {"path": path, "format": img.format, "size": img.size, "mode": img.mode, "exif": tags}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/recon/pwned")
+def recon_pwned(req: dict):
+    pw = req.get("password") or ""
+    if not pw:
+        raise HTTPException(status_code=400, detail="password required")
+    sha1 = _kh.sha1(pw.encode("utf-8")).hexdigest().upper()
+    prefix, suffix = sha1[:5], sha1[5:]
+    try:
+        with _kreq.urlopen(f"https://api.pwnedpasswords.com/range/{prefix}", timeout=8) as r:
+            body = r.read().decode()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    count = 0
+    for line in body.splitlines():
+        h, _, c = line.strip().partition(":")
+        if h == suffix:
+            count = int(c); break
+    score = max(0, min(100, len(pw)*6 + (10 if any(c.isupper() for c in pw) else 0) + (10 if any(c.isdigit() for c in pw) else 0) + (15 if any(not c.isalnum() for c in pw) else 0)))
+    return {"breached": count > 0, "count": count, "strength": score}
+
+
+@app.get("/audit/run")
+def audit_run():
+    findings = []
+    sysname = _kplat.system()
+
+    # Listening ports
+    listening = []
+    try:
+        for c in psutil.net_connections(kind="inet"):
+            if c.status == psutil.CONN_LISTEN and c.laddr:
+                listening.append({"port": c.laddr.port, "ip": c.laddr.ip, "pid": c.pid or 0})
+        risky = [l for l in listening if l["ip"] in ("0.0.0.0", "::") and l["port"] in (21,23,135,139,445,3389,5900,6379,9200,11211,27017)]
+        if risky:
+            findings.append({"level": "warn", "title": "Risky services exposed on all interfaces", "detail": ", ".join(f"{r['port']}" for r in risky)})
+    except Exception as e:
+        findings.append({"level": "info", "title": "Could not enumerate connections", "detail": str(e)})
+
+    # Firewall
+    fw = "unknown"
+    try:
+        if sysname == "Windows":
+            r = _ksub.run(["netsh","advfirewall","show","allprofiles","state"], capture_output=True, text=True, timeout=8)
+            on = r.stdout.count("ON")
+            fw = f"{on}/3 profiles enabled"
+            if on < 3:
+                findings.append({"level":"warn","title":"Windows Firewall not fully enabled","detail":r.stdout.strip()[:600]})
+        elif sysname == "Linux":
+            r = _ksub.run(["sh","-c","command -v ufw && ufw status || iptables -L -n | head -20"], capture_output=True, text=True, timeout=8)
+            fw = (r.stdout or r.stderr).strip()[:400]
+    except Exception as e:
+        fw = f"error: {e}"
+
+    # Failed logins
+    failed = "n/a"
+    try:
+        if sysname == "Windows":
+            r = _ksub.run(["powershell","-NoProfile","-Command","(Get-EventLog -LogName Security -InstanceId 4625 -Newest 50 -ErrorAction SilentlyContinue).Count"], capture_output=True, text=True, timeout=10)
+            failed = (r.stdout or "").strip() or "0"
+        else:
+            r = _ksub.run(["sh","-c","grep -c 'Failed password' /var/log/auth.log 2>/dev/null || journalctl _COMM=sshd | grep -c 'Failed password'"], capture_output=True, text=True, timeout=8)
+            failed = (r.stdout or "").strip() or "0"
+        if failed.isdigit() and int(failed) > 20:
+            findings.append({"level":"warn","title":"High number of failed logins","detail":f"{failed} recent failed login attempts"})
+    except Exception:
+        pass
+
+    # User accounts (Windows quick check)
+    users = []
+    try:
+        if sysname == "Windows":
+            r = _ksub.run(["net","user"], capture_output=True, text=True, timeout=8)
+            users = [u for u in r.stdout.split() if u and not u.startswith("-") and u.lower() not in ("user","accounts","for","\\\\","command","completed","successfully.","the")][:30]
+    except Exception:
+        pass
+
+    # Disk encryption (Windows BitLocker)
+    encryption = "unknown"
+    try:
+        if sysname == "Windows":
+            r = _ksub.run(["powershell","-NoProfile","-Command","(Get-BitLockerVolume -ErrorAction SilentlyContinue | Select-Object MountPoint,ProtectionStatus | Format-Table | Out-String)"], capture_output=True, text=True, timeout=10)
+            encryption = (r.stdout or "").strip()[:600] or "n/a"
+            if encryption and "Off" in encryption:
+                findings.append({"level":"warn","title":"BitLocker disabled on one or more volumes","detail":encryption[:300]})
+    except Exception:
+        pass
+
+    return {
+        "system": sysname,
+        "hostname": _ks.gethostname(),
+        "listening_ports": listening,
+        "firewall": fw,
+        "failed_logins": failed,
+        "users": users,
+        "encryption": encryption,
+        "findings": findings,
+    }
+
+
+# ── Lab Mode (gated) ──────────────────────────────────
+
+def _require_lab(req_headers: dict):
+    if (req_headers.get("i-own-this") or req_headers.get("I-Own-This") or "").lower() != "yes":
+        raise HTTPException(status_code=403, detail="Lab mode requires header I-Own-This: yes — only use against systems you own.")
+
+
+COMMON_DIRS = ["admin","administrator","login","wp-admin","wp-login.php","phpmyadmin","backup","backup.zip",".git/config",".env","config.php","robots.txt","sitemap.xml","api","api/v1","server-status",".DS_Store","uploads","images","static","dashboard","panel","cgi-bin","test","dev","old","tmp","db.sql"]
+
+
+@app.post("/labmode/dirbust")
+def labmode_dirbust(req: dict, request: Request):
+    _require_lab(dict(request.headers))
+    base = (req.get("base_url") or "").rstrip("/")
+    if not base.startswith("http"):
+        raise HTTPException(status_code=400, detail="base_url must start with http(s)://")
+    extra = req.get("extra_paths") or []
+    paths = COMMON_DIRS + [p.strip("/") for p in extra if p][:200]
+    found = []
+    def probe(path):
+        url = f"{base}/{path}"
+        try:
+            r = _kreq.Request(url, headers={"User-Agent":"AgentLab/1.0"})
+            with _kreq.urlopen(r, timeout=5) as resp:
+                return {"path": path, "url": url, "status": resp.status, "len": len(resp.read(2048))}
+        except Exception as e:
+            code = getattr(e, "code", 0)
+            if code and code != 404:
+                return {"path": path, "url": url, "status": code, "len": 0}
+            return None
+    with _kcf.ThreadPoolExecutor(max_workers=16) as ex:
+        for r in ex.map(probe, paths):
+            if r: found.append(r)
+    return {"base_url": base, "checked": len(paths), "found": found}
+
+
+COMMON_SUBDOMAINS = ["www","mail","ftp","api","dev","staging","test","admin","portal","vpn","remote","app","blog","shop","cdn","static","img","m","mobile","ns1","ns2","mx","mx1","smtp","imap","pop","pop3","webmail","cpanel","whm","autodiscover","owa","exchange","sso","auth","login","secure","beta","demo","internal","intranet","wiki","docs","support","help","status","monitor","grafana","prometheus","jenkins","gitlab","git","jira","confluence"]
+
+
+@app.post("/labmode/subdomain")
+def labmode_subdomain(req: dict, request: Request):
+    _require_lab(dict(request.headers))
+    domain = (req.get("domain") or "").strip().lstrip(".")
+    if not domain or "/" in domain:
+        raise HTTPException(status_code=400, detail="domain required (no scheme)")
+    extra = [w.strip() for w in (req.get("words") or []) if w.strip()][:300]
+    words = COMMON_SUBDOMAINS + extra
+    found = []
+    def probe(w):
+        host = f"{w}.{domain}"
+        try:
+            ip = _ks.gethostbyname(host)
+            return {"host": host, "ip": ip}
+        except Exception:
+            return None
+    with _kcf.ThreadPoolExecutor(max_workers=32) as ex:
+        for r in ex.map(probe, words):
+            if r: found.append(r)
+    return {"domain": domain, "checked": len(words), "found": found}
+
+
+@app.post("/labmode/login_probe")
+def labmode_login_probe(req: dict, request: Request):
+    """Test 1 credential at a time against an HTTP form. Rate-limited to 1 try/sec."""
+    _require_lab(dict(request.headers))
+    url = (req.get("url") or "").strip()
+    user_field = req.get("user_field") or "username"
+    pass_field = req.get("pass_field") or "password"
+    username = req.get("username") or ""
+    password = req.get("password") or ""
+    fail_text = req.get("fail_text") or ""
+    if not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="url must start with http(s)://")
+    data = _kparse.urlencode({user_field: username, pass_field: password}).encode()
+    time.sleep(1.0)
+    try:
+        r = _kreq.Request(url, data=data, headers={"User-Agent":"AgentLab/1.0","Content-Type":"application/x-www-form-urlencoded"})
+        with _kreq.urlopen(r, timeout=10) as resp:
+            body = resp.read(8192).decode("utf-8","replace")
+            ok = (fail_text not in body) if fail_text else (resp.status in (200, 302))
+            return {"status": resp.status, "len": len(body), "likely_success": bool(ok), "snippet": body[:400]}
+    except Exception as e:
+        return {"status": getattr(e,"code",0), "error": str(e), "likely_success": False, "snippet": ""}
+
 
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
