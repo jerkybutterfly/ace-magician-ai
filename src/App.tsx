@@ -17,6 +17,9 @@ const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
+    if (localStorage.getItem('hacker-theme') === 'yes') {
+      document.documentElement.classList.add('hacker');
+    }
     startNotificationPoller();
     startPhoneRunner();
     startBriefingScheduler();
@@ -49,6 +52,10 @@ const App = () => {
               <Route path="/network" element={<Index />} />
               <Route path="/mqtt" element={<Index />} />
               <Route path="/documents" element={<Index />} />
+              <Route path="/recon" element={<Index />} />
+              <Route path="/audit" element={<Index />} />
+              <Route path="/forensics" element={<Index />} />
+              <Route path="/labmode" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
