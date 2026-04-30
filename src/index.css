@@ -72,4 +72,50 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Hacker terminal theme — Matrix green on black */
+  html.hacker {
+    --background: 120 10% 3%;
+    --foreground: 120 80% 70%;
+    --card: 120 12% 5%;
+    --card-foreground: 120 80% 70%;
+    --popover: 120 12% 5%;
+    --popover-foreground: 120 80% 70%;
+    --primary: 120 90% 50%;
+    --primary-foreground: 120 10% 3%;
+    --secondary: 120 15% 8%;
+    --secondary-foreground: 120 80% 70%;
+    --muted: 120 15% 7%;
+    --muted-foreground: 120 30% 45%;
+    --accent: 120 50% 12%;
+    --accent-foreground: 120 90% 70%;
+    --destructive: 0 90% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 120 30% 12%;
+    --input: 120 20% 10%;
+    --ring: 120 90% 50%;
+    --sidebar-background: 120 12% 2%;
+    --sidebar-foreground: 120 60% 60%;
+    --sidebar-primary: 120 90% 50%;
+    --sidebar-primary-foreground: 120 10% 3%;
+    --sidebar-accent: 120 15% 6%;
+    --sidebar-accent-foreground: 120 80% 70%;
+    --sidebar-border: 120 25% 10%;
+    --sidebar-ring: 120 90% 50%;
+  }
+  html.hacker body {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    text-shadow: 0 0 2px hsl(120 90% 50% / 0.4);
+  }
+  html.hacker body::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 2px,
+      hsl(120 90% 50% / 0.04) 2px,
+      hsl(120 90% 50% / 0.04) 3px
+    );
+  }
 }
