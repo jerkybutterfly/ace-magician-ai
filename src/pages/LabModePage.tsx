@@ -150,6 +150,7 @@ export default function LabModePage() {
             <TabsTrigger value="robots">Robots/Sitemap</TabsTrigger>
             <TabsTrigger value="cors">CORS Check</TabsTrigger>
             <TabsTrigger value="wifi">Wi-Fi (aircrack-ng)</TabsTrigger>
+            <TabsTrigger value="kali">Kali Toolkit</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dir">
