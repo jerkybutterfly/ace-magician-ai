@@ -12,7 +12,8 @@ import { AlertTriangle, FlaskConical, Loader2 } from 'lucide-react';
 import {
   labDirbust, labSubdomains, labLoginProbe,
   labHeaders, labSsl, labVulnProbe, labHostSweep, labBanner, labSpray, labRobots, labCors,
-  type HeaderFinding, type VulnProbeResult, type CorsResult,
+  labWifiTools, labWifiScan, labWifiMonitor, labWifiCapture, labWifiDeauth, labWifiCrack,
+  type HeaderFinding, type VulnProbeResult, type CorsResult, type WifiNetwork,
 } from '@/lib/kali';
 import { toast } from 'sonner';
 
@@ -83,6 +84,25 @@ export default function LabModePage() {
   const [corsUrl, setCorsUrl] = useState('https://example.com/api');
   const [corsRes, setCorsRes] = useState<CorsResult[]>([]);
 
+  // wifi (aircrack-ng)
+  const [wifiTools, setWifiTools] = useState<{ platform: string; tools: Record<string, boolean>; any_aircrack: boolean; note: string } | null>(null);
+  const [wifiNets, setWifiNets] = useState<WifiNetwork[]>([]);
+  const [wifiIface, setWifiIface] = useState('wlan0');
+  const [wifiMonOut, setWifiMonOut] = useState('');
+  const [capBssid, setCapBssid] = useState('');
+  const [capChannel, setCapChannel] = useState('');
+  const [capSeconds, setCapSeconds] = useState(30);
+  const [capPrefix, setCapPrefix] = useState('/tmp/wifi-cap');
+  const [capFiles, setCapFiles] = useState<string[]>([]);
+  const [deauthBssid, setDeauthBssid] = useState('');
+  const [deauthClient, setDeauthClient] = useState('');
+  const [deauthCount, setDeauthCount] = useState(5);
+  const [deauthOut, setDeauthOut] = useState('');
+  const [crackCap, setCrackCap] = useState('/tmp/wifi-cap-01.cap');
+  const [crackWl, setCrackWl] = useState('/usr/share/wordlists/rockyou.txt');
+  const [crackBssid, setCrackBssid] = useState('');
+  const [crackOut, setCrackOut] = useState<{ key_found: string | null; output: string } | null>(null);
+
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto w-full">
@@ -127,6 +147,7 @@ export default function LabModePage() {
             <TabsTrigger value="spray">Pwd Spray</TabsTrigger>
             <TabsTrigger value="robots">Robots/Sitemap</TabsTrigger>
             <TabsTrigger value="cors">CORS Check</TabsTrigger>
+            <TabsTrigger value="wifi">Wi-Fi (aircrack-ng)</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dir">
