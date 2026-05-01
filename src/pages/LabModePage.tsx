@@ -570,6 +570,86 @@ export default function LabModePage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="kali">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Kali Toolkit (external binaries)</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => wrap(async () => { const r = await labKaliList(); setKaliTools(r.tools); })}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Detect installed tools'}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">One per category from the Offensive Linux pack. Runs only what is installed on the agent host.</span>
+                </div>
+
+                {kaliTools.length > 0 && (
+                  <ScrollArea className="h-44 rounded border">
+                    <table className="w-full text-xs font-mono">
+                      <thead className="bg-muted/40 sticky top-0">
+                        <tr><th className="text-left p-2">Tool</th><th className="text-left p-2">Category</th><th className="text-left p-2">Status</th><th className="text-left p-2">Path</th></tr>
+                      </thead>
+                      <tbody>
+                        {kaliTools.map(t => (
+                          <tr key={t.key} className="border-t border-border/40">
+                            <td className="p-2 text-primary">{t.key}</td>
+                            <td className="p-2">{t.category}</td>
+                            <td className="p-2">{t.installed ? <Badge className="bg-primary/20 text-primary border-primary/40">installed</Badge> : <Badge variant="outline">missing</Badge>}</td>
+                            <td className="p-2 text-muted-foreground truncate max-w-xs">{t.path || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </ScrollArea>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <select className="bg-background border rounded px-2 py-1 text-sm" value={kaliKey} onChange={(e) => setKaliKey(e.target.value)}>
+                    <option value="theharvester">theHarvester (Recon)</option>
+                    <option value="nikto">Nikto (Vuln Scan)</option>
+                    <option value="hping3">hping3 (Network)</option>
+                    <option value="hydra">Hydra (Brute Force)</option>
+                    <option value="apktool">Apktool (Mobile)</option>
+                    <option value="radare2">Radare2 (RE)</option>
+                    <option value="sqlmap">sqlmap (Exploit)</option>
+                    <option value="mimikatz">Mimikatz (Post-Exp)</option>
+                    <option value="wifite">Wifite (Wireless)</option>
+                    <option value="gophish">Gophish (Phishing)</option>
+                    <option value="zap">OWASP ZAP (Web App)</option>
+                    <option value="faraday">Faraday (Reporting)</option>
+                  </select>
+                  <Input placeholder="target (URL / IP / domain)" value={kaliTarget} onChange={(e) => setKaliTarget(e.target.value)} />
+                  <Button disabled={busy} onClick={() => wrap(async () => {
+                    let extra = {};
+                    try { extra = JSON.parse(kaliExtra || '{}'); } catch { throw new Error('extra JSON invalid'); }
+                    const r = await labKaliRun(kaliKey, kaliTarget, extra);
+                    setKaliOut(r);
+                  })}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Run'}</Button>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Extra options (JSON)</Label>
+                  <Textarea
+                    rows={3}
+                    className="font-mono text-xs"
+                    placeholder='e.g. {"user":"admin","wordlist":"/usr/share/wordlists/rockyou.txt"} for hydra, {"source":"bing","limit":50} for theHarvester, {"apk":"/path/app.apk"} for apktool'
+                    value={kaliExtra}
+                    onChange={(e) => setKaliExtra(e.target.value)}
+                  />
+                </div>
+
+                {kaliOut && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      {kaliOut.ok ? <Badge className="bg-primary/20 text-primary border-primary/40">ok</Badge> : <Badge variant="destructive">rc {kaliOut.rc}</Badge>}
+                      <span className="font-mono text-muted-foreground truncate">{kaliOut.command}</span>
+                    </div>
+                    <pre className="text-[11px] font-mono bg-muted/30 rounded p-2 max-h-72 overflow-auto whitespace-pre-wrap">{kaliOut.stdout || '(no stdout)'}</pre>
+                    {kaliOut.stderr && <pre className="text-[11px] font-mono bg-destructive/10 text-destructive rounded p-2 max-h-32 overflow-auto whitespace-pre-wrap">{kaliOut.stderr}</pre>}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       )}
     </div>
