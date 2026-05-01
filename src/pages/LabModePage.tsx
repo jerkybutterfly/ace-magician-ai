@@ -44,6 +44,46 @@ export default function LabModePage() {
   const [failText, setFailText] = useState('Invalid');
   const [loginRes, setLoginRes] = useState<{ status: number; likely_success: boolean; snippet: string } | null>(null);
 
+  // headers
+  const [hdrUrl, setHdrUrl] = useState('https://example.com');
+  const [hdrRes, setHdrRes] = useState<{ status: number; headers: Record<string,string>; findings: HeaderFinding[] } | null>(null);
+
+  // ssl
+  const [sslHost, setSslHost] = useState('example.com');
+  const [sslPort, setSslPort] = useState(443);
+  const [sslRes, setSslRes] = useState<{ tls_version: string; cipher: [string,string,number]; cert: Record<string,unknown> } | null>(null);
+
+  // vuln
+  const [vulnUrl, setVulnUrl] = useState('http://192.168.1.10/search');
+  const [vulnParam, setVulnParam] = useState('q');
+  const [vulnRes, setVulnRes] = useState<VulnProbeResult[]>([]);
+
+  // sweep
+  const [cidr, setCidr] = useState('192.168.1.0/24');
+  const [sweepRes, setSweepRes] = useState<{ ip: string; hostname: string }[]>([]);
+
+  // banner
+  const [bHost, setBHost] = useState('192.168.1.10');
+  const [bPort, setBPort] = useState(22);
+  const [bProbe, setBProbe] = useState('');
+  const [bRes, setBRes] = useState<{ banner: string; bytes: number } | null>(null);
+
+  // spray
+  const [sprayUrl, setSprayUrl] = useState('http://192.168.1.10/login');
+  const [sprayUsers, setSprayUsers] = useState('admin\nroot\nuser\ntest');
+  const [sprayPw, setSprayPw] = useState('Password1!');
+  const [sprayFail, setSprayFail] = useState('Invalid');
+  const [sprayRes, setSprayRes] = useState<{ user: string; status: number; likely_success: boolean }[]>([]);
+
+  // robots
+  const [robotsBase, setRobotsBase] = useState('https://example.com');
+  const [robotsRes, setRobotsRes] = useState<{ disallow: string[]; allow: string[]; sitemap_locs?: string[]; robots: string } | null>(null);
+
+  // cors
+  const [corsUrl, setCorsUrl] = useState('https://example.com/api');
+  const [corsRes, setCorsRes] = useState<CorsResult[]>([]);
+
+
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto w-full">
       <div className="flex items-center gap-2">
