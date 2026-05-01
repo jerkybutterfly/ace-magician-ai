@@ -3979,3 +3979,158 @@ def labmode_cors(req: dict, request: Request):
         print("   Telegram bot: disabled (use --telegram-token to enable)")
 
     uvicorn.run(app, host="0.0.0.0", port=args.port)
+
+
+# ───────── Wi-Fi audit (aircrack-ng wrapper, lab-gated) ─────────
+import shutil as _wfsh
+import platform as _wfpl
+import subprocess as _wfsp
+import os as _wfos
+import re as _wfre
+
+def _which_aircrack():
+    """Return dict of which aircrack-ng suite tools are available."""
+    tools = ["aircrack-ng", "airmon-ng", "airodump-ng", "aireplay-ng", "airbase-ng", "besside-ng", "hcxpcapngtool", "hashcat"]
+    return {t: bool(_wfsh.which(t)) for t in tools}
+
+@app.get("/labmode/wifi/tools")
+def labmode_wifi_tools(request: Request):
+    _require_lab(dict(request.headers))
+    avail = _which_aircrack()
+    return {
+        "platform": _wfpl.system(),
+        "tools": avail,
+        "any_aircrack": any(avail.values()),
+        "note": "aircrack-ng suite is Linux-native. On Windows, install via Kali WSL or use a USB Wi-Fi adapter that supports monitor mode.",
+    }
+
+@app.post("/labmode/wifi/scan")
+def labmode_wifi_scan(req: dict, request: Request):
+    """Scan for nearby APs. Uses `netsh wlan` on Windows, `iwlist`/`nmcli` on Linux."""
+    _require_lab(dict(request.headers))
+    sysname = _wfpl.system()
+    networks = []
+    raw = ""
+    try:
+        if sysname == "Windows":
+            raw = _wfsp.check_output(["netsh", "wlan", "show", "networks", "mode=Bssid"], text=True, errors="ignore", timeout=20)
+            blocks = _wfre.split(r"\r?\n\r?\n", raw)
+            cur = None
+            for line in raw.splitlines():
+                m = _wfre.match(r"^SSID\s+\d+\s*:\s*(.*)$", line)
+                if m:
+                    if cur: networks.append(cur)
+                    cur = {"ssid": m.group(1).strip() or "<hidden>", "bssids": [], "auth": "", "encryption": "", "type": ""}
+                    continue
+                if cur is None: continue
+                if "Authentication" in line: cur["auth"] = line.split(":",1)[1].strip()
+                elif "Encryption" in line:    cur["encryption"] = line.split(":",1)[1].strip()
+                elif "Network type" in line:  cur["type"] = line.split(":",1)[1].strip()
+                elif _wfre.search(r"BSSID\s+\d+", line): cur["bssids"].append({"bssid": line.split(":",1)[1].strip(), "signal": "", "channel": ""})
+                elif "Signal" in line and cur["bssids"]: cur["bssids"][-1]["signal"] = line.split(":",1)[1].strip()
+                elif "Channel" in line and cur["bssids"]: cur["bssids"][-1]["channel"] = line.split(":",1)[1].strip()
+            if cur: networks.append(cur)
+        else:
+            if _wfsh.which("nmcli"):
+                raw = _wfsp.check_output(["nmcli", "-t", "-f", "SSID,BSSID,SIGNAL,CHAN,SECURITY", "device", "wifi", "list", "--rescan", "yes"], text=True, errors="ignore", timeout=25)
+                for line in raw.splitlines():
+                    parts = line.split(":")
+                    if len(parts) >= 5:
+                        networks.append({"ssid": parts[0] or "<hidden>", "bssids": [{"bssid": ":".join(parts[1:7]), "signal": parts[7] if len(parts)>7 else "", "channel": parts[8] if len(parts)>8 else ""}], "auth": parts[-1], "encryption": parts[-1], "type": "Infrastructure"})
+            else:
+                raw = _wfsp.check_output(["iwlist", "scanning"], text=True, errors="ignore", timeout=25)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=f"Wi-Fi scan tool not found: {e}")
+    except _wfsp.CalledProcessError as e:
+        raise HTTPException(status_code=500, detail=f"scan failed: {e}")
+    except _wfsp.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="scan timed out")
+    return {"platform": sysname, "count": len(networks), "networks": networks, "raw_preview": raw[:2000]}
+
+@app.post("/labmode/wifi/monitor")
+def labmode_wifi_monitor(req: dict, request: Request):
+    """Toggle monitor mode via airmon-ng. Linux + compatible adapter required."""
+    _require_lab(dict(request.headers))
+    iface = (req.get("iface") or "").strip()
+    action = (req.get("action") or "start").strip()  # start | stop | check
+    if action == "check":
+        if not _wfsh.which("airmon-ng"):
+            return {"ok": False, "detail": "airmon-ng not installed"}
+        out = _wfsp.run(["airmon-ng"], capture_output=True, text=True, timeout=15)
+        return {"ok": True, "output": out.stdout + out.stderr}
+    if not iface: raise HTTPException(status_code=400, detail="iface required")
+    if not _wfsh.which("airmon-ng"): raise HTTPException(status_code=500, detail="airmon-ng not installed (Linux + monitor-capable adapter needed)")
+    if action not in ("start","stop"): raise HTTPException(status_code=400, detail="action must be start|stop|check")
+    out = _wfsp.run(["airmon-ng", action, iface], capture_output=True, text=True, timeout=30)
+    return {"ok": out.returncode == 0, "output": out.stdout + out.stderr}
+
+@app.post("/labmode/wifi/capture")
+def labmode_wifi_capture(req: dict, request: Request):
+    """Run airodump-ng for N seconds and write capture files. Requires monitor-mode iface."""
+    _require_lab(dict(request.headers))
+    iface = (req.get("iface") or "").strip()
+    bssid = (req.get("bssid") or "").strip()
+    channel = str(req.get("channel") or "").strip()
+    seconds = int(req.get("seconds") or 30)
+    out_prefix = (req.get("out_prefix") or "/tmp/wifi-cap").strip()
+    if not iface: raise HTTPException(status_code=400, detail="iface required (must be in monitor mode)")
+    if not _wfsh.which("airodump-ng"): raise HTTPException(status_code=500, detail="airodump-ng not installed")
+    seconds = max(5, min(seconds, 600))
+    cmd = ["airodump-ng", "-w", out_prefix, "--output-format", "pcap,csv", iface]
+    if bssid:   cmd[1:1] = ["--bssid", bssid]
+    if channel: cmd[1:1] = ["-c", channel]
+    proc = _wfsp.Popen(cmd, stdout=_wfsp.PIPE, stderr=_wfsp.PIPE)
+    try:
+        proc.wait(timeout=seconds)
+    except _wfsp.TimeoutExpired:
+        proc.terminate()
+        try: proc.wait(timeout=5)
+        except _wfsp.TimeoutExpired: proc.kill()
+    files = []
+    try:
+        d = _wfos.path.dirname(out_prefix) or "."
+        base = _wfos.path.basename(out_prefix)
+        for f in _wfos.listdir(d):
+            if f.startswith(base): files.append(_wfos.path.join(d, f))
+    except Exception: pass
+    return {"ok": True, "seconds": seconds, "files": files, "command": " ".join(cmd)}
+
+@app.post("/labmode/wifi/deauth")
+def labmode_wifi_deauth(req: dict, request: Request):
+    """Send deauth frames via aireplay-ng to force handshake re-capture. LAB ONLY."""
+    _require_lab(dict(request.headers))
+    iface = (req.get("iface") or "").strip()
+    bssid = (req.get("bssid") or "").strip()
+    client = (req.get("client") or "").strip()  # optional target client MAC
+    count = int(req.get("count") or 5)
+    if not iface or not bssid: raise HTTPException(status_code=400, detail="iface and bssid required")
+    if not _wfsh.which("aireplay-ng"): raise HTTPException(status_code=500, detail="aireplay-ng not installed")
+    count = max(1, min(count, 50))
+    cmd = ["aireplay-ng", "--deauth", str(count), "-a", bssid]
+    if client: cmd += ["-c", client]
+    cmd += [iface]
+    out = _wfsp.run(cmd, capture_output=True, text=True, timeout=60)
+    return {"ok": out.returncode == 0, "command": " ".join(cmd), "output": out.stdout + out.stderr}
+
+@app.post("/labmode/wifi/crack")
+def labmode_wifi_crack(req: dict, request: Request):
+    """Run aircrack-ng against a captured .cap/.pcap with a wordlist."""
+    _require_lab(dict(request.headers))
+    cap = (req.get("cap_file") or "").strip()
+    wordlist = (req.get("wordlist") or "").strip()
+    bssid = (req.get("bssid") or "").strip()
+    essid = (req.get("essid") or "").strip()
+    if not cap or not wordlist: raise HTTPException(status_code=400, detail="cap_file and wordlist required")
+    if not _wfos.path.isfile(cap): raise HTTPException(status_code=400, detail=f"cap_file not found: {cap}")
+    if not _wfos.path.isfile(wordlist): raise HTTPException(status_code=400, detail=f"wordlist not found: {wordlist}")
+    if not _wfsh.which("aircrack-ng"): raise HTTPException(status_code=500, detail="aircrack-ng not installed")
+    cmd = ["aircrack-ng", "-w", wordlist]
+    if bssid: cmd += ["-b", bssid]
+    if essid: cmd += ["-e", essid]
+    cmd += [cap]
+    out = _wfsp.run(cmd, capture_output=True, text=True, timeout=900)
+    text = out.stdout + out.stderr
+    key = None
+    m = _wfre.search(r"KEY FOUND!\s*\[\s*(.+?)\s*\]", text)
+    if m: key = m.group(1)
+    return {"ok": out.returncode == 0, "key_found": key, "command": " ".join(cmd), "output": text[-8000:]}
