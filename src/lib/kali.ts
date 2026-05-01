@@ -107,3 +107,28 @@ export const labRobots = (base_url: string) =>
 export interface CorsResult { origin: string; acao?: string; acac?: string; vulnerable?: boolean; error?: string }
 export const labCors = (url: string) =>
   post<{ url: string; results: CorsResult[] }>('/labmode/cors', { url }, true);
+
+// ── Wi-Fi audit (aircrack-ng wrapper) ──
+export interface WifiBssid { bssid: string; signal: string; channel: string }
+export interface WifiNetwork { ssid: string; bssids: WifiBssid[]; auth: string; encryption: string; type: string }
+
+export const labWifiTools = () =>
+  fetch(url('/labmode/wifi/tools'), { headers: { 'I-Own-This': 'yes' } }).then(async r => {
+    if (!r.ok) throw new Error(`${r.status}`);
+    return r.json() as Promise<{ platform: string; tools: Record<string, boolean>; any_aircrack: boolean; note: string }>;
+  });
+
+export const labWifiScan = () =>
+  post<{ platform: string; count: number; networks: WifiNetwork[]; raw_preview: string }>('/labmode/wifi/scan', {}, true);
+
+export const labWifiMonitor = (iface: string, action: 'start' | 'stop' | 'check') =>
+  post<{ ok: boolean; output?: string; detail?: string }>('/labmode/wifi/monitor', { iface, action }, true);
+
+export const labWifiCapture = (params: { iface: string; bssid?: string; channel?: string; seconds?: number; out_prefix?: string }) =>
+  post<{ ok: boolean; seconds: number; files: string[]; command: string }>('/labmode/wifi/capture', params, true);
+
+export const labWifiDeauth = (params: { iface: string; bssid: string; client?: string; count?: number }) =>
+  post<{ ok: boolean; command: string; output: string }>('/labmode/wifi/deauth', params, true);
+
+export const labWifiCrack = (params: { cap_file: string; wordlist: string; bssid?: string; essid?: string }) =>
+  post<{ ok: boolean; key_found: string | null; command: string; output: string }>('/labmode/wifi/crack', params, true);

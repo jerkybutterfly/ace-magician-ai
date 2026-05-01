@@ -12,7 +12,8 @@ import { AlertTriangle, FlaskConical, Loader2 } from 'lucide-react';
 import {
   labDirbust, labSubdomains, labLoginProbe,
   labHeaders, labSsl, labVulnProbe, labHostSweep, labBanner, labSpray, labRobots, labCors,
-  type HeaderFinding, type VulnProbeResult, type CorsResult,
+  labWifiTools, labWifiScan, labWifiMonitor, labWifiCapture, labWifiDeauth, labWifiCrack,
+  type HeaderFinding, type VulnProbeResult, type CorsResult, type WifiNetwork,
 } from '@/lib/kali';
 import { toast } from 'sonner';
 
@@ -83,6 +84,25 @@ export default function LabModePage() {
   const [corsUrl, setCorsUrl] = useState('https://example.com/api');
   const [corsRes, setCorsRes] = useState<CorsResult[]>([]);
 
+  // wifi (aircrack-ng)
+  const [wifiTools, setWifiTools] = useState<{ platform: string; tools: Record<string, boolean>; any_aircrack: boolean; note: string } | null>(null);
+  const [wifiNets, setWifiNets] = useState<WifiNetwork[]>([]);
+  const [wifiIface, setWifiIface] = useState('wlan0');
+  const [wifiMonOut, setWifiMonOut] = useState('');
+  const [capBssid, setCapBssid] = useState('');
+  const [capChannel, setCapChannel] = useState('');
+  const [capSeconds, setCapSeconds] = useState(30);
+  const [capPrefix, setCapPrefix] = useState('/tmp/wifi-cap');
+  const [capFiles, setCapFiles] = useState<string[]>([]);
+  const [deauthBssid, setDeauthBssid] = useState('');
+  const [deauthClient, setDeauthClient] = useState('');
+  const [deauthCount, setDeauthCount] = useState(5);
+  const [deauthOut, setDeauthOut] = useState('');
+  const [crackCap, setCrackCap] = useState('/tmp/wifi-cap-01.cap');
+  const [crackWl, setCrackWl] = useState('/usr/share/wordlists/rockyou.txt');
+  const [crackBssid, setCrackBssid] = useState('');
+  const [crackOut, setCrackOut] = useState<{ key_found: string | null; output: string } | null>(null);
+
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto w-full">
@@ -127,6 +147,7 @@ export default function LabModePage() {
             <TabsTrigger value="spray">Pwd Spray</TabsTrigger>
             <TabsTrigger value="robots">Robots/Sitemap</TabsTrigger>
             <TabsTrigger value="cors">CORS Check</TabsTrigger>
+            <TabsTrigger value="wifi">Wi-Fi (aircrack-ng)</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dir">
@@ -414,6 +435,128 @@ export default function LabModePage() {
                     </tbody>
                   </table>
                 </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="wifi">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  Wi-Fi audit (aircrack-ng suite)
+                  <Badge variant="destructive" className="text-[10px]">your network only</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-xs text-muted-foreground">
+                  Scan works on Windows + Linux. Monitor mode, deauth, capture, and crack require a Linux host
+                  (or Kali in WSL/VM) with a monitor-mode-capable USB adapter and the aircrack-ng suite installed.
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => wrap(async () => { setWifiTools(await labWifiTools()); })}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Check tools'}
+                  </Button>
+                  <Button size="sm" disabled={busy} onClick={() => wrap(async () => { const r = await labWifiScan(); setWifiNets(r.networks); toast.success(`${r.count} networks`); })}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Scan nearby APs'}
+                  </Button>
+                </div>
+
+                {wifiTools && (
+                  <div className="text-xs font-mono bg-muted/30 rounded p-2 space-y-1">
+                    <div>platform: <span className="text-primary">{wifiTools.platform}</span></div>
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(wifiTools.tools).map(([t, ok]) => (
+                        <Badge key={t} variant={ok ? 'default' : 'outline'} className={ok ? '' : 'opacity-50'}>{t}{ok ? ' ✓' : ' ✗'}</Badge>
+                      ))}
+                    </div>
+                    <div className="text-muted-foreground">{wifiTools.note}</div>
+                  </div>
+                )}
+
+                {wifiNets.length > 0 && (
+                  <ScrollArea className="h-64 rounded border">
+                    <table className="w-full text-xs font-mono">
+                      <thead className="bg-muted/40 sticky top-0"><tr>
+                        <th className="text-left p-2">SSID</th><th className="text-left p-2">BSSID</th>
+                        <th className="text-left p-2">Ch</th><th className="text-left p-2">Sig</th><th className="text-left p-2">Auth</th>
+                      </tr></thead>
+                      <tbody>
+                        {wifiNets.flatMap((n) => (n.bssids.length ? n.bssids : [{ bssid: '—', signal: '', channel: '' }]).map((b, i) => (
+                          <tr key={n.ssid + i + b.bssid} className="border-t border-border/40">
+                            <td className="p-2 text-primary">{n.ssid}</td>
+                            <td className="p-2">{b.bssid}</td>
+                            <td className="p-2">{b.channel}</td>
+                            <td className="p-2">{b.signal}</td>
+                            <td className="p-2 text-muted-foreground">{n.auth} / {n.encryption}</td>
+                          </tr>
+                        )))}
+                      </tbody>
+                    </table>
+                  </ScrollArea>
+                )}
+
+                <div className="border-t border-border/40 pt-3 space-y-2">
+                  <div className="text-sm font-medium">Monitor mode</div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Input className="max-w-[200px]" placeholder="iface (e.g. wlan0)" value={wifiIface} onChange={(e) => setWifiIface(e.target.value)} />
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => wrap(async () => { const r = await labWifiMonitor(wifiIface, 'check'); setWifiMonOut(r.output || r.detail || ''); })}>Check</Button>
+                    <Button size="sm" disabled={busy} onClick={() => wrap(async () => { const r = await labWifiMonitor(wifiIface, 'start'); setWifiMonOut(r.output || ''); })}>Start mon</Button>
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => wrap(async () => { const r = await labWifiMonitor(wifiIface, 'stop'); setWifiMonOut(r.output || ''); })}>Stop mon</Button>
+                  </div>
+                  {wifiMonOut && <pre className="text-[11px] font-mono bg-muted/30 rounded p-2 max-h-40 overflow-auto whitespace-pre-wrap">{wifiMonOut}</pre>}
+                </div>
+
+                <div className="border-t border-border/40 pt-3 space-y-2">
+                  <div className="text-sm font-medium">Capture handshake (airodump-ng)</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input placeholder="iface (mon)" value={wifiIface} onChange={(e) => setWifiIface(e.target.value)} />
+                    <Input placeholder="BSSID (optional)" value={capBssid} onChange={(e) => setCapBssid(e.target.value)} />
+                    <Input placeholder="channel" value={capChannel} onChange={(e) => setCapChannel(e.target.value)} />
+                    <Input type="number" placeholder="seconds" value={capSeconds} onChange={(e) => setCapSeconds(+e.target.value || 30)} />
+                    <Input className="col-span-2" placeholder="output prefix" value={capPrefix} onChange={(e) => setCapPrefix(e.target.value)} />
+                  </div>
+                  <Button size="sm" disabled={busy} onClick={() => wrap(async () => {
+                    const r = await labWifiCapture({ iface: wifiIface, bssid: capBssid || undefined, channel: capChannel || undefined, seconds: capSeconds, out_prefix: capPrefix });
+                    setCapFiles(r.files); toast.success(`Captured ${r.seconds}s → ${r.files.length} files`);
+                  })}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Capture for ${capSeconds}s`}</Button>
+                  {capFiles.length > 0 && <pre className="text-[11px] font-mono bg-muted/30 rounded p-2 max-h-32 overflow-auto">{capFiles.join('\n')}</pre>}
+                </div>
+
+                <div className="border-t border-border/40 pt-3 space-y-2">
+                  <div className="text-sm font-medium">Deauth (force handshake) — aireplay-ng</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input placeholder="iface (mon)" value={wifiIface} onChange={(e) => setWifiIface(e.target.value)} />
+                    <Input placeholder="AP BSSID" value={deauthBssid} onChange={(e) => setDeauthBssid(e.target.value)} />
+                    <Input placeholder="client MAC (optional)" value={deauthClient} onChange={(e) => setDeauthClient(e.target.value)} />
+                    <Input type="number" placeholder="count" value={deauthCount} onChange={(e) => setDeauthCount(+e.target.value || 5)} />
+                  </div>
+                  <Button size="sm" variant="destructive" disabled={busy} onClick={() => wrap(async () => {
+                    const r = await labWifiDeauth({ iface: wifiIface, bssid: deauthBssid, client: deauthClient || undefined, count: deauthCount });
+                    setDeauthOut(r.output);
+                  })}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send deauth'}</Button>
+                  {deauthOut && <pre className="text-[11px] font-mono bg-muted/30 rounded p-2 max-h-40 overflow-auto whitespace-pre-wrap">{deauthOut}</pre>}
+                </div>
+
+                <div className="border-t border-border/40 pt-3 space-y-2">
+                  <div className="text-sm font-medium">Crack handshake (aircrack-ng)</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input className="col-span-2" placeholder="capture .cap/.pcap path" value={crackCap} onChange={(e) => setCrackCap(e.target.value)} />
+                    <Input className="col-span-2" placeholder="wordlist path" value={crackWl} onChange={(e) => setCrackWl(e.target.value)} />
+                    <Input placeholder="BSSID (optional)" value={crackBssid} onChange={(e) => setCrackBssid(e.target.value)} />
+                  </div>
+                  <Button size="sm" disabled={busy} onClick={() => wrap(async () => {
+                    const r = await labWifiCrack({ cap_file: crackCap, wordlist: crackWl, bssid: crackBssid || undefined });
+                    setCrackOut({ key_found: r.key_found, output: r.output });
+                    if (r.key_found) toast.success(`KEY: ${r.key_found}`); else toast.message('Crack finished');
+                  })}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Crack'}</Button>
+                  {crackOut && (
+                    <div className="space-y-1">
+                      {crackOut.key_found ? <Badge className="bg-primary/20 text-primary border-primary/40">KEY FOUND: {crackOut.key_found}</Badge> : <Badge variant="outline">No key found</Badge>}
+                      <pre className="text-[11px] font-mono bg-muted/30 rounded p-2 max-h-60 overflow-auto whitespace-pre-wrap">{crackOut.output}</pre>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
