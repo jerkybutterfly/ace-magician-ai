@@ -115,10 +115,18 @@ export default function LabModePage() {
         <div className="text-sm text-muted-foreground italic">Acknowledge above to unlock lab tools.</div>
       ) : (
         <Tabs defaultValue="dir">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="dir">Dir Brute</TabsTrigger>
             <TabsTrigger value="sub">Subdomains</TabsTrigger>
             <TabsTrigger value="login">Login Probe</TabsTrigger>
+            <TabsTrigger value="headers">HTTP Headers</TabsTrigger>
+            <TabsTrigger value="ssl">TLS Cert</TabsTrigger>
+            <TabsTrigger value="vuln">Vuln Probe</TabsTrigger>
+            <TabsTrigger value="sweep">Host Sweep</TabsTrigger>
+            <TabsTrigger value="banner">Banner Grab</TabsTrigger>
+            <TabsTrigger value="spray">Pwd Spray</TabsTrigger>
+            <TabsTrigger value="robots">Robots/Sitemap</TabsTrigger>
+            <TabsTrigger value="cors">CORS Check</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dir">
