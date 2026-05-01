@@ -4134,3 +4134,121 @@ def labmode_wifi_crack(req: dict, request: Request):
     m = _wfre.search(r"KEY FOUND!\s*\[\s*(.+?)\s*\]", text)
     if m: key = m.group(1)
     return {"ok": out.returncode == 0, "key_found": key, "command": " ".join(cmd), "output": text[-8000:]}
+
+
+# ============================================================================
+# EXTERNAL KALI TOOLS — one wrapper per category from the Offensive Linux pack
+# All gated behind I-Own-This: yes. Runs only the locally installed binaries.
+# ============================================================================
+import shutil as _kts_shutil, subprocess as _kts_sp, shlex as _kts_shlex, os as _kts_os, json as _kts_json
+
+# Map: category -> (label, binary names to detect, default args description)
+_KALI_TOOLS = {
+    "theharvester":   {"category": "Reconnaissance",        "bins": ["theHarvester", "theharvester"]},
+    "nikto":          {"category": "Vulnerability Scanning","bins": ["nikto"]},
+    "hping3":         {"category": "Network-based Attacks", "bins": ["hping3"]},
+    "hydra":          {"category": "Password / Brute Force","bins": ["hydra"]},
+    "apktool":        {"category": "Mobile Security",       "bins": ["apktool"]},
+    "radare2":        {"category": "Reverse Engineering",   "bins": ["r2", "radare2"]},
+    "sqlmap":         {"category": "Exploitation",          "bins": ["sqlmap"]},
+    "mimikatz":       {"category": "Post-Exploitation",     "bins": ["mimikatz.exe", "mimikatz"]},
+    "wifite":         {"category": "Wireless Attacks",      "bins": ["wifite", "wifite2"]},
+    "gophish":        {"category": "Social Engineering",    "bins": ["gophish"]},
+    "zap":            {"category": "Web App Pen Testing",   "bins": ["zap.sh", "zaproxy", "owasp-zap"]},
+    "faraday":        {"category": "Reporting & Docs",      "bins": ["faraday-cli", "faraday-server"]},
+}
+
+def _kts_which(names):
+    for n in names:
+        p = _kts_shutil.which(n)
+        if p: return p
+    return None
+
+@app.get("/labmode/kali/tools")
+def kali_tools_list(request: Request):
+    _require_lab(dict(request.headers))
+    out = []
+    for key, meta in _KALI_TOOLS.items():
+        path = _kts_which(meta["bins"])
+        out.append({"key": key, "category": meta["category"], "bins": meta["bins"], "installed": bool(path), "path": path})
+    return {"tools": out}
+
+# Strict whitelist of allowed argument shapes per tool to avoid arbitrary command injection.
+def _kts_run(bin_path: str, args: list, timeout: int = 600):
+    try:
+        r = _kts_sp.run([bin_path] + args, capture_output=True, text=True, timeout=timeout)
+        return {"ok": r.returncode == 0, "rc": r.returncode, "command": " ".join([bin_path] + args), "stdout": r.stdout[-12000:], "stderr": r.stderr[-4000:]}
+    except _kts_sp.TimeoutExpired:
+        return {"ok": False, "rc": -1, "command": " ".join([bin_path] + args), "stdout": "", "stderr": f"timeout after {timeout}s"}
+    except Exception as e:
+        return {"ok": False, "rc": -1, "command": " ".join([bin_path] + args), "stdout": "", "stderr": str(e)}
+
+def _kts_need(key):
+    meta = _KALI_TOOLS.get(key)
+    if not meta: raise HTTPException(status_code=404, detail="unknown tool")
+    p = _kts_which(meta["bins"])
+    if not p: raise HTTPException(status_code=400, detail=f"{key} not installed (looked for: {', '.join(meta['bins'])})")
+    return p
+
+@app.post("/labmode/kali/run")
+def kali_tool_run(req: dict, request: Request):
+    """Run one of the whitelisted Kali tools with constrained arguments."""
+    _require_lab(dict(request.headers))
+    key = (req.get("tool") or "").strip().lower()
+    target = (req.get("target") or "").strip()
+    extra = req.get("extra") or {}
+    bin_path = _kts_need(key)
+
+    if key == "theharvester":
+        if not target: raise HTTPException(400, "target (domain) required")
+        source = (extra.get("source") or "duckduckgo").strip()
+        return _kts_run(bin_path, ["-d", target, "-b", source, "-l", str(int(extra.get("limit") or 100))], timeout=180)
+    if key == "nikto":
+        if not target: raise HTTPException(400, "target URL required")
+        return _kts_run(bin_path, ["-h", target, "-Tuning", "x", "-maxtime", "120s"], timeout=180)
+    if key == "hping3":
+        if not target: raise HTTPException(400, "target IP required")
+        count = str(int(extra.get("count") or 4))
+        port = str(int(extra.get("port") or 80))
+        return _kts_run(bin_path, ["-S", "-c", count, "-p", port, target], timeout=30)
+    if key == "hydra":
+        if not target: raise HTTPException(400, "target required (e.g. ssh://1.2.3.4)")
+        user = (extra.get("user") or "").strip()
+        wordlist = (extra.get("wordlist") or "").strip()
+        if not user or not wordlist: raise HTTPException(400, "user and wordlist required")
+        if not _kts_os.path.isfile(wordlist): raise HTTPException(400, "wordlist file not found")
+        return _kts_run(bin_path, ["-l", user, "-P", wordlist, "-t", "4", "-f", target], timeout=300)
+    if key == "apktool":
+        path = (extra.get("apk") or "").strip()
+        if not path or not _kts_os.path.isfile(path): raise HTTPException(400, "apk file not found")
+        outdir = (extra.get("outdir") or (path + "_decoded")).strip()
+        return _kts_run(bin_path, ["d", "-f", "-o", outdir, path], timeout=300)
+    if key == "radare2":
+        path = (extra.get("file") or "").strip()
+        if not path or not _kts_os.path.isfile(path): raise HTTPException(400, "binary file not found")
+        cmds = (extra.get("cmds") or "aaa;afl;iI;ie").strip()
+        return _kts_run(bin_path, ["-q", "-c", cmds, path], timeout=120)
+    if key == "sqlmap":
+        if not target: raise HTTPException(400, "target URL required")
+        return _kts_run(bin_path, ["-u", target, "--batch", "--level=1", "--risk=1", "--smart", "--timeout=15", "--retries=1"], timeout=300)
+    if key == "mimikatz":
+        # Read-only info command; full use requires admin shell on Windows
+        return _kts_run(bin_path, ["privilege::debug", "exit"], timeout=15)
+    if key == "wifite":
+        # dry list of nearby networks; --no-deauths + --inf to choose iface
+        iface = (extra.get("iface") or "").strip()
+        args = ["--no-deauths", "--scan-time", "10", "--showb"]
+        if iface: args = ["-i", iface] + args
+        return _kts_run(bin_path, args, timeout=60)
+    if key == "gophish":
+        # gophish is a server; just print version
+        return _kts_run(bin_path, ["--version"], timeout=10)
+    if key == "zap":
+        # ZAP daemon quick spider via -cmd
+        if not target: raise HTTPException(400, "target URL required")
+        return _kts_run(bin_path, ["-cmd", "-quickurl", target, "-quickprogress"], timeout=600)
+    if key == "faraday":
+        # list workspaces (faraday-cli)
+        return _kts_run(bin_path, ["workspace", "list"], timeout=30)
+
+    raise HTTPException(status_code=400, detail=f"tool {key} not handled")
