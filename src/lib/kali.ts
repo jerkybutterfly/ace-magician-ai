@@ -78,3 +78,32 @@ export const labSubdomains = (domain: string, words: string[] = []) =>
 export const labLoginProbe = (params: {
   url: string; user_field?: string; pass_field?: string; username: string; password: string; fail_text?: string;
 }) => post<{ status: number; len: number; likely_success: boolean; snippet: string; error?: string }>('/labmode/login_probe', params, true);
+
+// ── Extended offensive toolkit ──
+export interface HeaderFinding { level: 'info' | 'warn' | 'error'; title: string; detail: string }
+export const labHeaders = (url: string, method: 'GET' | 'HEAD' = 'GET') =>
+  post<{ url: string; final_url: string; status: number; headers: Record<string, string>; findings: HeaderFinding[]; body_preview: string; error?: string }>('/labmode/headers', { url, method }, true);
+
+export const labSsl = (host: string, port = 443) =>
+  post<{ host: string; port: number; tls_version: string; cipher: [string, string, number]; cert: Record<string, unknown>; pem_preview: string; error?: string }>('/labmode/ssl', { host, port }, true);
+
+export interface VulnProbeResult { payload: string; value: string; status: number; reflected: boolean; error_signature: string | null; ssti_eval: boolean; suspicious: boolean }
+export const labVulnProbe = (url: string, param = 'q') =>
+  post<{ url: string; param: string; results: VulnProbeResult[] }>('/labmode/vuln_probe', { url, param }, true);
+
+export const labHostSweep = (cidr: string) =>
+  post<{ cidr: string; scanned: number; alive: { ip: string; hostname: string }[] }>('/labmode/host_sweep', { cidr }, true);
+
+export const labBanner = (host: string, port: number, probe?: string) =>
+  post<{ host: string; port: number; bytes: number; banner: string; error?: string }>('/labmode/banner', { host, port, probe }, true);
+
+export const labSpray = (params: {
+  url: string; usernames: string[]; password: string; user_field?: string; pass_field?: string; fail_text?: string; delay?: number;
+}) => post<{ url: string; tried: number; hits: { user: string; status: number; likely_success: boolean }[]; results: { user: string; status: number; likely_success: boolean; error?: string }[] }>('/labmode/spray', params, true);
+
+export const labRobots = (base_url: string) =>
+  post<{ base_url: string; robots: string; sitemap_urls: string[]; disallow: string[]; allow: string[]; sitemap_locs?: string[]; robots_error?: string }>('/labmode/robots', { base_url }, true);
+
+export interface CorsResult { origin: string; acao?: string; acac?: string; vulnerable?: boolean; error?: string }
+export const labCors = (url: string) =>
+  post<{ url: string; results: CorsResult[] }>('/labmode/cors', { url }, true);
