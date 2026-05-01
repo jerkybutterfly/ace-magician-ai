@@ -7,8 +7,13 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle, FlaskConical, Loader2 } from 'lucide-react';
-import { labDirbust, labSubdomains, labLoginProbe } from '@/lib/kali';
+import {
+  labDirbust, labSubdomains, labLoginProbe,
+  labHeaders, labSsl, labVulnProbe, labHostSweep, labBanner, labSpray, labRobots, labCors,
+  type HeaderFinding, type VulnProbeResult, type CorsResult,
+} from '@/lib/kali';
 import { toast } from 'sonner';
 
 const ACK_KEY = 'labmode-acknowledged';
