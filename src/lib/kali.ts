@@ -132,3 +132,16 @@ export const labWifiDeauth = (params: { iface: string; bssid: string; client?: s
 
 export const labWifiCrack = (params: { cap_file: string; wordlist: string; bssid?: string; essid?: string }) =>
   post<{ ok: boolean; key_found: string | null; command: string; output: string }>('/labmode/wifi/crack', params, true);
+
+// ── External Kali tools (whitelisted wrappers) ──
+export interface KaliToolInfo { key: string; category: string; bins: string[]; installed: boolean; path: string | null }
+export interface KaliRunResult { ok: boolean; rc: number; command: string; stdout: string; stderr: string }
+
+export const labKaliList = () =>
+  fetch(url('/labmode/kali/tools'), { headers: { 'I-Own-This': 'yes' } }).then(async r => {
+    if (!r.ok) throw new Error(`${r.status}`);
+    return r.json() as Promise<{ tools: KaliToolInfo[] }>;
+  });
+
+export const labKaliRun = (tool: string, target?: string, extra: Record<string, unknown> = {}) =>
+  post<KaliRunResult>('/labmode/kali/run', { tool, target, extra }, true);
