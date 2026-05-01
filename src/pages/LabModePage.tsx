@@ -105,6 +105,13 @@ export default function LabModePage() {
   const [crackBssid, setCrackBssid] = useState('');
   const [crackOut, setCrackOut] = useState<{ key_found: string | null; output: string } | null>(null);
 
+  // Kali toolkit
+  const [kaliTools, setKaliTools] = useState<KaliToolInfo[]>([]);
+  const [kaliKey, setKaliKey] = useState('nikto');
+  const [kaliTarget, setKaliTarget] = useState('http://192.168.1.10');
+  const [kaliExtra, setKaliExtra] = useState('{}');
+  const [kaliOut, setKaliOut] = useState<KaliRunResult | null>(null);
+
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto w-full">
