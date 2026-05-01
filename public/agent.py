@@ -4032,11 +4032,19 @@ def labmode_wifi_scan(req: dict, request: Request):
             if cur: networks.append(cur)
         else:
             if _wfsh.which("nmcli"):
+                # -t terse output uses ':' as delimiter; BSSID's own ':' chars are escaped as '\:'
                 raw = _wfsp.check_output(["nmcli", "-t", "-f", "SSID,BSSID,SIGNAL,CHAN,SECURITY", "device", "wifi", "list", "--rescan", "yes"], text=True, errors="ignore", timeout=25)
                 for line in raw.splitlines():
-                    parts = line.split(":")
-                    if len(parts) >= 5:
-                        networks.append({"ssid": parts[0] or "<hidden>", "bssids": [{"bssid": ":".join(parts[1:7]), "signal": parts[7] if len(parts)>7 else "", "channel": parts[8] if len(parts)>8 else ""}], "auth": parts[-1], "encryption": parts[-1], "type": "Infrastructure"})
+                    if not line.strip(): continue
+                    # split on unescaped ':' only
+                    parts = _wfre.split(r"(?<!\\):", line)
+                    if len(parts) < 5: continue
+                    ssid = parts[0].replace("\\:", ":") or "<hidden>"
+                    bssid = parts[1].replace("\\:", ":")
+                    signal = parts[2]
+                    chan = parts[3]
+                    security = parts[4]
+                    networks.append({"ssid": ssid, "bssids": [{"bssid": bssid, "signal": signal, "channel": chan}], "auth": security, "encryption": security, "type": "Infrastructure"})
             else:
                 raw = _wfsp.check_output(["iwlist", "scanning"], text=True, errors="ignore", timeout=25)
     except FileNotFoundError as e:
