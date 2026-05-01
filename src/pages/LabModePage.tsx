@@ -13,7 +13,9 @@ import {
   labDirbust, labSubdomains, labLoginProbe,
   labHeaders, labSsl, labVulnProbe, labHostSweep, labBanner, labSpray, labRobots, labCors,
   labWifiTools, labWifiScan, labWifiMonitor, labWifiCapture, labWifiDeauth, labWifiCrack,
+  labKaliList, labKaliRun,
   type HeaderFinding, type VulnProbeResult, type CorsResult, type WifiNetwork,
+  type KaliToolInfo, type KaliRunResult,
 } from '@/lib/kali';
 import { toast } from 'sonner';
 
