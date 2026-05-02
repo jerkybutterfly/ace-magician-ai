@@ -56,6 +56,7 @@ const App = () => {
               <Route path="/audit" element={<Index />} />
               <Route path="/forensics" element={<Index />} />
               <Route path="/labmode" element={<Index />} />
+              <Route path="/computer-use" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
