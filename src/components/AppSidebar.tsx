@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -29,6 +29,7 @@ const navItems = [
   { title: 'Forensics', url: '/forensics', icon: Microscope },
   { title: 'Lab Mode', url: '/labmode', icon: FlaskConical },
   { title: 'Drana Recon', url: '/drana', icon: InfinityIcon },
+  { title: 'Glasswing', url: '/glasswing', icon: Sparkles },
   { title: 'Computer Use', url: '/computer-use', icon: Monitor },
   { title: 'MQTT', url: '/mqtt', icon: Radio },
   { title: 'Cron', url: '/cron', icon: Clock },
