@@ -65,7 +65,7 @@ export function summarizeAction(a: CUAction): string {
     case 'double_click': return `double-click @ (${a.x},${a.y})`;
     case 'right_click': return `right-click @ (${a.x},${a.y})`;
     case 'move': return `move @ (${a.x},${a.y})`;
-    case 'type': return `type "${(a.text || '').slice(0, 40)}"`;
+    case 'type': return `type "${(a.text || '').slice(0, 40)}"${a.x !== undefined ? ` @ (${a.x},${a.y})` : ''}`;
     case 'key': return `press ${a.key}`;
     case 'hotkey': return `hotkey ${(a.keys || []).join('+')}`;
     case 'scroll': return `scroll ${a.amount}`;
