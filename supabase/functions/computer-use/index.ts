@@ -30,6 +30,8 @@ Respond with STRICT JSON only — no prose, no markdown:
 Rules:
 - Coordinates are in the SAME pixel space as the screenshot you see.
 - Prefer one small step at a time. If a menu opened, click the right item next turn.
+- BEFORE typing into a field, you MUST first emit a "click" on the field (one turn), THEN "type" on the next turn. Optionally include x/y on the "type" action so the agent re-focuses the field.
+- For search/submit, after typing emit a "key" with key="enter" on the next turn.
 - Set needs_approval=true and risk=high for: deleting files, sending email, payments, installing software, system settings, anything destructive.
 - Use "done" when the goal is complete, "fail" if blocked.`;
 
