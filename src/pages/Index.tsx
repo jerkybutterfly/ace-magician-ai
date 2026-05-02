@@ -21,6 +21,7 @@ import AuditPage from './AuditPage';
 import ForensicsPage from './ForensicsPage';
 import LabModePage from './LabModePage';
 import ComputerUsePage from './ComputerUsePage';
+import DranaPage from './DranaPage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
@@ -104,6 +105,8 @@ export default function Index() {
         return <LabModePage />;
       case '/computer-use':
         return <ComputerUsePage />;
+      case '/drana':
+        return <DranaPage />;
       case '/settings':
         return <SettingsPage />;
       default:
