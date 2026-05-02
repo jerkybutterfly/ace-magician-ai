@@ -2052,21 +2052,110 @@ async def disk_usage():
 
 @app.get("/screenshot")
 async def desktop_screenshot():
+    """Capture the primary monitor as a base64 PNG. Tries pyautogui/mss, falls back to PowerShell on Windows."""
+    # Try pyautogui first (cross-platform, returns PIL image)
     try:
-        ps = '''Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing
+        import pyautogui as _pag  # type: ignore
+        import io as _io
+        img = _pag.screenshot()
+        buf = _io.BytesIO()
+        img.save(buf, format="PNG")
+        return {"status": "ok", "image": _b64.b64encode(buf.getvalue()).decode(), "width": img.width, "height": img.height}
+    except Exception:
+        pass
+    # Windows fallback
+    if platform.system() == "Windows":
+        try:
+            ps = '''Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing
 $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 $bmp = New-Object System.Drawing.Bitmap($b.Width, $b.Height)
 $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
 $ms = New-Object System.IO.MemoryStream
 $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-[Convert]::ToBase64String($ms.ToArray())'''
-        result = subprocess.run(["powershell", "-Command", ps], capture_output=True, text=True, timeout=15)
-        if result.returncode != 0:
-            raise Exception(result.stderr)
-        return {"status": "ok", "image": result.stdout.strip()}
+"$($b.Width)x$($b.Height)|$([Convert]::ToBase64String($ms.ToArray()))"'''
+            result = subprocess.run(["powershell", "-Command", ps], capture_output=True, text=True, timeout=15)
+            if result.returncode != 0:
+                raise Exception(result.stderr)
+            out = result.stdout.strip()
+            if "|" in out:
+                dims, b64 = out.split("|", 1)
+                w, h = dims.split("x")
+                return {"status": "ok", "image": b64, "width": int(w), "height": int(h)}
+            return {"status": "ok", "image": out}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=500, detail="Install pyautogui (pip install pyautogui pillow) to enable screenshots")
+
+
+# ═══════════════════════════════════════════════════════
+#  Computer Use — vision-action loop primitives
+# ═══════════════════════════════════════════════════════
+
+class _CUAction(BaseModel):
+    type: str
+    x: Optional[int] = None
+    y: Optional[int] = None
+    text: Optional[str] = None
+    key: Optional[str] = None
+    keys: Optional[list[str]] = None
+    amount: Optional[int] = None
+    ms: Optional[int] = None
+
+
+@app.post("/computer-use/act")
+async def computer_use_act(action: _CUAction):
+    """Execute a single low-level desktop action (click/type/hotkey/scroll/move/wait).
+
+    Requires pyautogui on the host (`pip install pyautogui pillow`). On Linux you also need
+    `python3-tk python3-dev scrot`. Refuses unknown action types.
+    """
+    try:
+        import pyautogui as _pag  # type: ignore
+    except Exception:
+        raise HTTPException(status_code=500, detail="pyautogui not installed on agent host")
+    _pag.FAILSAFE = True  # move mouse to a corner to abort
+    t = (action.type or "").lower()
+    try:
+        if t == "click" and action.x is not None and action.y is not None:
+            _pag.click(action.x, action.y)
+        elif t == "double_click" and action.x is not None and action.y is not None:
+            _pag.doubleClick(action.x, action.y)
+        elif t == "right_click" and action.x is not None and action.y is not None:
+            _pag.rightClick(action.x, action.y)
+        elif t == "move" and action.x is not None and action.y is not None:
+            _pag.moveTo(action.x, action.y, duration=0.15)
+        elif t == "type" and action.text is not None:
+            _pag.typewrite(action.text, interval=0.02)
+        elif t == "key" and action.key:
+            _pag.press(action.key)
+        elif t == "hotkey" and action.keys:
+            _pag.hotkey(*action.keys)
+        elif t == "scroll":
+            if action.x is not None and action.y is not None:
+                _pag.moveTo(action.x, action.y)
+            _pag.scroll(int(action.amount or 0))
+        elif t == "wait":
+            time.sleep(min(5.0, (action.ms or 500) / 1000.0))
+        elif t in ("done", "fail"):
+            pass
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown or incomplete action: {t}")
+        return {"status": "ok", "executed": t}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/computer-use/screen-size")
+async def computer_use_screen_size():
+    try:
+        import pyautogui as _pag  # type: ignore
+        w, h = _pag.size()
+        return {"width": int(w), "height": int(h), "available": True}
+    except Exception as e:
+        return {"available": False, "error": str(e)}
 
 
 # ═══════════════════════════════════════════════════════
