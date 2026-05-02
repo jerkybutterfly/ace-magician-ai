@@ -22,6 +22,7 @@ import ForensicsPage from './ForensicsPage';
 import LabModePage from './LabModePage';
 import ComputerUsePage from './ComputerUsePage';
 import DranaPage from './DranaPage';
+import GlasswingPage from './GlasswingPage';
 import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
 import { getSettings } from '@/lib/settings';
 
@@ -107,6 +108,8 @@ export default function Index() {
         return <ComputerUsePage />;
       case '/drana':
         return <DranaPage />;
+      case '/glasswing':
+        return <GlasswingPage />;
       case '/settings':
         return <SettingsPage />;
       default:

@@ -58,6 +58,7 @@ const App = () => {
               <Route path="/labmode" element={<Index />} />
               <Route path="/computer-use" element={<Index />} />
               <Route path="/drana" element={<Index />} />
+              <Route path="/glasswing" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
