@@ -4381,3 +4381,89 @@ def kali_tool_run(req: dict, request: Request):
         return _kts_run(bin_path, ["workspace", "list"], timeout=30)
 
     raise HTTPException(status_code=400, detail=f"tool {key} not handled")
+
+
+# ═══════════════════════════════════════════════════════
+#  DRANA-INFINITY: Bug Bounty Recon Tool Runner
+#  (whitelisted CLI tools with placeholder substitution)
+# ═══════════════════════════════════════════════════════
+DRANA_TOOLS = {
+    "nmap": "nmap --version", "httpx": "httpx -version", "webanalyze": "webanalyze --version",
+    "wafw00f": "wafw00f --version", "amass": "amass version", "subfinder": "subfinder --version",
+    "assetfinder": "assetfinder --version", "dnsx": "dnsx -version", "gobuster": "gobuster version",
+    "ffuf": "ffuf -V", "dirsearch": "dirsearch --version", "feroxbuster": "feroxbuster --version",
+    "gospider": "gospider --version", "hakrawler": "hakrawler -h", "katana": "katana -version",
+    "waybackurls": "waybackurls -h", "gau": "gau --version", "linkfinder": "linkfinder -h",
+    "getjs": "getJS --version", "arjun": "arjun --version", "paramspider": "paramspider -h",
+    "wfuzz": "wfuzz --version", "nikto": "nikto -Version", "nuclei": "nuclei -version",
+    "wapiti": "wapiti --version", "sqlmap": "sqlmap --version", "commix": "commix --version",
+    "xsstrike": "xsstrike --version", "wpscan": "wpscan --version", "hydra": "hydra -h",
+    "curl": "curl --version", "whatweb": "whatweb --version",
+}
+
+
+@app.get("/drana/tools/check")
+def drana_tools_check():
+    """Detect which Drana CLI tools are installed on the host."""
+    results = []
+    for name, cmd in DRANA_TOOLS.items():
+        try:
+            parts = cmd.split()
+            bin_path = shutil.which(parts[0])
+            if not bin_path:
+                results.append({"tool": name, "installed": False, "version": None})
+                continue
+            r = subprocess.run([bin_path] + parts[1:], capture_output=True, text=True, timeout=5)
+            out = (r.stdout + r.stderr).strip().splitlines()
+            ver = out[0][:120] if out else "installed"
+            results.append({"tool": name, "installed": True, "version": ver, "path": bin_path})
+        except Exception as e:
+            results.append({"tool": name, "installed": False, "version": None, "error": str(e)[:100]})
+    return {"tools": results}
+
+
+_DRANA_FORBIDDEN = re.compile(r"[;&|`$><\n\r]|\$\(|\)\(|&&|\|\|")
+
+
+@app.post("/drana/run")
+def drana_run(req: dict, request: Request):
+    """Run a vetted Drana command with <target> substitution. Lab-mode gated."""
+    _require_lab(dict(request.headers))
+    command = (req.get("command") or "").strip()
+    target = (req.get("target") or "").strip()
+    timeout = int(req.get("timeout") or 90)
+    if not command:
+        raise HTTPException(status_code=400, detail="command required")
+    if "<target>" in command and not target:
+        raise HTTPException(status_code=400, detail="target required for this command")
+    # Validate target shape (no shell metacharacters)
+    if target and _DRANA_FORBIDDEN.search(target):
+        raise HTTPException(status_code=400, detail="invalid target")
+    final = command.replace("<target>", target)
+    # First token must be a whitelisted tool
+    tool = final.split()[0]
+    if tool not in DRANA_TOOLS:
+        raise HTTPException(status_code=400, detail=f"tool '{tool}' not in Drana whitelist")
+    bin_path = shutil.which(tool)
+    if not bin_path:
+        raise HTTPException(status_code=404, detail=f"{tool} not installed on this host")
+    # Re-tokenize with bin_path
+    args = final.split()[1:]
+    # Block any remaining shell-meta tokens
+    if any(_DRANA_FORBIDDEN.search(a) for a in args):
+        raise HTTPException(status_code=400, detail="invalid argument")
+    started = time.time()
+    try:
+        r = subprocess.run([bin_path] + args, capture_output=True, text=True, timeout=timeout)
+        return {
+            "command": final,
+            "tool": tool,
+            "returncode": r.returncode,
+            "stdout": r.stdout[-20000:],
+            "stderr": r.stderr[-4000:],
+            "duration": round(time.time() - started, 2),
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail=f"{tool} timed out after {timeout}s")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
