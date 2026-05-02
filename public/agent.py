@@ -2126,7 +2126,39 @@ async def computer_use_act(action: _CUAction):
         elif t == "move" and action.x is not None and action.y is not None:
             _pag.moveTo(action.x, action.y, duration=0.15)
         elif t == "type" and action.text is not None:
-            _pag.typewrite(action.text, interval=0.02)
+            text = action.text
+            # If a coordinate was supplied, click there first to focus the target field
+            if action.x is not None and action.y is not None:
+                _pag.click(action.x, action.y)
+                time.sleep(0.15)
+            # pyautogui.typewrite only supports ASCII printable chars — anything else is
+            # silently skipped, which is why search bars often end up with partial/empty text.
+            # For non-ASCII (accents, emoji, smart quotes, CJK, …) fall back to clipboard paste.
+            is_ascii = all(32 <= ord(c) < 127 or c in "\n\t" for c in text)
+            if is_ascii:
+                _pag.typewrite(text, interval=0.02)
+            else:
+                pasted = False
+                try:
+                    import pyperclip  # type: ignore
+                    prev = None
+                    try: prev = pyperclip.paste()
+                    except Exception: pass
+                    pyperclip.copy(text)
+                    time.sleep(0.05)
+                    paste_combo = ("command", "v") if sys.platform == "darwin" else ("ctrl", "v")
+                    _pag.hotkey(*paste_combo)
+                    pasted = True
+                    time.sleep(0.1)
+                    if prev is not None:
+                        try: pyperclip.copy(prev)
+                        except Exception: pass
+                except Exception:
+                    pass
+                if not pasted:
+                    # Last-resort: type only the ASCII subset so the user sees *something*
+                    safe = "".join(c for c in text if 32 <= ord(c) < 127 or c in "\n\t")
+                    _pag.typewrite(safe, interval=0.02)
         elif t == "key" and action.key:
             _pag.press(action.key)
         elif t == "hotkey" and action.keys:
