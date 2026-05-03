@@ -123,6 +123,21 @@ export default function PhonePage() {
             <Button variant="outline" onClick={() => runLocal('[PHONE_NOTIFY:Hi|It works!]')}><Bell className="h-4 w-4 mr-1.5" />Notify</Button>
             <Button variant="outline" onClick={() => runLocal('[PHONE_SPEAK:Hello from Pesto Steve]')}><Volume2 className="h-4 w-4 mr-1.5" />Speak</Button>
             <Button variant="outline" onClick={() => runLocal('[PHONE_NETWORK]')}>Network</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_INFO]')}>Info</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_TOAST:Hello toast!]')}>Toast</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_DIALOG:Hello dialog!]')}>Dialog</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_ORIENTATION]')}>Orientation</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_LANG]')}>Language</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_STORAGE]')}>Storage</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_SENSORS]')}>Sensors</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_BEEP:880|200]')}>Beep</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_FLASHLIGHT:on]')}>Torch on</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_FLASHLIGHT:off]')}>Torch off</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_CALL:911]')}>Call</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_SMS_SEND:0000000000|Hi from app]')}>SMS</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_EMAIL:test@example.com|Hi|Body]')}>Email</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_FILE_LIST:]')}>List files</Button>
+            <Button variant="outline" onClick={() => runLocal('[PHONE_LOCATION_WATCH:5]')}>Track 5s</Button>
           </CardContent>
         </Card>
       )}
