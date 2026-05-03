@@ -355,6 +355,26 @@ export async function executePhoneTag(tag: string): Promise<PhoneTagResult> {
     case 'LAUNCH': return phoneLaunch(arg);
     case 'TORCH': return phoneTorch(arg === 'on');
     case 'SPEAK': return phoneSpeak(arg);
+    case 'CALL': return phoneCall(arg);
+    case 'SMS_SEND': { const [n, ...rest] = arg.split('|'); return phoneSms(n, rest.join('|')); }
+    case 'EMAIL': { const [to = '', s = '', ...b] = arg.split('|'); return phoneEmail(to, s, b.join('|')); }
+    case 'TOAST': return phoneToast(arg);
+    case 'DIALOG': return phoneDialog(arg);
+    case 'ORIENTATION': return phoneOrientation();
+    case 'LANG': return phoneLang();
+    case 'STORAGE': return phoneStorage();
+    case 'SENSORS': return phoneSensors();
+    case 'BEEP': { const [f, m] = arg.split('|'); return phoneBeep(Number(f) || 880, Number(m) || 200); }
+    case 'LOCATION_WATCH': return phoneLocationWatch(Number(arg) || 10);
+    case 'FILE_LIST': return phoneFileList(arg);
+    case 'FILE_READ': return phoneFileRead(arg);
+    case 'FILE_WRITE': { const [p, ...c] = arg.split('|'); return phoneFileWrite(p, c.join('|')); }
+    case 'FLASHLIGHT': return phoneTorch(arg === 'on');
+    case 'CONTACTS': return phoneContacts();
+    case 'RECORD_AUDIO': return phoneRecordAudio(Number(arg) || 5);
+    case 'BRIGHTNESS': return phoneBrightness(Number(arg) || 50);
+    case 'KEEP_AWAKE': return phoneKeepAwake(arg === 'on');
+    case 'QR_SCAN': return phoneQrScan();
     default: return { ok: false, output: `Unknown phone op: ${op}` };
   }
 }
