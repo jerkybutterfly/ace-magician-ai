@@ -26,7 +26,7 @@ export function saveConversations(convos: Conversation[]): void {
 
 export function createConversation(model: string): Conversation {
   return {
-    id: crypto.randomUUID(),
+    id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substring(2),
     title: 'New Chat',
     messages: [],
     model,

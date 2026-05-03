@@ -6,6 +6,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import Index from "./pages/Index.tsx";
+import AutomationsPage from "./pages/AutomationsPage.tsx";
+import SwarmPage from "./pages/SwarmPage.tsx";
+import KnowledgeGraphPage from "./pages/KnowledgeGraphPage.tsx";
+import VoicePage from "./pages/VoicePage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
@@ -17,9 +21,8 @@ const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
-    if (localStorage.getItem('hacker-theme') === 'yes') {
-      document.documentElement.classList.add('hacker');
-    }
+    document.documentElement.classList.add('hacker');
+    document.documentElement.classList.add('dark');
     startNotificationPoller();
     startPhoneRunner();
     startBriefingScheduler();
@@ -39,6 +42,10 @@ const App = () => {
           <SidebarProvider>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/automations" element={<AutomationsPage />} />
+              <Route path="/swarm" element={<SwarmPage />} />
+              <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
+              <Route path="/voice" element={<VoicePage />} />
               <Route path="/files" element={<Index />} />
               <Route path="/skills" element={<Index />} />
               <Route path="/speckit" element={<Index />} />

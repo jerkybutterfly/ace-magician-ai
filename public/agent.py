@@ -20,6 +20,7 @@ from typing import Any, Optional
 import psutil
 from fastapi import FastAPI, HTTPException, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
+import custom_tool_registry
 from pydantic import BaseModel
 
 # ═══════════════════════════════════════════════════════
@@ -117,6 +118,175 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+import automations
+app.include_router(automations.router)
+automations.start_automations()
+
+import swarm as _swarm
+import knowledge_graph as _kg
+
+
+# ── Knowledge Graph Models ──
+class KGEntityRequest(BaseModel):
+    name: str
+    entity_type: str = "concept"
+    description: str = ""
+
+class KGRelationRequest(BaseModel):
+    source: str
+    target: str
+    relation: str
+    weight: float = 1.0
+    notes: str = ""
+
+class KGDeleteEdgeRequest(BaseModel):
+    source: str
+    target: str
+
+class KGPathRequest(BaseModel):
+    source: str
+    target: str
+
+
+# ── Knowledge Graph Endpoints ──
+@app.post("/graph/entity")
+async def kg_add_entity(req: KGEntityRequest):
+    """Add or update an entity (node) in the knowledge graph."""
+    return _kg.add_entity(req.name, req.entity_type, req.description)
+
+@app.post("/graph/relation")
+async def kg_add_relation(req: KGRelationRequest):
+    """Add or update a relationship (edge) between two entities."""
+    return _kg.add_relationship(req.source, req.target, req.relation, req.weight, req.notes)
+
+@app.get("/graph/entity/{name}")
+async def kg_get_entity(name: str):
+    result = _kg.get_entity(name)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Entity '{name}' not found")
+    return result
+
+@app.get("/graph/neighbours/{name}")
+async def kg_get_neighbours(name: str, depth: int = 1):
+    """Return the neighbourhood of an entity up to `depth` hops."""
+    return _kg.get_neighbours(name, depth=max(1, min(depth, 3)))
+
+@app.post("/graph/path")
+async def kg_shortest_path(req: KGPathRequest):
+    """Find the shortest path between two entities."""
+    return _kg.shortest_path(req.source, req.target)
+
+@app.get("/graph/search")
+async def kg_search(q: str, limit: int = 20):
+    """Full-text search entities by name, type, or description."""
+    return _kg.search_entities(q, limit=limit)
+
+@app.delete("/graph/entity/{name}")
+async def kg_delete_entity(name: str):
+    deleted = _kg.delete_entity(name)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Entity '{name}' not found")
+    return {"status": "deleted", "name": name}
+
+@app.post("/graph/relation/delete")
+async def kg_delete_relation(req: KGDeleteEdgeRequest):
+    deleted = _kg.delete_relationship(req.source, req.target)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Relationship not found")
+    return {"status": "deleted"}
+
+@app.get("/graph/stats")
+async def kg_stats():
+    """Return graph statistics."""
+    return _kg.graph_stats()
+
+@app.get("/graph/export")
+async def kg_export():
+    """Export the full knowledge graph as node-link JSON."""
+    return _kg.export_graph()
+
+
+class SwarmRunRequest(BaseModel):
+    goal: str
+    model: str = "gemma3:4b"
+    worker_model: Optional[str] = None
+    max_workers: int = 4
+
+
+@app.post("/swarm/run")
+async def swarm_run(req: SwarmRunRequest):
+    """Launch a multi-agent swarm to tackle a complex goal."""
+    try:
+        swarm_id = _swarm.start_swarm(
+            goal=req.goal,
+            model=req.model,
+            worker_model=req.worker_model,
+            max_workers=max(1, min(req.max_workers, 8)),
+            ollama_url=OLLAMA_URL,
+        )
+        return {"swarm_id": swarm_id, "status": "started"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/swarm/status/{swarm_id}")
+async def swarm_status(swarm_id: str):
+    """Poll the status of a running swarm."""
+    result = _swarm.get_swarm(swarm_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Swarm not found")
+    return result
+
+
+@app.get("/swarm/list")
+async def swarm_list():
+    """List all swarms (active and completed)."""
+    return _swarm.list_swarms()
+
+
+import voice_service as _voice
+
+@app.post("/voice/start")
+async def voice_start():
+    """Start the voice assistant background listener."""
+    svc = _voice.get_service()
+    svc.start()
+    return {"status": "started"}
+
+@app.post("/voice/stop")
+async def voice_stop():
+    """Stop the voice assistant background listener."""
+    svc = _voice.get_service()
+    svc.stop()
+    return {"status": "stopped"}
+
+@app.get("/voice/status")
+async def voice_status():
+    """Check if the voice assistant is running."""
+    svc = _voice.get_service()
+    return {
+        "running": svc.running,
+        "wake_word": svc.wake_word,
+        "whisper": _voice.WHISPER_AVAILABLE,
+        "openwakeword": _voice.OWW_AVAILABLE
+    }
+
+
+@app.post("/tools/register")
+async def register_custom_tool(req: ToolRegisterRequest):
+    """Register a new custom tool from code string. The code should define a function with the same name as `req.name`."""
+    try:
+        # Prepare a local namespace for exec
+        local_ns = {}
+        exec(req.code, {}, local_ns)
+        func = local_ns.get(req.name)
+        if not callable(func):
+            raise HTTPException(status_code=400, detail="No callable with the given name found in code.")
+        custom_tool_registry.register_tool(req.name, func)
+        return {"status": "registered", "name": req.name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ═══════════════════════════════════════════════════════
@@ -301,6 +471,11 @@ class MissionRequest(BaseModel):
 class SkillRequest(BaseModel):
     name: str
     args: str = ""
+
+
+class ToolRegisterRequest(BaseModel):
+    name: str
+    code: str
 
 
 # ═══════════════════════════════════════════════════════
@@ -705,23 +880,34 @@ async def list_skills():
         return {"error": str(e)}
 
 
+@app.get("/tools/list")
+async def list_custom_tools():
+    """Return a list of all registered custom tool names."""
+    try:
+        tools = custom_tool_registry.list_tools()
+        return {"tools": tools}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/skills/execute")
 async def execute_skill(req: SkillRequest):
+    """Execute a saved skill script by name."""
     try:
         skill_path = SKILLS_DIR / f"{req.name}.py"
         if not skill_path.exists():
             raise HTTPException(status_code=404, detail=f"Skill '{req.name}' not found")
-        
-        # Run the skill as a separate process
-        cmd = f"python \"{skill_path}\" {req.args}"
+        cmd = f'python "{skill_path}" {req.args}'
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, timeout=60
         )
         return {
             "stdout": result.stdout,
             "stderr": result.stderr,
-            "returncode": result.returncode
+            "returncode": result.returncode,
         }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Skill execution timed out (60s)")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -972,6 +1158,18 @@ User: \"What's on my desktop?\"
 Assistant: Let me check.
 [LIST_DIR:C:\\Users\\Stephen Dunne\\Desktop]
 
+AUTONOMOUS SKILL SYSTEM:
+[REGISTER_TOOL:name|def name(arg): ...] — Register a new custom Python tool (save + load into memory)
+[RUN_CUSTOM:name|optional_arg] — Execute a previously registered custom tool
+
+Example — registering a tool:
+[REGISTER_TOOL:get_weather|def get_weather(city):
+    import requests
+    r = requests.get(f"https://wttr.in/{city}?format=3", timeout=5)
+    return r.text]
+Then run it:
+[RUN_CUSTOM:get_weather|Dublin]
+
 Keep responses concise — Telegram has message length limits."""
 
 
@@ -1130,6 +1328,33 @@ def execute_tool_tag(tag: str, arg: str) -> str:
             except Exception:
                 return f"⏰ Timed out waiting for: {arg.strip()}"
 
+        if tag == "RUN_CUSTOM":
+            # Format: [RUN_CUSTOM:tool_name|arg1,arg2,...]
+            parts = (arg or "").split("|", 1)
+            tool_name = parts[0].strip()
+            tool_args_str = parts[1].strip() if len(parts) > 1 else ""
+            func = custom_tool_registry.get_tool(tool_name)
+            if func is None:
+                return f"❌ Custom tool '{tool_name}' not found. Register it first with [REGISTER_TOOL]."
+            try:
+                result = func(tool_args_str) if tool_args_str else func()
+                return f"🔧 Custom tool '{tool_name}' result:\n{str(result)[:3000]}"
+            except Exception as e:
+                return f"❌ Custom tool '{tool_name}' error: {e}"
+
+        if tag == "REGISTER_TOOL":
+            # Format: [REGISTER_TOOL:name|def name(...):\n    ...]
+            parts = (arg or "").split("|", 1)
+            if len(parts) != 2:
+                return "❌ Invalid format. Use: [REGISTER_TOOL:name|def name():\n    ...]"
+            tool_name = parts[0].strip()
+            code = parts[1].strip()
+            try:
+                custom_tool_registry.register_tool(tool_name, code)
+                return f"✅ Custom tool '{tool_name}' registered and ready."
+            except Exception as e:
+                return f"❌ Failed to register tool '{tool_name}': {e}"
+
         return f"❌ Unknown tag: {tag}"
 
     except subprocess.TimeoutExpired:
@@ -1141,8 +1366,8 @@ def execute_tool_tag(tag: str, arg: str) -> str:
 
 def process_tool_tags(text: str) -> tuple[str, bool]:
     """Find and execute tool tags in AI response. Returns (processed_text, had_tags)."""
-    # Match parameterized tags
-    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD|OPEN_URL|CLICK|FILL_FORM|TYPE_TEXT|GET_PAGE_TEXT|GET_PAGE_HTML|JS_EXEC|WAIT|WAIT_FOR|SCREENSHOT):?(.+?)?\]"
+    # Match parameterized tags (including new custom tool tags)
+    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD|OPEN_URL|CLICK|FILL_FORM|TYPE_TEXT|GET_PAGE_TEXT|GET_PAGE_HTML|JS_EXEC|WAIT|WAIT_FOR|SCREENSHOT|RUN_CUSTOM|REGISTER_TOOL):?(.+?)?\]"
     matches = list(re.finditer(pattern, text))
 
     if not matches:
@@ -3421,6 +3646,7 @@ async def phone_dispatch(req: Dict[str, Any] = Body(...)):
     return result
 
 
+
 # ═══════════════════════════════════════════════════════
 #  Kali-inspired packs: Recon · Audit · Forensics · Lab Mode
 #  All operate on the local box / user-supplied targets.
@@ -4078,6 +4304,7 @@ def labmode_cors(req: dict, request: Request):
 
 
 
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
     parser.add_argument("--model", default="gemma3:4b", help="Ollama model to use (default: gemma3:4b)")
@@ -4085,7 +4312,7 @@ def labmode_cors(req: dict, request: Request):
     args = parser.parse_args()
 
     import uvicorn
-    print(f"🤖 Local AI Agent starting on http://0.0.0.0:{args.port}")
+    print(f"Local AI Agent starting on http://0.0.0.0:{args.port}")
     print("   + /env, /http, /download, /search, /zip, /unzip, /power, /launch, /tts, /disk, /screenshot, /wifi, /installed")
 
     if args.telegram_token:

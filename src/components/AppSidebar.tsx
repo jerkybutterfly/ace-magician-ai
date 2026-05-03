@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -11,11 +11,16 @@ import {
 import { TerminalWidget } from './TerminalWidget';
 import { SystemInfoPanel } from './SystemInfo';
 import { MissionPanel } from './MissionPanel';
+import { SystemStatsPanel } from './SystemStatsPanel';
 import { Button } from '@/components/ui/button';
 import type { Conversation } from '@/lib/conversations';
 
 const navItems = [
   { title: 'Chat', url: '/', icon: MessageSquare },
+  { title: 'Automations', url: '/automations', icon: Zap },
+  { title: 'Swarm', url: '/swarm', icon: Network },
+  { title: 'Knowledge Graph', url: '/knowledge-graph', icon: Brain },
+  { title: 'Voice', url: '/voice', icon: Mic },
   { title: 'Files', url: '/files', icon: FolderOpen },
   { title: 'Skills', url: '/skills', icon: Zap },
   { title: 'Spec Kit', url: '/speckit', icon: FileCode2 },
@@ -147,6 +152,7 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
             <SidebarSeparator className="bg-border/40" />
             <SidebarGroup>
               <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70">System</SidebarGroupLabel>
+              <SystemStatsPanel />
               <SystemInfoPanel />
             </SidebarGroup>
           </>

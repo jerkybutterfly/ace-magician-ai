@@ -19,7 +19,10 @@ let started = false;
 export function getOrCreateDeviceId(): string {
   let id = localStorage.getItem(DEVICE_ID_KEY);
   if (!id) {
-    id = `phone-${crypto.randomUUID().slice(0, 8)}`;
+    const randomStr = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).substring(2, 10);
+    id = `phone-${randomStr}`;
     localStorage.setItem(DEVICE_ID_KEY, id);
   }
   return id;

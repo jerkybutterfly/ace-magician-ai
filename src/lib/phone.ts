@@ -20,7 +20,10 @@ const safe = async <T>(fn: () => Promise<T>, label: string): Promise<PhoneTagRes
 };
 
 export const isPhone = (): boolean => {
-  try { return Capacitor.isNativePlatform(); } catch { return false; }
+  try {
+    if (Capacitor.isNativePlatform()) return true;
+    return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase());
+  } catch { return false; }
 };
 
 // ---------- Individual capability wrappers ----------
