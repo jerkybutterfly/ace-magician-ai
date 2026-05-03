@@ -136,10 +136,28 @@ export async function phoneLaunch(packageName: string): Promise<PhoneTagResult> 
   }, 'Launch');
 }
 
-// Optional plugins — guarded
+// Flashlight via getUserMedia torch constraint (no plugin needed on supporting devices)
+let _torchTrack: MediaStreamTrack | null = null;
 export async function phoneTorch(on: boolean): Promise<PhoneTagResult> {
-  return { ok: false, output: `Torch plugin not installed (${on ? 'on' : 'off'} requested)` };
+  return safe(async () => {
+    if (!on) {
+      if (_torchTrack) {
+        try { await (_torchTrack as MediaStreamTrack & { applyConstraints: (c: unknown) => Promise<void> }).applyConstraints({ advanced: [{ torch: false }] }); } catch {}
+        _torchTrack.stop();
+        _torchTrack = null;
+      }
+      return '🔦 off';
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const track = stream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() as { torch?: boolean } : {};
+    if (!caps.torch) { track.stop(); throw new Error('Torch not supported on this device'); }
+    await (track as MediaStreamTrack & { applyConstraints: (c: unknown) => Promise<void> }).applyConstraints({ advanced: [{ torch: true }] });
+    _torchTrack = track;
+    return '🔦 on';
+  }, 'Torch');
 }
+
 export async function phoneSpeak(text: string): Promise<PhoneTagResult> {
   return safe(async () => {
     // Web Speech API works in Capacitor's WebView too
