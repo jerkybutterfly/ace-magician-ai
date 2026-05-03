@@ -13,11 +13,15 @@
         "@capacitor/clipboard": "^8.0.1",
         "@capacitor/core": "^8.3.1",
         "@capacitor/device": "^8.0.2",
+        "@capacitor/dialog": "^8.0.1",
+        "@capacitor/filesystem": "^8.1.2",
         "@capacitor/geolocation": "^8.2.0",
         "@capacitor/haptics": "^8.0.2",
         "@capacitor/local-notifications": "^8.0.2",
         "@capacitor/network": "^8.0.1",
+        "@capacitor/screen-orientation": "^8.0.1",
         "@capacitor/share": "^8.0.1",
+        "@capacitor/toast": "^8.0.1",
         "@hookform/resolvers": "^3.10.0",
         "@radix-ui/react-accordion": "^1.2.11",
         "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -127,6 +131,10 @@
 
     "@capacitor/device": ["@capacitor/device@8.0.2", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/device/-/device-8.0.2.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-fIqSXnG0s6bz5A/0xFgSXDkbU+Xl65ti80LhucNvLI4kGhJzcNn6SwWVwpXN9SJTOFWXblXknHNppheP8X1frQ=="],
 
+    "@capacitor/dialog": ["@capacitor/dialog@8.0.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/dialog/-/dialog-8.0.1.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-Dq0mZBsd++7CvPvpD2gfbUB44k/zCoe5K9IgYmMImQ4Yphu4/MxLVpFDFAqSya011UBBTGPrUQGVacIW3jDNkw=="],
+
+    "@capacitor/filesystem": ["@capacitor/filesystem@8.1.2", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/filesystem/-/filesystem-8.1.2.tgz", { "dependencies": { "@capacitor/synapse": "^1.0.4" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-doaaMfGoFR2hWU6aV6u83I+5ZsGyJVq+Gz4r9lMpJzUKMm1eMu0hLnFdV1aXZlU9FlK/RndFrVD8oRZfNOqWgQ=="],
+
     "@capacitor/geolocation": ["@capacitor/geolocation@8.2.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/geolocation/-/geolocation-8.2.0.tgz", { "dependencies": { "@capacitor/synapse": "^1.0.4" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-N29QcoIPmme0xSxRkm7+3hjoHp6mBAOarxecvtCCZKyOBeKiJsFUq981cezg2XWBa6fhCXJMCCjQPngKK/dIag=="],
 
     "@capacitor/haptics": ["@capacitor/haptics@8.0.2", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/haptics/-/haptics-8.0.2.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-c2hZzRR5Fk1tbTvhG1jhh2XBAf3EhnIerMIb2sl7Mt41Gxx1fhBJFDa0/BI1IbY4loVepyyuqNC9820/GZuoWQ=="],
@@ -135,9 +143,13 @@
 
     "@capacitor/network": ["@capacitor/network@8.0.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/network/-/network-8.0.1.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-9xK/FHFmzKGanB6BdoSZOzXk8vF0OFVQSQ4PAsIrzAzLuXHryO317qy8dcHVpgxYeuZq2noI0My9z1DvVDi/9w=="],
 
+    "@capacitor/screen-orientation": ["@capacitor/screen-orientation@8.0.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/screen-orientation/-/screen-orientation-8.0.1.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-DPz/1YGmlAUDMg2ON+AGJp1eFn9IfVNP9VKI5zIU+jD5xAZ4JGxUDlY9MDCvEPQs7UCD53NduJpqvqhcnb32Kw=="],
+
     "@capacitor/share": ["@capacitor/share@8.0.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/share/-/share-8.0.1.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-3cSBKBCJVon54rKDROP2rqGyeGks4pBh9TbaEk9S375Kbek/ZHe72N50zIa0Vn9Eac/SuhwgehO/mmA4CsUOiw=="],
 
     "@capacitor/synapse": ["@capacitor/synapse@1.0.4", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/synapse/-/synapse-1.0.4.tgz", {}, "sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw=="],
+
+    "@capacitor/toast": ["@capacitor/toast@8.0.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/toast/-/toast-8.0.1.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-0uoyftoAeFjtOMiozBo7YXEo+zcpQCAxtBONSvrljJ05SKdlb1A8OFHaV/DZfIpGt+19kzUGaEaUemLdll4wUw=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.0", "", { "os": "aix", "cpu": "ppc64" }, "sha512-O7vun9Sf8DFjH2UtqK8Ku3LkquL9SZL8OLY1T5NZkA34+wG3OQF7cl4Ql8vdNzM6fzBbYfLaiRLIOZ+2FOCgBQ=="],
 
