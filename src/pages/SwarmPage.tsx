@@ -242,123 +242,113 @@ export default function SwarmPage() {
   const activeCount = swarms.filter(s => s.status !== 'done' && s.status !== 'error').length;
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
-      <AppSidebar
-        conversations={conversations}
-        currentConvoId={currentConvoId}
-        onNewChat={createConversation}
-        onSelectConvo={selectConversation}
-        onDeleteConvo={deleteConversation}
-      />
-      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Header */}
-        <div className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-10">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <SidebarTrigger className="h-8 w-8" />
-            <div className="w-7 h-7 rounded-lg bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center">
-              <Network className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-foreground">Agent Swarm</h1>
-              <p className="text-[10px] text-muted-foreground">Multi-agent orchestration</p>
-            </div>
-            {activeCount > 0 && (
-              <Badge variant="outline" className="ml-auto text-[10px] bg-yellow-500/10 text-yellow-400 border-yellow-500/30 animate-pulse">
-                {activeCount} active
-              </Badge>
-            )}
+    <div className="flex-1 flex flex-col min-w-0">
+      {/* Header */}
+      <div className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-10">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="w-7 h-7 rounded-lg bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center">
+            <Network className="h-4 w-4 text-primary" />
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full">
-          {/* Launch panel */}
-          <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur p-5 shadow-lg space-y-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Launch a Swarm</h2>
-            </div>
-
-            <Textarea
-              id="swarm-goal-input"
-              value={goal}
-              onChange={e => setGoal(e.target.value)}
-              placeholder="Enter a complex goal for the swarm to tackle… e.g. 'Research the top 5 open-source LLMs, compare their strengths, and recommend the best for local deployment'"
-              className="min-h-[100px] bg-background/50 resize-none text-sm"
-              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleLaunch(); }}
-            />
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Manager Model</label>
-                <Input
-                  value={model}
-                  onChange={e => setModel(e.target.value)}
-                  placeholder="gemma3:4b"
-                  className="h-8 text-xs bg-background/50"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Worker Model</label>
-                <Input
-                  value={workerModel}
-                  onChange={e => setWorkerModel(e.target.value)}
-                  placeholder="same as manager"
-                  className="h-8 text-xs bg-background/50"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Max Workers</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={8}
-                  value={maxWorkers}
-                  onChange={e => setMaxWorkers(Number(e.target.value))}
-                  className="h-8 text-xs bg-background/50"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <p className="text-xs text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
-            )}
-
-            <div className="flex items-center gap-3">
-              <Button
-                id="swarm-launch-btn"
-                onClick={handleLaunch}
-                disabled={loading || !goal.trim()}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
-              >
-                {loading ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                {loading ? 'Launching…' : 'Launch Swarm'}
-              </Button>
-              <Button variant="ghost" size="icon" onClick={fetchSwarms} className="h-9 w-9" title="Refresh">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              <span className="text-[10px] text-muted-foreground ml-auto">Ctrl+Enter to launch</span>
-            </div>
+          <div>
+            <h1 className="text-sm font-bold text-foreground">Agent Swarm</h1>
+            <p className="text-[10px] text-muted-foreground">Multi-agent orchestration</p>
           </div>
-
-          {/* Swarm list */}
-          {swarms.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center mx-auto">
-                <Network className="h-8 w-8 text-primary/60" />
-              </div>
-              <p className="text-sm text-muted-foreground">No swarms yet. Launch one above.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Swarm History</h2>
-                <span className="text-[10px] text-muted-foreground">{swarms.length} total</span>
-              </div>
-              {swarms.map(s => <SwarmCard key={s.id} swarm={s} />)}
-            </div>
+          {activeCount > 0 && (
+            <Badge variant="outline" className="ml-auto text-[10px] bg-yellow-500/10 text-yellow-400 border-yellow-500/30 animate-pulse">
+              {activeCount} active
+            </Badge>
           )}
         </div>
-      </main>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full">
+        {/* Launch panel */}
+        <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur p-5 shadow-lg space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Launch a Swarm</h2>
+          </div>
+
+          <Textarea
+            id="swarm-goal-input"
+            value={goal}
+            onChange={e => setGoal(e.target.value)}
+            placeholder="Enter a complex goal for the swarm to tackle… e.g. 'Research the top 5 open-source LLMs, compare their strengths, and recommend the best for local deployment'"
+            className="min-h-[100px] bg-background/50 resize-none text-sm"
+            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleLaunch(); }}
+          />
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Manager Model</label>
+              <Input
+                value={model}
+                onChange={e => setModel(e.target.value)}
+                placeholder="gemma3:4b"
+                className="h-8 text-xs bg-background/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Worker Model</label>
+              <Input
+                value={workerModel}
+                onChange={e => setWorkerModel(e.target.value)}
+                placeholder="same as manager"
+                className="h-8 text-xs bg-background/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Max Workers</label>
+              <Input
+                type="number"
+                min={1}
+                max={8}
+                value={maxWorkers}
+                onChange={e => setMaxWorkers(Number(e.target.value))}
+                className="h-8 text-xs bg-background/50"
+              />
+            </div>
+          </div>
+
+          {error && (
+            <p className="text-xs text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Button
+              id="swarm-launch-btn"
+              onClick={handleLaunch}
+              disabled={loading || !goal.trim()}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+            >
+              {loading ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {loading ? 'Launching…' : 'Launch Swarm'}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={fetchSwarms} className="h-9 w-9" title="Refresh">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <span className="text-[10px] text-muted-foreground ml-auto">Ctrl+Enter to launch</span>
+          </div>
+        </div>
+
+        {/* Swarm list */}
+        {swarms.length === 0 ? (
+          <div className="text-center py-16 space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center mx-auto">
+              <Network className="h-8 w-8 text-primary/60" />
+            </div>
+            <p className="text-sm text-muted-foreground">No swarms yet. Launch one above.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Swarm History</h2>
+              <span className="text-[10px] text-muted-foreground">{swarms.length} total</span>
+            </div>
+            {swarms.map(s => <SwarmCard key={s.id} swarm={s} />)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

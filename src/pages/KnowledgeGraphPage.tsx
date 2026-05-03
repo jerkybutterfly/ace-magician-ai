@@ -155,16 +155,13 @@ export default function KnowledgeGraphPage() {
   ] as const;
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
-      <AppSidebar conversations={conversations} currentConvoId={currentConvoId} onNewChat={createConversation} onSelectConvo={selectConversation} onDeleteConvo={deleteConversation} />
-      <main className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-10">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <SidebarTrigger className="h-8 w-8" />
-            <div className="w-7 h-7 rounded-lg bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center">
-              <Brain className="h-4 w-4 text-primary" />
-            </div>
+    <div className="flex-1 flex flex-col min-w-0">
+      {/* Header */}
+      <div className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-10">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="w-7 h-7 rounded-lg bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center">
+            <Brain className="h-4 w-4 text-primary" />
+          </div>
             <div>
               <h1 className="text-sm font-bold text-foreground">Knowledge Graph</h1>
               <p className="text-[10px] text-muted-foreground">Entity memory &amp; relationships</p>
@@ -330,7 +327,6 @@ export default function KnowledgeGraphPage() {
             </div>
           )}
         </div>
-      </main>
     </div>
   );
 }

@@ -54,23 +54,15 @@ export default function VoicePage() {
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <AppSidebar 
-        conversations={[]} 
-        currentConvoId={null} 
-        onNewChat={() => {}} 
-        onSelectConvo={() => {}} 
-        onDeleteConvo={() => {}} 
-      />
-      <div className="flex-1 flex flex-col p-6 overflow-y-auto">
-        <div className="mb-8 border-b border-border/50 pb-4">
-          <h1 className="text-3xl font-bold text-primary flex items-center gap-3">
-            <Mic className="w-8 h-8" /> Voice & Wake Word
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Configure hands-free interaction with the agent using wake word detection and local STT.
-          </p>
-        </div>
+    <div className="flex-1 flex flex-col p-6 overflow-y-auto">
+      <div className="mb-8 border-b border-border/50 pb-4">
+        <h1 className="text-3xl font-bold text-primary flex items-center gap-3">
+          <Mic className="w-8 h-8" /> Voice & Wake Word
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Configure hands-free interaction with the agent using wake word detection and local STT.
+        </p>
+      </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
           {/* Control Panel */}
@@ -149,6 +141,5 @@ export default function VoicePage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }

@@ -114,7 +114,8 @@ app = FastAPI(title="Local AI Agent", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex="https?://.*",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -811,6 +812,20 @@ def _detect_ram_info() -> dict:
 # Cache slow detections — they don't change at runtime
 _CPU_INFO_CACHE: Optional[dict] = None
 _RAM_INFO_CACHE: Optional[dict] = None
+
+
+@app.get("/system/stats")
+async def system_stats_flattened():
+    mem = psutil.virtual_memory()
+    net = psutil.net_io_counters()
+    return {
+        "cpu": psutil.cpu_percent(interval=0.1),
+        "ram": mem.percent,
+        "network": {
+            "bytes_sent": net.bytes_sent,
+            "bytes_recv": net.bytes_recv
+        }
+    }
 
 
 @app.get("/system")

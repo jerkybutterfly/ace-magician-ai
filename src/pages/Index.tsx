@@ -23,52 +23,26 @@ import LabModePage from './LabModePage';
 import ComputerUsePage from './ComputerUsePage';
 import DranaPage from './DranaPage';
 import GlasswingPage from './GlasswingPage';
-import { loadConversations, saveConversations, createConversation, type Conversation } from '@/lib/conversations';
+import SwarmPage from './SwarmPage';
+import KnowledgeGraphPage from './KnowledgeGraphPage';
+import VoicePage from './VoicePage';
+import AutomationsPage from './AutomationsPage';
 import { getSettings } from '@/lib/settings';
+import { useConversations } from '@/hooks/useConversations';
 
 export default function Index() {
   const location = useLocation();
-  const [conversations, setConversations] = useState<Conversation[]>(loadConversations);
-  const [currentId, setCurrentId] = useState<string | null>(() => {
-    const convos = loadConversations();
-    return convos.length > 0 ? convos[convos.length - 1].id : null;
-  });
+  const { 
+    conversations, 
+    currentConvoId, 
+    createConversation, 
+    selectConversation, 
+    deleteConversation, 
+    updateConversation 
+  } = useConversations();
   const [model, setModel] = useState(() => getSettings().defaultModel || '');
 
-  const persist = useCallback((convos: Conversation[]) => {
-    setConversations(convos);
-    saveConversations(convos);
-  }, []);
-
-  const handleNewChat = useCallback(() => {
-    const convo = createConversation(model);
-    const updated = [...conversations, convo];
-    persist(updated);
-    setCurrentId(convo.id);
-  }, [conversations, model, persist]);
-
-  const handleUpdateConvo = useCallback((convo: Conversation) => {
-    const updated = conversations.map((c) => (c.id === convo.id ? convo : c));
-    if (!updated.find((c) => c.id === convo.id)) updated.push(convo);
-    persist(updated);
-  }, [conversations, persist]);
-
-  const handleDeleteConvo = useCallback((id: string) => {
-    const updated = conversations.filter((c) => c.id !== id);
-    persist(updated);
-    if (currentId === id) setCurrentId(updated.length > 0 ? updated[updated.length - 1].id : null);
-  }, [conversations, currentId, persist]);
-
-  const handleSelectConvo = useCallback((id: string) => setCurrentId(id), []);
-
-  // Auto-create first convo
-  if (conversations.length === 0) {
-    const convo = createConversation(model);
-    persist([convo]);
-    setCurrentId(convo.id);
-  }
-
-  const currentConvo = conversations.find((c) => c.id === currentId) ?? null;
+  const currentConvo = conversations.find((c) => c.id === currentConvoId) ?? null;
 
   const renderPage = () => {
     switch (location.pathname) {
@@ -110,10 +84,18 @@ export default function Index() {
         return <DranaPage />;
       case '/glasswing':
         return <GlasswingPage />;
+      case '/swarm':
+        return <SwarmPage />;
+      case '/knowledge-graph':
+        return <KnowledgeGraphPage />;
+      case '/voice':
+        return <VoicePage />;
+      case '/automations':
+        return <AutomationsPage />;
       case '/settings':
         return <SettingsPage />;
       default:
-        return <Chat conversation={currentConvo} onUpdate={handleUpdateConvo} model={model} onModelChange={setModel} />;
+        return <Chat conversation={currentConvo} onUpdate={updateConversation} model={model} onModelChange={setModel} />;
     }
   };
 
@@ -121,10 +103,10 @@ export default function Index() {
     <div className="h-dvh flex w-full overflow-hidden">
       <AppSidebar
         conversations={conversations}
-        currentConvoId={currentId}
-        onNewChat={handleNewChat}
-        onSelectConvo={handleSelectConvo}
-        onDeleteConvo={handleDeleteConvo}
+        currentConvoId={currentConvoId}
+        onNewChat={createConversation}
+        onSelectConvo={selectConversation}
+        onDeleteConvo={deleteConversation}
       />
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <header className="h-12 flex items-center border-b border-border/50 px-2 shrink-0">
