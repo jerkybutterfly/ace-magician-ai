@@ -242,7 +242,7 @@ export default function SwarmPage() {
   const activeCount = swarms.filter(s => s.status !== 'done' && s.status !== 'error').length;
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       <AppSidebar
         conversations={conversations}
         currentConvoId={currentConvoId}
@@ -250,7 +250,7 @@ export default function SwarmPage() {
         onSelectConvo={selectConversation}
         onDeleteConvo={deleteConversation}
       />
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Header */}
         <div className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-10">
           <div className="flex items-center gap-3 px-4 py-3">
