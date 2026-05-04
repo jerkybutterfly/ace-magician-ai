@@ -154,8 +154,9 @@ export default function ComputerUsePage() {
       {pyAvailable === false && (
         <Alert variant="destructive">
           <AlertTitle>pyautogui not available</AlertTitle>
-          <AlertDescription className="text-xs">
-            Install on the agent host: <code>pip install pyautogui pillow</code> (Linux also needs <code>scrot python3-tk</code>), then restart agent.py.
+          <AlertDescription className="text-xs space-y-1">
+            <p>Install on the agent host (desktop/mini PC): <code>pip install pyautogui pillow</code> (Linux also needs <code>scrot python3-tk</code>), then restart <code>agent.py</code>.</p>
+            <p className="text-muted-foreground">⚠️ Not available on Android — pyautogui requires a desktop OS (Windows/macOS/Linux). Use the Phone page for Android remote control instead.</p>
           </AlertDescription>
         </Alert>
       )}
