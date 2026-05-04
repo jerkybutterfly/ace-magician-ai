@@ -242,7 +242,7 @@ export default function SwarmPage() {
   const activeCount = swarms.filter(s => s.status !== 'done' && s.status !== 'error').length;
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       <AppSidebar
         conversations={conversations}
         currentConvoId={currentConvoId}
