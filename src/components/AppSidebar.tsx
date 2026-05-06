@@ -27,6 +27,7 @@ const navItems = [
   { title: 'Local Models', url: '/local-models', icon: Cpu },
   { title: 'Documents', url: '/documents', icon: BookOpen },
   { title: 'Phone', url: '/phone', icon: Smartphone },
+  { title: 'On-Device Model', url: '/on-device-model', icon: Cpu },
   { title: 'Briefing', url: '/briefing', icon: Sun },
   { title: 'Network', url: '/network', icon: Network },
   { title: 'Recon', url: '/recon', icon: Radar },

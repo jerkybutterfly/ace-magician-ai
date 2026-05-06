@@ -55,6 +55,7 @@ const App = () => {
               <Route path="/local-models" element={<Index />} />
               <Route path="/permissions" element={<Index />} />
               <Route path="/phone" element={<Index />} />
+              <Route path="/on-device-model" element={<Index />} />
               <Route path="/briefing" element={<Index />} />
               <Route path="/network" element={<Index />} />
               <Route path="/mqtt" element={<Index />} />
