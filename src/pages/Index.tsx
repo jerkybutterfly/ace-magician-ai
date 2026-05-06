@@ -15,6 +15,7 @@ import NetworkPage from './NetworkPage';
 import MqttPage from './MqttPage';
 import RagPage from './RagPage';
 import PhonePage from './PhonePage';
+import OnDeviceModelPage from './OnDeviceModelPage';
 import BriefingPage from './BriefingPage';
 import ReconPage from './ReconPage';
 import AuditPage from './AuditPage';
@@ -68,6 +69,8 @@ export default function Index() {
         return <RagPage />;
       case '/phone':
         return <PhonePage />;
+      case '/on-device-model':
+        return <OnDeviceModelPage />;
       case '/briefing':
         return <BriefingPage />;
       case '/recon':
