@@ -268,7 +268,7 @@ function KaliRunner() {
     setLoading(true);
     try {
       const data = await labKaliList();
-      setTools(data);
+      setTools(data.tools);
     } catch (e) {
       toast({ title: 'Failed to list tools', description: e instanceof Error ? e.message : '', variant: 'destructive' });
     } finally {
