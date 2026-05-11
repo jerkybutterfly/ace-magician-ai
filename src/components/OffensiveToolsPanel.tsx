@@ -206,7 +206,7 @@ function SprayTool() {
       <Input placeholder="login URL" value={url} onChange={(e) => setUrl(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="users (comma-separated)" value={users} onChange={(e) => setUsers(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="password" value={pass} onChange={(e) => setPass(e.target.value)} className="h-8 text-xs" />
-      <RunBtn busy={r.busy} onClick={() => r.run(() => labSpray({ url, users: users.split(',').map((s) => s.trim()).filter(Boolean), password: pass }))} />
+      <RunBtn busy={r.busy} onClick={() => r.run(() => labSpray({ url, usernames: users.split(',').map((s) => s.trim()).filter(Boolean), password: pass }))} />
       <Out data={r.out} />
     </ToolCard>
   );
