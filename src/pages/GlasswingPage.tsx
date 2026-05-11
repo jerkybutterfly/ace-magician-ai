@@ -174,6 +174,7 @@ export default function GlasswingPage() {
       <Tabs defaultValue="hunter" className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="mx-4 mt-3 w-fit">
           <TabsTrigger value="hunter"><Bug className="h-4 w-4 mr-1.5" />Hunter</TabsTrigger>
+          <TabsTrigger value="offensive"><Crosshair className="h-4 w-4 mr-1.5" />Offensive</TabsTrigger>
           <TabsTrigger value="auditor"><Code2 className="h-4 w-4 mr-1.5" />Auditor</TabsTrigger>
           <TabsTrigger value="agent"><Activity className="h-4 w-4 mr-1.5" />Agent</TabsTrigger>
           <TabsTrigger value="findings">
@@ -181,6 +182,23 @@ export default function GlasswingPage() {
             {counts.total > 0 && <Badge variant="secondary" className="ml-2 h-5">{counts.total}</Badge>}
           </TabsTrigger>
         </TabsList>
+
+        {/* OFFENSIVE TOOLS */}
+        <TabsContent value="offensive" className="flex-1 overflow-auto p-4 space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Offensive Test Suite</CardTitle>
+              <CardDescription>
+                Lab-mode active probes — port scan, dirbust, subdomain enum, header/SSL/CORS audit,
+                XSS/SQLi/SSTI param probe, login probe, password spray, banner grab, host sweep,
+                Drana commands, and direct Kali tool runner. Only target systems you own.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <OffensiveToolsPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* HUNTER */}
         <TabsContent value="hunter" className="flex-1 overflow-auto p-4 space-y-3">
