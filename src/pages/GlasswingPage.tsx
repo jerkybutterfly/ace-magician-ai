@@ -9,8 +9,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Activity, Bug, Code2, Download, Loader2, PlayCircle, Shield, StopCircle, Trash2, Wand2,
+  Activity, Bug, Code2, Crosshair, Download, Loader2, PlayCircle, Shield, StopCircle, Trash2, Wand2,
 } from 'lucide-react';
+import OffensiveToolsPanel from '@/components/OffensiveToolsPanel';
 import {
   type Finding, type Severity, type TranscriptEntry, type TriageState,
   hunt, audit, runAgent, addFindings, loadFindings, updateFindingTriage, deleteFinding,
