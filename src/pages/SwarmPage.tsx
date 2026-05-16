@@ -242,7 +242,7 @@ export default function SwarmPage() {
   const activeCount = swarms.filter(s => s.status !== 'done' && s.status !== 'error').length;
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full">
       {/* Header */}
       <div className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-10">
         <div className="flex items-center gap-3 px-4 py-3">
