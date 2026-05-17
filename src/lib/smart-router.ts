@@ -113,15 +113,15 @@ export function tunedOllamaOptions(task: TaskKind): Record<string, unknown> {
   };
   switch (task) {
     case 'simple':
-      return { ...base, temperature: 0.4, top_p: 0.9, num_predict: 256 };
+      return { ...base, num_ctx: 8192, temperature: 0.4, top_p: 0.9, num_predict: 2048 };
     case 'code':
-      return { ...base, num_ctx: 8192, temperature: 0.2, top_p: 0.95, num_predict: 1024 };
+      return { ...base, num_ctx: 16384, temperature: 0.2, top_p: 0.95, num_predict: 4096 };
     case 'reasoning':
-      return { ...base, num_ctx: 8192, temperature: 0.5, top_p: 0.95, num_predict: 1536 };
+      return { ...base, num_ctx: 16384, temperature: 0.5, top_p: 0.95, num_predict: 6144 };
     case 'tool':
-      return { ...base, temperature: 0.3, top_p: 0.9, num_predict: 768 };
+      return { ...base, num_ctx: 8192, temperature: 0.3, top_p: 0.9, num_predict: 3072 };
     case 'live':
-      return { ...base, num_ctx: 8192, temperature: 0.2, top_p: 0.9, num_predict: 1024 };
+      return { ...base, num_ctx: 8192, temperature: 0.2, top_p: 0.9, num_predict: 2048 };
   }
 }
 
@@ -129,15 +129,15 @@ export function tunedOllamaOptions(task: TaskKind): Record<string, unknown> {
 export function tunedSamplingParams(task: TaskKind): Record<string, unknown> {
   switch (task) {
     case 'simple':
-      return { temperature: 0.4, top_p: 0.9, max_tokens: 256 };
+      return { temperature: 0.4, top_p: 0.9, max_tokens: 2048 };
     case 'code':
-      return { temperature: 0.2, top_p: 0.95, max_tokens: 1024 };
+      return { temperature: 0.2, top_p: 0.95, max_tokens: 4096 };
     case 'reasoning':
-      return { temperature: 0.5, top_p: 0.95, max_tokens: 1536 };
+      return { temperature: 0.5, top_p: 0.95, max_tokens: 6144 };
     case 'tool':
-      return { temperature: 0.3, top_p: 0.9, max_tokens: 768 };
+      return { temperature: 0.3, top_p: 0.9, max_tokens: 3072 };
     case 'live':
-      return { temperature: 0.2, top_p: 0.9, max_tokens: 1024 };
+      return { temperature: 0.2, top_p: 0.9, max_tokens: 2048 };
   }
 }
 
