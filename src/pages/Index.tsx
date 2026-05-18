@@ -96,6 +96,8 @@ export default function Index() {
         return <VoicePage />;
       case '/automations':
         return <AutomationsPage />;
+      case '/understand':
+        return <UnderstandPage />;
       case '/settings':
         return <SettingsPage />;
       default:
