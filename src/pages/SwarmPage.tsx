@@ -28,6 +28,7 @@ interface Swarm {
   model: string;
   worker_model: string;
   max_workers: number;
+  engine?: string;
   status: 'starting' | 'planning' | 'working' | 'synthesising' | 'done' | 'error';
   plan: string[];
   workers: Worker[];
