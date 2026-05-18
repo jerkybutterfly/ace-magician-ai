@@ -124,6 +124,7 @@ function SwarmCard({ swarm }: { swarm: Swarm }) {
           <p className="text-[10px] text-muted-foreground mt-1">
             Model: <span className="text-foreground/70">{swarm.model}</span>
             {swarm.worker_model !== swarm.model && <> · Workers: <span className="text-foreground/70">{swarm.worker_model}</span></>}
+            {swarm.engine && <> · Engine: <span className="text-primary/80">{swarm.engine}</span></>}
           </p>
         </div>
         <button onClick={() => setOpen(o => !o)} className="text-muted-foreground hover:text-foreground transition-colors">
