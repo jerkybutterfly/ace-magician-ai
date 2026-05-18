@@ -28,6 +28,7 @@ import SwarmPage from './SwarmPage';
 import KnowledgeGraphPage from './KnowledgeGraphPage';
 import VoicePage from './VoicePage';
 import AutomationsPage from './AutomationsPage';
+import UnderstandPage from './UnderstandPage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -95,6 +96,8 @@ export default function Index() {
         return <VoicePage />;
       case '/automations':
         return <AutomationsPage />;
+      case '/understand':
+        return <UnderstandPage />;
       case '/settings':
         return <SettingsPage />;
       default:

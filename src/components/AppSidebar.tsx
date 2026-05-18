@@ -20,6 +20,7 @@ const navItems = [
   { title: 'Automations', url: '/automations', icon: Zap },
   { title: 'Swarm', url: '/swarm', icon: Network },
   { title: 'Knowledge Graph', url: '/knowledge-graph', icon: Brain },
+  { title: 'Understand', url: '/understand', icon: BookOpen },
   { title: 'Voice', url: '/voice', icon: Mic },
   { title: 'Files', url: '/files', icon: FolderOpen },
   { title: 'Skills', url: '/skills', icon: Zap },
