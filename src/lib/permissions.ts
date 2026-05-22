@@ -163,15 +163,65 @@ export function checkPermission(tag: string, config: PermissionConfig = getPermi
   return { mode: config.fallback, reason: 'Global fallback' };
 }
 
-// Session-only "always allow" for a given tag pattern, until reload.
+// ────────────────────────────────────────────────────────────
+//  Session + time-boxed allows
+//  "Allow once" / "Allow for 1h" / "Allow for session" without
+//  editing the persistent rules list.
+// ────────────────────────────────────────────────────────────
 const sessionAllow = new Set<string>();
+const TIMED_KEY = 'pesto-permissions-timed';
+type TimedAllow = { pattern: string; expiresAt: number; note?: string };
+
+function readTimed(): TimedAllow[] {
+  try {
+    const raw = localStorage.getItem(TIMED_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as TimedAllow[];
+    const now = Date.now();
+    return arr.filter((a) => a.expiresAt > now);
+  } catch {
+    return [];
+  }
+}
+
+function writeTimed(list: TimedAllow[]): void {
+  try { localStorage.setItem(TIMED_KEY, JSON.stringify(list)); } catch {}
+}
+
+export function getTimedAllows(): TimedAllow[] {
+  return readTimed();
+}
+
+export function clearTimedAllows(): void {
+  try { localStorage.removeItem(TIMED_KEY); } catch {}
+}
+
+/** Allow a pattern for N minutes. Use 0 for session-only (in-memory until reload). */
+export function allowForDuration(pattern: string, minutes: number, note?: string): void {
+  if (!pattern) return;
+  if (minutes <= 0) {
+    sessionAllow.add(pattern);
+    return;
+  }
+  const list = readTimed().filter((a) => a.pattern !== pattern);
+  list.push({ pattern, expiresAt: Date.now() + minutes * 60_000, note });
+  writeTimed(list);
+}
 
 export function sessionAllowOnce(tag: string): void {
   sessionAllow.add(tag);
 }
 
 export function isSessionAllowed(tag: string): boolean {
-  return sessionAllow.has(tag);
+  if (sessionAllow.has(tag)) return true;
+  // Check timed + session pattern allows (glob)
+  for (const p of sessionAllow) {
+    try { if (compileGlob(p).test(tag)) return true; } catch {}
+  }
+  for (const t of readTimed()) {
+    try { if (compileGlob(t.pattern).test(tag)) return true; } catch {}
+  }
+  return false;
 }
 
 export function clearSessionAllows(): void {
