@@ -61,6 +61,14 @@ export async function searchEpisodes(query: string, limit = 5): Promise<Episode[
   return data.matches ?? [];
 }
 
+export async function recentEpisodesForTool(tool: string, limit = 3): Promise<Episode[]> {
+  if (!tool.trim()) return [];
+  const res = await safeFetch(memUrl(`/memory/episodes/recent?tool=${encodeURIComponent(tool)}&limit=${limit}`));
+  if (!res?.ok) return [];
+  const data = await res.json().catch(() => ({ matches: [] }));
+  return data.matches ?? [];
+}
+
 export async function recordLesson(text: string, sourceTag = '', sourceError = ''): Promise<void> {
   if (!text.trim()) return;
   await safeFetch(memUrl('/memory/lessons'), {
