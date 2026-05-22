@@ -100,6 +100,8 @@ export default function Index() {
         return <AutomationsPage />;
       case '/understand':
         return <UnderstandPage />;
+      case '/audit-log':
+        return <AuditLogPage />;
       case '/settings':
         return <SettingsPage />;
       default:
