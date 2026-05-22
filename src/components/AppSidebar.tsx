@@ -175,5 +175,6 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
         </SidebarFooter>
       )}
     </Sidebar>
+    </>
   );
 }
