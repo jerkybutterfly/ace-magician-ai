@@ -61,6 +61,14 @@ export async function searchEpisodes(query: string, limit = 5): Promise<Episode[
   return data.matches ?? [];
 }
 
+export async function recentEpisodesForTool(tool: string, limit = 3): Promise<Episode[]> {
+  if (!tool.trim()) return [];
+  const res = await safeFetch(memUrl(`/memory/episodes/recent?tool=${encodeURIComponent(tool)}&limit=${limit}`));
+  if (!res?.ok) return [];
+  const data = await res.json().catch(() => ({ matches: [] }));
+  return data.matches ?? [];
+}
+
 export async function recordLesson(text: string, sourceTag = '', sourceError = ''): Promise<void> {
   if (!text.trim()) return;
   await safeFetch(memUrl('/memory/lessons'), {
@@ -150,15 +158,36 @@ Respond with ONLY ONE SHORT SENTENCE that begins with a clear directive (e.g. "A
   }
 }
 
+/** Guess which tool the request is most likely to invoke, for per-tool memory injection. */
+function predictTool(req: string): string | null {
+  const t = req.toLowerCase();
+  if (/\b(open|launch|start|run|install|execute|cmd|powershell)\b/.test(t)) return 'RUN_CMD';
+  if (/\b(write|create|save).*(file|to)\b/.test(t)) return 'WRITE_FILE';
+  if (/\b(read|show|cat|open).*(file)\b/.test(t)) return 'READ_FILE';
+  if (/\b(list|ls|dir|show).*(folder|directory|files)\b/.test(t)) return 'LIST_DIR';
+  if (/\b(search|google|find online|web|news|latest|today)\b/.test(t)) return 'WEB_SEARCH';
+  if (/\b(fetch|download|http|api|url|browse|visit)\b/.test(t)) return 'WEB_FETCH';
+  if (/\b(click|fill|type|form|button)\b/.test(t)) return 'CLICK';
+  if (/\b(screenshot|page text|html)\b/.test(t)) return 'SCREENSHOT';
+  if (/\b(network|scan|wifi|devices)\b/.test(t)) return 'SCAN_NETWORK';
+  if (/\b(mqtt|publish|home assistant)\b/.test(t)) return 'MQTT_PUBLISH';
+  if (/\b(phone|battery|camera|gps)\b/.test(t)) return 'PHONE_INFO';
+  if (/\b(notify|notification|alert)\b/.test(t)) return 'NOTIFY';
+  return null;
+}
+
 /**
  * Build the memory-injection block that goes into the system prompt.
- * - Lessons: full text (small file, always include)
- * - Episodes: top N keyword-matched past episodes for the current request
+ * - Lessons: full text (small file, always include — server promotes hit≥5 to [CORE])
+ * - Semantically similar past episodes (embedding-ranked when available)
+ * - Recent episodes for the predicted tool — direct prior art for the likely action
  */
 export async function buildMemoryContext(currentRequest: string): Promise<string> {
-  const [lessons, similar] = await Promise.all([
+  const predicted = predictTool(currentRequest);
+  const [lessons, similar, toolHistory] = await Promise.all([
     getLessons(),
     searchEpisodes(currentRequest, 3),
+    predicted ? recentEpisodesForTool(predicted, 3) : Promise.resolve<Episode[]>([]),
   ]);
 
   const parts: string[] = [];
@@ -167,12 +196,32 @@ export async function buildMemoryContext(currentRequest: string): Promise<string
     parts.push(`--- LESSONS LEARNED (apply these — they came from past mistakes) ---\n${lessons.trim()}`);
   }
 
+  const seen = new Set<string>();
+  const renderEp = (ep: Episode) => {
+    const status = ep.outcome === 'success' ? '✅' : ep.outcome === 'denied' ? '🚫' : '⚠️';
+    return `${status} [${ep.outcome}] ${ep.tag} — ${ep.summary.slice(0, 120)}`;
+  };
+
   if (similar.length > 0) {
-    const lines = similar.map((ep) => {
-      const status = ep.outcome === 'success' ? '✅' : ep.outcome === 'denied' ? '🚫' : '⚠️';
-      return `${status} [${ep.outcome}] ${ep.tag} — ${ep.summary.slice(0, 120)}`;
-    });
-    parts.push(`--- SIMILAR PAST ATTEMPTS (learn from these) ---\n${lines.join('\n')}`);
+    const lines: string[] = [];
+    for (const ep of similar) {
+      const key = `${ep.tag}|${ep.outcome}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      lines.push(renderEp(ep));
+    }
+    if (lines.length) parts.push(`--- SIMILAR PAST ATTEMPTS (learn from these) ---\n${lines.join('\n')}`);
+  }
+
+  if (toolHistory.length > 0) {
+    const lines: string[] = [];
+    for (const ep of toolHistory) {
+      const key = `${ep.tag}|${ep.outcome}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      lines.push(renderEp(ep));
+    }
+    if (lines.length) parts.push(`--- RECENT ${predicted} USES (last ${lines.length}) ---\n${lines.join('\n')}`);
   }
 
   return parts.join('\n\n');
