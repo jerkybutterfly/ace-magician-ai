@@ -376,6 +376,9 @@ export async function* streamChat(
 
   const decoder = new TextDecoder();
   let buffer = '';
+  const startedAt = performance.now();
+  let firstTokenRecorded = false;
+  const { recordModelLatency } = await import('./smart-router');
 
   while (true) {
     const { done, value } = await reader.read();
@@ -390,7 +393,13 @@ export async function* streamChat(
         const chunk: StreamChunk = {};
         if (json.message?.thinking) chunk.thinking = json.message.thinking;
         if (json.message?.content) chunk.content = json.message.content;
-        if (chunk.thinking || chunk.content) yield chunk;
+        if (chunk.thinking || chunk.content) {
+          if (!firstTokenRecorded) {
+            recordModelLatency(model, performance.now() - startedAt);
+            firstTokenRecorded = true;
+          }
+          yield chunk;
+        }
       } catch {}
     }
   }
