@@ -10,7 +10,7 @@
 
 import { getSettings } from './settings';
 
-export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool' | 'live';
+export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool' | 'live' | 'vision';
 
 const CODE_HINTS = /```|\b(function|class|def |const |let |var |import |npm |pip |python|node|tsx|jsx|regex|stack ?trace|error:|exception)\b/i;
 const REASONING_HINTS = /\b(why|explain|analy[sz]e|compare|design|architect|plan|strategi[sz]e|prove|debate|trade[- ]off|step[- ]by[- ]step)\b/i;
@@ -19,7 +19,8 @@ const SIMPLE_HINTS = /^(hi|hey|hello|yo|sup|thanks|thank you|ok|okay|cool|nice|l
 // Live / time-sensitive queries that REQUIRE web search (sports, news, weather, prices, "next/latest/today")
 const LIVE_HINTS = /\b(next (match|game|fixture|episode|flight|train)|latest|today|tonight|tomorrow|yesterday|this (week|weekend|month|year)|current(ly)?|right now|score|scores|fixture|fixtures|standings|news|headline|weather|forecast|price of|stock|crypto|exchange rate|when (is|does|will|are)|who (won|is winning|is playing)|what time)\b/i;
 
-export function classifyRequest(text: string): TaskKind {
+export function classifyRequest(text: string, opts: { hasImage?: boolean } = {}): TaskKind {
+  if (opts.hasImage) return 'vision';
   const t = text.trim();
   if (!t) return 'simple';
   if (LIVE_HINTS.test(t)) return 'live';
