@@ -10,7 +10,7 @@
 
 import { getSettings } from './settings';
 
-export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool' | 'live';
+export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool' | 'live' | 'vision';
 
 const CODE_HINTS = /```|\b(function|class|def |const |let |var |import |npm |pip |python|node|tsx|jsx|regex|stack ?trace|error:|exception)\b/i;
 const REASONING_HINTS = /\b(why|explain|analy[sz]e|compare|design|architect|plan|strategi[sz]e|prove|debate|trade[- ]off|step[- ]by[- ]step)\b/i;
@@ -19,7 +19,8 @@ const SIMPLE_HINTS = /^(hi|hey|hello|yo|sup|thanks|thank you|ok|okay|cool|nice|l
 // Live / time-sensitive queries that REQUIRE web search (sports, news, weather, prices, "next/latest/today")
 const LIVE_HINTS = /\b(next (match|game|fixture|episode|flight|train)|latest|today|tonight|tomorrow|yesterday|this (week|weekend|month|year)|current(ly)?|right now|score|scores|fixture|fixtures|standings|news|headline|weather|forecast|price of|stock|crypto|exchange rate|when (is|does|will|are)|who (won|is winning|is playing)|what time)\b/i;
 
-export function classifyRequest(text: string): TaskKind {
+export function classifyRequest(text: string, opts: { hasImage?: boolean } = {}): TaskKind {
+  if (opts.hasImage) return 'vision';
   const t = text.trim();
   if (!t) return 'simple';
   if (LIVE_HINTS.test(t)) return 'live';
@@ -69,17 +70,92 @@ function scoreModel(name: string, task: TaskKind): number {
     // Penalise tiny models that tend to refuse with "I can't access live data"
     if (billions > 0 && billions < 4) score -= 5;
     score += Math.min(billions, 14);
+  } else if (task === 'vision') {
+    // Vision: only multimodal models can see images. Others get penalised.
+    if (/llava|llama-?3\.2-vision|qwen2?\.?5?-?vl|moondream|bakllava|minicpm-v|pixtral|gemini.*(flash|pro)|gpt-5|gpt-4o/.test(n)) score += 20;
+    else score -= 50;
+    score += Math.min(billions, 11);
   }
 
   return score;
 }
 
+/** Per-model first-token latency tracker (rolling p50, persisted in localStorage). */
+const LATENCY_KEY = 'smart-router-latency-v1';
+type LatencyMap = Record<string, number[]>; // model → recent samples (ms)
+
+function readLatencies(): LatencyMap {
+  try {
+    return JSON.parse(localStorage.getItem(LATENCY_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function writeLatencies(m: LatencyMap): void {
+  try { localStorage.setItem(LATENCY_KEY, JSON.stringify(m)); } catch {}
+}
+
+export function recordModelLatency(model: string, ms: number): void {
+  if (!model || !Number.isFinite(ms) || ms <= 0) return;
+  const map = readLatencies();
+  const arr = map[model] ?? [];
+  arr.push(Math.round(ms));
+  if (arr.length > 20) arr.splice(0, arr.length - 20); // keep last 20
+  map[model] = arr;
+  writeLatencies(map);
+}
+
+export function getModelP50(model: string): number | null {
+  const arr = readLatencies()[model];
+  if (!arr || arr.length < 3) return null;
+  const sorted = [...arr].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+/**
+ * Pick the best model for the task. For latency-sensitive tasks (simple/tool/live),
+ * a measured p50 first-token latency bumps faster models up the ranking.
+ */
 export function pickModel(available: string[], task: TaskKind, fallback: string): string {
   if (!available || available.length === 0) return fallback;
+  const latencySensitive = task === 'simple' || task === 'tool' || task === 'live';
   const ranked = [...available]
-    .map((m) => ({ m, s: scoreModel(m, task) }))
+    .map((m) => {
+      let s = scoreModel(m, task);
+      if (latencySensitive) {
+        const p50 = getModelP50(m);
+        if (p50 !== null) {
+          // <500ms = +3, <1000ms = +1.5, >3000ms = -2
+          if (p50 < 500) s += 3;
+          else if (p50 < 1000) s += 1.5;
+          else if (p50 > 3000) s -= 2;
+        }
+      }
+      return { m, s };
+    })
     .sort((a, b) => b.s - a.s);
   return ranked[0]?.m ?? fallback;
+}
+
+/**
+ * Pick the next-best model — used for auto-fallback when the chosen model refuses.
+ * Returns null if no other candidate exists.
+ */
+export function pickNextModel(available: string[], task: TaskKind, excluded: string[]): string | null {
+  const pool = available.filter((m) => !excluded.includes(m));
+  if (pool.length === 0) return null;
+  return pickModel(pool, task, pool[0]);
+}
+
+/** Heuristic: did this initial chunk of model output look like a refusal? */
+const REFUSAL_RE = /\b(I (cannot|can't|am unable|am not able|do not have the capability|don't have access)|for security reasons|I'm sorry,? (but )?I)/i;
+
+export function looksLikeRefusal(headChunk: string): boolean {
+  if (!headChunk) return false;
+  const head = headChunk.slice(0, 240).trim();
+  if (!head) return false;
+  return REFUSAL_RE.test(head);
 }
 
 /**
@@ -122,6 +198,8 @@ export function tunedOllamaOptions(task: TaskKind): Record<string, unknown> {
       return { ...base, num_ctx: 8192, temperature: 0.3, top_p: 0.9, num_predict: 3072 };
     case 'live':
       return { ...base, num_ctx: 8192, temperature: 0.2, top_p: 0.9, num_predict: 2048 };
+    case 'vision':
+      return { ...base, num_ctx: 8192, temperature: 0.3, top_p: 0.9, num_predict: 2048 };
   }
 }
 
@@ -138,6 +216,8 @@ export function tunedSamplingParams(task: TaskKind): Record<string, unknown> {
       return { temperature: 0.3, top_p: 0.9, max_tokens: 3072 };
     case 'live':
       return { temperature: 0.2, top_p: 0.9, max_tokens: 2048 };
+    case 'vision':
+      return { temperature: 0.3, top_p: 0.9, max_tokens: 2048 };
   }
 }
 

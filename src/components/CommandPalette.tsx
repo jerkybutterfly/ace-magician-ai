@@ -46,6 +46,7 @@ const PAGES = [
   { title: 'MQTT', url: '/mqtt', icon: Radio, keywords: 'home assistant iot' },
   { title: 'Cron', url: '/cron', icon: Clock, keywords: 'schedule jobs' },
   { title: 'Memory', url: '/memory', icon: Brain, keywords: 'episodes lessons hermes' },
+  { title: 'Audit Log', url: '/audit-log', icon: BookOpen, keywords: 'history episodes tool calls' },
   { title: 'Permissions', url: '/permissions', icon: ShieldCheck, keywords: 'allow deny tools' },
   { title: 'Settings', url: '/settings', icon: Settings, keywords: 'configuration' },
 ];
