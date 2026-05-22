@@ -42,10 +42,10 @@ const App = () => {
           <SidebarProvider>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/automations" element={<Index />} />
-              <Route path="/swarm" element={<Index />} />
-              <Route path="/knowledge-graph" element={<Index />} />
-              <Route path="/voice" element={<Index />} />
+              <Route path="/automations" element={<AutomationsPage />} />
+              <Route path="/swarm" element={<SwarmPage />} />
+              <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
+              <Route path="/voice" element={<VoicePage />} />
               <Route path="/files" element={<Index />} />
               <Route path="/skills" element={<Index />} />
               <Route path="/speckit" element={<Index />} />

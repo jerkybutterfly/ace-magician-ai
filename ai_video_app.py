@@ -10,4 +10,12 @@ engine = pyttsx3.init()
 voices = engine.getProperty('voices')
 # Attempt to set a default voice, handling potential errors gracefully
 if voices:
-    engine.setProperty('voice', voices[0
+    engine.setProperty('voice', voices[0].id)
+
+def speak(text):
+    print(f"Speaking: {text}")
+    engine.say(text)
+    engine.runAndWait()
+
+if __name__ == "__main__":
+    speak("System initialized.")

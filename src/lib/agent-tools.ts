@@ -623,8 +623,10 @@ export async function executeToolCommands(
   ) => {
     await logEpisode({ request: userRequest, tag, tool, outcome, summary });
     if (outcome !== 'success') {
-      const lesson = deriveLesson(tag, outcome, summary);
-      await recordLesson(lesson, tag, summary);
+      // Fire-and-forget Hermes-style LLM reflection
+      import('./learning').then(({ llmReflectLesson }) => {
+        llmReflectLesson(userRequest, tag, outcome, summary).catch(e => console.error('Reflection failed', e));
+      });
     }
   };
 

@@ -110,6 +110,47 @@ export function deriveLesson(tag: string, outcome: EpisodeOutcome, errorOrSummar
 }
 
 /**
+ * True Hermes-style reflection: calls the local LLM to reflect on a failure
+ * and deduce a generalized rule to avoid it in the future.
+ */
+export async function llmReflectLesson(
+  request: string,
+  tag: string,
+  outcome: EpisodeOutcome,
+  summary: string,
+): Promise<void> {
+  const { generateText } = await import('./ollama');
+  
+  const prompt = `
+You are evaluating a failed action from an autonomous PC agent.
+User Request: "${request}"
+Action Attempted: \`${tag}\`
+Outcome: ${outcome}
+Error/Summary: ${summary}
+
+Reflect on this failure. What is the fundamental root cause, and what precise, generalized lesson must the system remember to avoid making this exact same mistake in the future?
+Respond with ONLY ONE SHORT SENTENCE that begins with a clear directive (e.g. "Always verify...", "Never use...", "When doing X, ensure Y..."). Do not include any other text, reasoning, or markdown.
+  `.trim();
+
+  try {
+    const reflection = await generateText(prompt);
+    if (reflection && reflection.trim()) {
+      // Clean up any extra quotes or newlines
+      const cleanLesson = reflection.replace(/^["']|["']$/g, '').trim().split('\\n')[0];
+      await recordLesson(cleanLesson, tag, summary);
+    } else {
+      // Fallback to naive
+      const fallback = deriveLesson(tag, outcome, summary);
+      await recordLesson(fallback, tag, summary);
+    }
+  } catch (err) {
+    console.error('LLM reflection failed:', err);
+    const fallback = deriveLesson(tag, outcome, summary);
+    await recordLesson(fallback, tag, summary);
+  }
+}
+
+/**
  * Build the memory-injection block that goes into the system prompt.
  * - Lessons: full text (small file, always include)
  * - Episodes: top N keyword-matched past episodes for the current request

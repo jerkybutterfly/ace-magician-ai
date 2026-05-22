@@ -131,7 +131,9 @@ export function recordSequence(text: string): SkillSuggestion | null {
   }
 
   const suggestion: SkillSuggestion = {
-    id: crypto.randomUUID(),
+    id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' 
+      ? crypto.randomUUID() 
+      : Date.now().toString(36) + Math.random().toString(36).substring(2),
     signature: sig,
     occurrences: entry.count,
     template: templateFor(entry.sample),

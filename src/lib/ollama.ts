@@ -624,3 +624,27 @@ export async function* streamLMStudioChat(
     }
   }
 }
+
+export async function generateText(prompt: string): Promise<string> {
+  const { provider, defaultModel } = getSettings();
+  if (!defaultModel) return '';
+
+  const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
+  let streamer;
+  
+  if (provider === 'google') streamer = streamGoogleChat;
+  else if (provider === 'lmstudio') streamer = streamLMStudioChat;
+  else if (provider === 'cloud') streamer = streamCloudChat;
+  else if (provider === 'local') streamer = (await import('./local-llm')).streamLocalChat;
+  else streamer = streamChat;
+
+  let result = '';
+  try {
+    for await (const chunk of streamer(defaultModel, messages)) {
+      if (chunk.content) result += chunk.content;
+    }
+  } catch (e) {
+    console.error('generateText failed:', e);
+  }
+  return result;
+}

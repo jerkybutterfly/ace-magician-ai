@@ -20,4 +20,16 @@ def get_ai_response(prompt):
     else:
         return f"I received your message: '{prompt}'. I am currently processing this request."
 
-@app.route('/chat', methods=['POST'
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    if not data or 'prompt' not in data:
+        return jsonify({"error": "Missing 'prompt' in request body"}), 400
+    
+    prompt = data['prompt']
+    response = get_ai_response(prompt)
+    
+    return jsonify({"response": response})
+
+if __name__ == '__main__':
+    app.run(port=5000, debug=True)
