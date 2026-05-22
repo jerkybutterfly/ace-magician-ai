@@ -252,6 +252,11 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       let currentMessages = [...visibleHistory];
       const actionableRequest = isActionableRequest(request);
       let forcedTagRetries = 0;
+      let fallbackTried = false;
+      const excludedModels: string[] = [];
+      let routedOllama = model;
+      let routedLmStudio = lmStudioModel;
+      let routedCloud = cloudModel;
       let round = 0;
 
       while (round < MAX_TOOL_ROUNDS) {
