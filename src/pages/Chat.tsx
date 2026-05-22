@@ -5,7 +5,7 @@ import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-l
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
 import { isRagAugmentEnabled, ragQuery } from '@/lib/rag';
-import { classifyRequest, pickModel, isSmartRouterEnabled, LIVE_DATA_NUDGE, type TaskKind } from '@/lib/smart-router';
+import { classifyRequest, pickModel, pickNextModel, looksLikeRefusal, isSmartRouterEnabled, LIVE_DATA_NUDGE, type TaskKind } from '@/lib/smart-router';
 import { SkillSuggestionToast } from '@/components/SkillSuggestionToast';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
