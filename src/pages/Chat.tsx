@@ -364,6 +364,32 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           break;
         }
 
+        // Silent auto-fallback: if smart router is on and this model refused,
+        // try the next-best available model once before resorting to forced-tag retry.
+        const detectedRefusal = hitsRefusal || looksLikeRefusal(full);
+        if (
+          smartRouter &&
+          !fallbackTried &&
+          detectedRefusal &&
+          !hitsCapabilityLimit
+        ) {
+          let pool: string[] = [];
+          let current = '';
+          if (provider === 'ollama') { pool = ollamaModels.map((m) => m.name); current = routedOllama; }
+          else if (provider === 'lmstudio') { pool = lmStudioModels.map((m) => m.id); current = routedLmStudio; }
+          else if (provider === 'cloud') { pool = CLOUD_MODELS.map((m) => m.value); current = routedCloud; }
+          if (current) excludedModels.push(current);
+          const next = pool.length ? pickNextModel(pool, task, excludedModels) : null;
+          if (next && next !== current) {
+            fallbackTried = true;
+            if (provider === 'ollama') routedOllama = next;
+            else if (provider === 'lmstudio') routedLmStudio = next;
+            else if (provider === 'cloud') routedCloud = next;
+            setStatusLogs((prev) => [...prev.slice(-4), `Model refused — retrying with ${next}`]);
+            continue;
+          }
+        }
+
         const shouldForceToolUse =
           forcedTagRetries < MAX_FORCE_TAG_RETRIES &&
           !hitsCapabilityLimit &&
