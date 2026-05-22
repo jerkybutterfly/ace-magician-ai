@@ -267,9 +267,6 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         setStreamedThinking('');
         const task: TaskKind = classifyRequest(request);
         // Smart router: auto-pick best available model for this task on local providers
-        let routedOllama = model;
-        let routedLmStudio = lmStudioModel;
-        let routedCloud = cloudModel;
         if (smartRouter && round === 1) {
           if (provider === 'ollama' && ollamaModels.length > 0) {
             routedOllama = pickModel(ollamaModels.map(m => m.name), task, model);
