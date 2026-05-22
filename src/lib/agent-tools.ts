@@ -7,8 +7,14 @@ export interface ToolResult {
   result: string;
 }
 
-export type PermissionDecision = 'approve' | 'approve-session' | 'deny';
+export type PermissionDecision = 'approve' | 'approve-session' | 'approve-1h' | 'approve-pattern-1h' | 'deny';
 export type PermissionPrompt = (info: { tag: string; tool: string; reason: string }) => Promise<PermissionDecision>;
+
+/** Derive a glob pattern for the tool of this tag, e.g. "[RUN_CMD:ls]" → "[RUN_CMD:*]". */
+function toolPatternFor(tag: string): string {
+  const m = tag.match(/^\[([A-Z_]+):/);
+  return m ? `[${m[1]}:*]` : tag;
+}
 
 const TOOL_PATTERNS = [
   { regex: /\[LIST_DIR:(.*?)\]/g, handler: handleListDir },
