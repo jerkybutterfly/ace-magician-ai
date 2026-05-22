@@ -216,6 +216,8 @@ export function tunedSamplingParams(task: TaskKind): Record<string, unknown> {
       return { temperature: 0.3, top_p: 0.9, max_tokens: 3072 };
     case 'live':
       return { temperature: 0.2, top_p: 0.9, max_tokens: 2048 };
+    case 'vision':
+      return { temperature: 0.3, top_p: 0.9, max_tokens: 2048 };
   }
 }
 
