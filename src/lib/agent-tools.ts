@@ -1,5 +1,5 @@
 import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar, webSearch, webFetch } from './agent';
-import { checkPermission, isSessionAllowed, sessionAllowOnce, getToolName } from './permissions';
+import { checkPermission, isSessionAllowed, sessionAllowOnce, allowForDuration, getToolName } from './permissions';
 import { logEpisode, recordLesson, deriveLesson, type EpisodeOutcome } from './learning';
 
 export interface ToolResult {
