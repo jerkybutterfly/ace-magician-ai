@@ -579,6 +579,12 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
                 <Button size="sm" variant="outline" onClick={() => decidePermission('approve-session')} className="h-8">
                   Approve for session
                 </Button>
+                <Button size="sm" variant="outline" onClick={() => decidePermission('approve-1h')} className="h-8">
+                  Allow this for 1h
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => decidePermission('approve-pattern-1h')} className="h-8">
+                  Allow all {pendingPermission.tool} for 1h
+                </Button>
                 <Button size="sm" variant="ghost" onClick={() => decidePermission('deny')} className="h-8 text-destructive hover:text-destructive">
                   Deny
                 </Button>
