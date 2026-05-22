@@ -71,6 +71,14 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
   }, []);
 
   return (
+    <>
+    <CommandPalette
+      open={searchOpen}
+      onOpenChange={setSearchOpen}
+      conversations={conversations}
+      onSelectConvo={onSelectConvo}
+      onNewChat={onNewChat}
+    />
     <Sidebar collapsible="icon" className="border-r border-border/50">
       <SidebarHeader className="p-3">
         {!collapsed && (
