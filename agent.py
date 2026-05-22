@@ -2460,17 +2460,57 @@ async def list_installed():
 
 
 # ═══════════════════════════════════════════════════════
-#  Hermes-style Memory & Learning
+#  Hermes-style Memory & Learning (v2: embeddings + dedup)
 #  Episodes (action log) + Lessons (corrections from mistakes)
 # ═══════════════════════════════════════════════════════
 import json as _mem_json
+import math as _mem_math
 
 MEMORY_DIR = Path.home() / ".pesto-ai" / "memory"
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 EPISODES_FILE = MEMORY_DIR / "episodes.jsonl"
-LESSONS_FILE = MEMORY_DIR / "lessons.md"
+LESSONS_FILE = MEMORY_DIR / "lessons.md"       # legacy markdown (still served on GET)
+LESSONS_JSONL = MEMORY_DIR / "lessons.jsonl"   # structured store with hits/embeddings
 _mem_lock = threading.Lock()
 MAX_EPISODES = 5000  # rolling cap
+EMBED_MODEL = os.environ.get("EMBED_MODEL", "nomic-embed-text")
+LESSON_DEDUP_THRESHOLD = 0.85   # cosine similarity above this = same lesson
+LESSON_PROMOTE_HITS = 5         # lessons with this many hits get [CORE] prefix
+
+
+def _embed(text: str) -> Optional[list[float]]:
+    """Return embedding vector from local Ollama, or None on failure."""
+    if not text or not text.strip():
+        return None
+    try:
+        r = _requests.post(
+            f"{OLLAMA_URL}/api/embeddings",
+            json={"model": EMBED_MODEL, "prompt": text[:4000]},
+            timeout=8,
+        )
+        if r.status_code != 200:
+            return None
+        v = r.json().get("embedding")
+        if isinstance(v, list) and len(v) > 0:
+            return [float(x) for x in v]
+    except Exception:
+        return None
+    return None
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = 0.0
+    na = 0.0
+    nb = 0.0
+    for x, y in zip(a, b):
+        dot += x * y
+        na += x * x
+        nb += y * y
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (_mem_math.sqrt(na) * _mem_math.sqrt(nb))
 
 
 class EpisodeRequest(BaseModel):
@@ -2518,14 +2558,56 @@ def _write_episode(ep: dict) -> None:
         EPISODES_FILE.write_text("".join(existing), encoding="utf-8")
 
 
+def _read_lessons_jsonl() -> list[dict]:
+    if not LESSONS_JSONL.exists():
+        return []
+    out: list[dict] = []
+    with LESSONS_JSONL.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(_mem_json.loads(line))
+            except Exception:
+                continue
+    return out
+
+
+def _write_lessons_jsonl(items: list[dict]) -> None:
+    LESSONS_JSONL.write_text("".join(_mem_json.dumps(i) + "\n" for i in items), encoding="utf-8")
+
+
+def _render_lessons_md(items: list[dict]) -> str:
+    if not items:
+        return ""
+    # sort by hits desc, then recency
+    sorted_items = sorted(items, key=lambda i: (i.get("hits", 1), i.get("last_hit", i.get("ts", ""))), reverse=True)
+    core = [i for i in sorted_items if i.get("hits", 1) >= LESSON_PROMOTE_HITS]
+    rest = [i for i in sorted_items if i.get("hits", 1) < LESSON_PROMOTE_HITS]
+    parts: list[str] = ["# Lessons Learned\n"]
+    if core:
+        parts.append("\n## [CORE] High-confidence rules (≥5 hits)\n")
+        for it in core:
+            parts.append(f"- **(×{it.get('hits',1)})** {it['text']}")
+    if rest:
+        parts.append("\n## Recent lessons\n")
+        for it in rest:
+            tag = f"`{it['source_tag']}` — " if it.get("source_tag") else ""
+            parts.append(f"- {tag}{it['text']}")
+    return "\n".join(parts) + "\n"
+
+
 @app.get("/memory/episodes")
 async def get_episodes(limit: int = 200):
-    return {"episodes": _read_episodes(limit)}
+    eps = _read_episodes(limit)
+    # strip embeddings from response — keeps payload small
+    return {"episodes": [{k: v for k, v in e.items() if k != "emb"} for e in eps]}
 
 
 @app.post("/memory/episodes")
 async def add_episode(req: EpisodeRequest):
-    ep = {
+    ep: dict[str, Any] = {
         "ts": datetime.utcnow().isoformat() + "Z",
         "request": req.request[:500],
         "tag": req.tag[:300],
@@ -2533,8 +2615,11 @@ async def add_episode(req: EpisodeRequest):
         "outcome": req.outcome,
         "summary": req.summary[:1000],
     }
+    emb = _embed(f"{req.request} {req.tag} {req.summary}")
+    if emb is not None:
+        ep["emb"] = emb
     _write_episode(ep)
-    return {"status": "ok", "episode": ep}
+    return {"status": "ok"}
 
 
 @app.delete("/memory/episodes")
@@ -2548,39 +2633,89 @@ async def clear_episodes():
 @app.get("/memory/episodes/search")
 async def search_episodes(q: str, limit: int = 5):
     eps = _read_episodes(0)
+    if not eps:
+        return {"matches": []}
+    # Try embedding-based first
+    qemb = _embed(q)
+    if qemb is not None:
+        scored = []
+        for ep in eps:
+            v = ep.get("emb")
+            if isinstance(v, list):
+                s = _cosine(qemb, v)
+                if s > 0.35:  # noise floor
+                    scored.append((s, ep))
+        if scored:
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return {"matches": [{k: v for k, v in ep.items() if k != "emb"} for _, ep in scored[:limit]]}
+    # Fallback: keyword overlap
     terms = [t.lower() for t in re.findall(r"\w+", q) if len(t) > 2]
     if not terms:
         return {"matches": []}
-    scored: list[tuple[int, dict]] = []
+    scored2: list[tuple[int, dict]] = []
     for ep in eps:
         hay = f"{ep.get('request','')} {ep.get('tag','')} {ep.get('summary','')}".lower()
         score = sum(hay.count(t) for t in terms)
         if score > 0:
-            scored.append((score, ep))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return {"matches": [ep for _, ep in scored[:limit]]}
+            scored2.append((score, ep))
+    scored2.sort(key=lambda x: x[0], reverse=True)
+    return {"matches": [{k: v for k, v in ep.items() if k != "emb"} for _, ep in scored2[:limit]]}
+
+
+@app.get("/memory/episodes/recent")
+async def recent_episodes_for_tool(tool: str, limit: int = 3):
+    """Last N episodes that fired a specific tool — used for per-tool memory injection."""
+    eps = _read_episodes(0)
+    matches = [ep for ep in eps if ep.get("tool", "").lower() == tool.lower()]
+    matches = matches[-limit:][::-1]
+    return {"matches": [{k: v for k, v in ep.items() if k != "emb"} for ep in matches]}
 
 
 @app.get("/memory/lessons")
 async def get_lessons():
-    if not LESSONS_FILE.exists():
-        return {"content": ""}
-    return {"content": LESSONS_FILE.read_text(encoding="utf-8")}
+    items = _read_lessons_jsonl()
+    if items:
+        return {"content": _render_lessons_md(items)}
+    # Backward compat: serve legacy markdown if no structured store yet
+    if LESSONS_FILE.exists():
+        return {"content": LESSONS_FILE.read_text(encoding="utf-8")}
+    return {"content": ""}
 
 
 @app.post("/memory/lessons")
 async def add_lesson(req: LessonRequest):
+    """Dedup via cosine sim; if similar lesson exists, just bump its hits counter."""
+    text = req.text.strip()
+    if not text:
+        return {"status": "ok", "deduped": False}
     with _mem_lock:
-        existing = LESSONS_FILE.read_text(encoding="utf-8") if LESSONS_FILE.exists() else "# Lessons Learned\n\n"
+        items = _read_lessons_jsonl()
+        emb = _embed(text)
         ts = datetime.utcnow().isoformat() + "Z"
-        entry = f"\n- **{ts}** — {req.text}"
-        if req.source_tag:
-            entry += f"\n  - Tag: `{req.source_tag}`"
-        if req.source_error:
-            err = req.source_error.replace("\n", " ")[:200]
-            entry += f"\n  - Error: {err}"
-        LESSONS_FILE.write_text(existing + entry + "\n", encoding="utf-8")
-    return {"status": "ok"}
+        if emb is not None:
+            for it in items:
+                v = it.get("emb")
+                if isinstance(v, list) and _cosine(emb, v) >= LESSON_DEDUP_THRESHOLD:
+                    it["hits"] = int(it.get("hits", 1)) + 1
+                    it["last_hit"] = ts
+                    _write_lessons_jsonl(items)
+                    # mirror to legacy md for UI
+                    LESSONS_FILE.write_text(_render_lessons_md(items), encoding="utf-8")
+                    return {"status": "ok", "deduped": True, "hits": it["hits"]}
+        new_item: dict[str, Any] = {
+            "ts": ts,
+            "last_hit": ts,
+            "text": text,
+            "source_tag": req.source_tag,
+            "source_error": req.source_error[:200],
+            "hits": 1,
+        }
+        if emb is not None:
+            new_item["emb"] = emb
+        items.append(new_item)
+        _write_lessons_jsonl(items)
+        LESSONS_FILE.write_text(_render_lessons_md(items), encoding="utf-8")
+    return {"status": "ok", "deduped": False, "hits": 1}
 
 
 class LessonsOverwrite(BaseModel):
@@ -2589,16 +2724,20 @@ class LessonsOverwrite(BaseModel):
 
 @app.put("/memory/lessons")
 async def overwrite_lessons(req: LessonsOverwrite):
+    """Free-form markdown overwrite — drops structured store (user is taking manual control)."""
     with _mem_lock:
         LESSONS_FILE.write_text(req.content, encoding="utf-8")
+        if LESSONS_JSONL.exists():
+            LESSONS_JSONL.unlink()
     return {"status": "ok"}
 
 
 @app.delete("/memory/lessons")
 async def clear_lessons():
     with _mem_lock:
-        if LESSONS_FILE.exists():
-            LESSONS_FILE.unlink()
+        for f in (LESSONS_FILE, LESSONS_JSONL):
+            if f.exists():
+                f.unlink()
     return {"status": "ok"}
 
 
