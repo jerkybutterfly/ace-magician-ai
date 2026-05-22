@@ -671,8 +671,9 @@ export async function executeToolCommands(
           continue;
         }
         if (decision === 'approve-session') sessionAllowOnce(tag);
+        else if (decision === 'approve-1h') allowForDuration(tag, 60, 'approved for 1h from chat');
+        else if (decision === 'approve-pattern-1h') allowForDuration(toolPatternFor(tag), 60, `1h allow for ${toolName}`);
         allowed = true;
-      }
 
       if (!allowed) continue;
 
