@@ -1,5 +1,5 @@
 import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar, webSearch, webFetch } from './agent';
-import { checkPermission, isSessionAllowed, sessionAllowOnce, getToolName } from './permissions';
+import { checkPermission, isSessionAllowed, sessionAllowOnce, allowForDuration, getToolName } from './permissions';
 import { logEpisode, recordLesson, deriveLesson, type EpisodeOutcome } from './learning';
 
 export interface ToolResult {
@@ -7,8 +7,14 @@ export interface ToolResult {
   result: string;
 }
 
-export type PermissionDecision = 'approve' | 'approve-session' | 'deny';
+export type PermissionDecision = 'approve' | 'approve-session' | 'approve-1h' | 'approve-pattern-1h' | 'deny';
 export type PermissionPrompt = (info: { tag: string; tool: string; reason: string }) => Promise<PermissionDecision>;
+
+/** Derive a glob pattern for the tool of this tag, e.g. "[RUN_CMD:ls]" → "[RUN_CMD:*]". */
+function toolPatternFor(tag: string): string {
+  const m = tag.match(/^\[([A-Z_]+):/);
+  return m ? `[${m[1]}:*]` : tag;
+}
 
 const TOOL_PATTERNS = [
   { regex: /\[LIST_DIR:(.*?)\]/g, handler: handleListDir },
@@ -665,8 +671,11 @@ export async function executeToolCommands(
           continue;
         }
         if (decision === 'approve-session') sessionAllowOnce(tag);
+        else if (decision === 'approve-1h') allowForDuration(tag, 60, 'approved for 1h from chat');
+        else if (decision === 'approve-pattern-1h') allowForDuration(toolPatternFor(tag), 60, `1h allow for ${toolName}`);
         allowed = true;
       }
+
 
       if (!allowed) continue;
 

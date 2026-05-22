@@ -5,7 +5,7 @@ import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-l
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
 import { isRagAugmentEnabled, ragQuery } from '@/lib/rag';
-import { classifyRequest, pickModel, isSmartRouterEnabled, LIVE_DATA_NUDGE, type TaskKind } from '@/lib/smart-router';
+import { classifyRequest, pickModel, pickNextModel, looksLikeRefusal, isSmartRouterEnabled, LIVE_DATA_NUDGE, type TaskKind } from '@/lib/smart-router';
 import { SkillSuggestionToast } from '@/components/SkillSuggestionToast';
 import { ChatMessageBubble } from '@/components/ChatMessage';
 import { ModelSelector } from '@/components/ModelSelector';
@@ -252,6 +252,11 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       let currentMessages = [...visibleHistory];
       const actionableRequest = isActionableRequest(request);
       let forcedTagRetries = 0;
+      let fallbackTried = false;
+      const excludedModels: string[] = [];
+      let routedOllama = model;
+      let routedLmStudio = lmStudioModel;
+      let routedCloud = cloudModel;
       let round = 0;
 
       while (round < MAX_TOOL_ROUNDS) {
@@ -262,9 +267,6 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         setStreamedThinking('');
         const task: TaskKind = classifyRequest(request);
         // Smart router: auto-pick best available model for this task on local providers
-        let routedOllama = model;
-        let routedLmStudio = lmStudioModel;
-        let routedCloud = cloudModel;
         if (smartRouter && round === 1) {
           if (provider === 'ollama' && ollamaModels.length > 0) {
             routedOllama = pickModel(ollamaModels.map(m => m.name), task, model);
@@ -360,6 +362,32 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           updated = { ...updated, messages: visibleHistory, updatedAt: Date.now() };
           onUpdate(updated);
           break;
+        }
+
+        // Silent auto-fallback: if smart router is on and this model refused,
+        // try the next-best available model once before resorting to forced-tag retry.
+        const detectedRefusal = hitsRefusal || looksLikeRefusal(full);
+        if (
+          smartRouter &&
+          !fallbackTried &&
+          detectedRefusal &&
+          !hitsCapabilityLimit
+        ) {
+          let pool: string[] = [];
+          let current = '';
+          if (provider === 'ollama') { pool = ollamaModels.map((m) => m.name); current = routedOllama; }
+          else if (provider === 'lmstudio') { pool = lmStudioModels.map((m) => m.id); current = routedLmStudio; }
+          else if (provider === 'cloud') { pool = CLOUD_MODELS.map((m) => m.value); current = routedCloud; }
+          if (current) excludedModels.push(current);
+          const next = pool.length ? pickNextModel(pool, task, excludedModels) : null;
+          if (next && next !== current) {
+            fallbackTried = true;
+            if (provider === 'ollama') routedOllama = next;
+            else if (provider === 'lmstudio') routedLmStudio = next;
+            else if (provider === 'cloud') routedCloud = next;
+            setStatusLogs((prev) => [...prev.slice(-4), `Model refused — retrying with ${next}`]);
+            continue;
+          }
         }
 
         const shouldForceToolUse =
@@ -578,6 +606,12 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => decidePermission('approve-session')} className="h-8">
                   Approve for session
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => decidePermission('approve-1h')} className="h-8">
+                  Allow this for 1h
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => decidePermission('approve-pattern-1h')} className="h-8">
+                  Allow all {pendingPermission.tool} for 1h
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => decidePermission('deny')} className="h-8 text-destructive hover:text-destructive">
                   Deny
