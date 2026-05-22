@@ -41,6 +41,7 @@ const navItems = [
   { title: 'MQTT', url: '/mqtt', icon: Radio },
   { title: 'Cron', url: '/cron', icon: Clock },
   { title: 'Memory', url: '/memory', icon: Brain },
+  { title: 'Audit Log', url: '/audit-log', icon: ScrollText },
   { title: 'Permissions', url: '/permissions', icon: ShieldCheck },
   { title: 'Settings', url: '/settings', icon: Settings },
 ];
