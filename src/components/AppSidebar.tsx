@@ -2,7 +2,7 @@ import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, S
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
-import { ConversationSearch } from '@/components/ConversationSearch';
+import { CommandPalette } from '@/components/CommandPalette';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter,
@@ -71,6 +71,14 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
   }, []);
 
   return (
+    <>
+    <CommandPalette
+      open={searchOpen}
+      onOpenChange={setSearchOpen}
+      conversations={conversations}
+      onSelectConvo={onSelectConvo}
+      onNewChat={onNewChat}
+    />
     <Sidebar collapsible="icon" className="border-r border-border/50">
       <SidebarHeader className="p-3">
         {!collapsed && (
@@ -167,5 +175,6 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
         </SidebarFooter>
       )}
     </Sidebar>
+    </>
   );
 }
