@@ -10,6 +10,7 @@ import AutomationsPage from "./pages/AutomationsPage.tsx";
 import SwarmPage from "./pages/SwarmPage.tsx";
 import KnowledgeGraphPage from "./pages/KnowledgeGraphPage.tsx";
 import VoicePage from "./pages/VoicePage.tsx";
+import TradingPage from "./pages/TradingPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
@@ -46,6 +47,7 @@ const App = () => {
               <Route path="/swarm" element={<SwarmPage />} />
               <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
               <Route path="/voice" element={<VoicePage />} />
+              <Route path="/trading" element={<TradingPage />} />
               <Route path="/files" element={<Index />} />
               <Route path="/skills" element={<Index />} />
               <Route path="/speckit" element={<Index />} />

@@ -63,6 +63,7 @@ const TOOL_PATTERNS = [
   { regex: /\[SCAN_NETWORK\]/g, handler: handleScanNetwork },
   { regex: /\[RAG_QUERY:([\s\S]*?)\]/g, handler: handleRagQuery },
   { regex: /\[PHONE_[A-Z_]+(?::[\s\S]*?)?\]/g, handler: handlePhoneTag },
+  { regex: /\[TRADE:([\s\S]*?)\]/g, handler: handleTrade },
 ];
 
 async function handlePhoneTag(match: RegExpMatchArray): Promise<ToolResult> {
@@ -596,6 +597,59 @@ async function handleSetEnv(match: RegExpMatchArray): Promise<ToolResult> {
     return { tag: match[0], result: `\n⚠️ Failed to set env var: ${e instanceof Error ? e.message : 'unknown error'}` };
   }
 }
+
+async function handleTrade(match: RegExpMatchArray): Promise<ToolResult> {
+  const tag = match[0];
+  const args = match[1].split(',').map(s => s.trim());
+  const [verb, ...rest] = args;
+  try {
+    const { trading, fmtMoney, fmtPct } = await import('./trading');
+    switch (verb.toLowerCase()) {
+      case 'account': {
+        const a = await trading.account();
+        if (!a.connected) return { tag, result: `\n📉 Trading not connected. Open /trading to connect Alpaca.` };
+        return { tag, result: `\n💹 **Account** (${a.paper ? 'PAPER' : 'LIVE'})\nEquity: ${fmtMoney(a.equity)}\nBuying power: ${fmtMoney(a.buying_power)}\nDay P&L: ${fmtMoney(a.day_pnl)} (${(a.day_pnl_pct * 100).toFixed(2)}%)` };
+      }
+      case 'positions': {
+        const ps = await trading.positions();
+        if (!ps.length) return { tag, result: `\n📭 No open positions.` };
+        const list = ps.map(p => `- **${p.symbol}** ${p.qty} @ ${fmtMoney(p.avg_entry)} → ${fmtMoney(p.last)} (${fmtPct(p.unrealized_plpc)} / ${fmtMoney(p.unrealized_pl)})`).join('\n');
+        return { tag, result: `\n📊 **Positions**\n${list}` };
+      }
+      case 'buy':
+      case 'sell': {
+        const [symbol, qtyStr, typeRaw, limitStr] = rest;
+        if (!symbol || !qtyStr) return { tag, result: `\n⚠️ TRADE ${verb} needs symbol,qty (e.g. [TRADE:buy,AAPL,10,market])` };
+        const type = (typeRaw?.toLowerCase() === 'limit' ? 'limit' : 'market') as 'limit' | 'market';
+        const o = await trading.placeOrder({
+          symbol: symbol.toUpperCase(),
+          side: verb as 'buy' | 'sell',
+          qty: Number(qtyStr),
+          type,
+          ...(type === 'limit' && limitStr ? { limit_price: Number(limitStr) } : {}),
+        });
+        return { tag, result: `\n✅ Order submitted: ${verb.toUpperCase()} ${o.qty} ${o.symbol} (${o.type}) — id ${o.id.slice(0, 8)}…` };
+      }
+      case 'close_all': {
+        const { closed } = await trading.closeAll();
+        return { tag, result: `\n🛑 Flattened ${closed} positions and disabled all strategies.` };
+      }
+      case 'strategy_start':
+      case 'strategy_stop': {
+        const [id] = rest;
+        if (!id) return { tag, result: `\n⚠️ Need strategy id.` };
+        const s = await trading.toggleStrategy(id);
+        return { tag, result: `\n🤖 Strategy **${s.name}** is now ${s.enabled ? 'RUNNING' : 'STOPPED'}.` };
+      }
+      default:
+        return { tag, result: `\n⚠️ Unknown TRADE verb \`${verb}\`. Try account, positions, buy, sell, close_all, strategy_start, strategy_stop.` };
+    }
+  } catch (e) {
+    return { tag, result: `\n⚠️ Trade failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
+
+
 
 
 export function hasToolCommands(text: string): boolean {
