@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function TradingPage() {
   const navigate = useNavigate();
-  const { conversations, currentId, createNew, selectConvo, deleteConvo } = useConversations();
+  const { conversations, currentConvoId, createConversation, selectConversation, deleteConversation } = useConversations();
   const [refreshKey, setRefreshKey] = useState(0);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
 
