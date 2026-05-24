@@ -363,7 +363,9 @@ export default function LabModePage() {
                 <Input placeholder="optional probe (e.g. 'GET / HTTP/1.0\\r\\n\\r\\n')" value={bProbe} onChange={(e) => setBProbe(e.target.value)} />
                 <Button disabled={busy} onClick={() => wrap(async () => { setBRes(await labBanner(bHost, bPort, bProbe || undefined)); })}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Grab'}
-                </Button>
+                  </Button>
+                  <SendToChatButton text={`[RUN_CMD:nc -v ${bHost} ${bPort || 22}]`} autorun={!!bHost.trim()} variant="ghost" label="" title="Run in chat" />
+                </div>
                 {bRes && (
                   <pre className="text-[11px] font-mono bg-muted/30 rounded p-2 max-h-64 overflow-auto whitespace-pre-wrap">{bRes.banner || '(empty)'}</pre>
                 )}
