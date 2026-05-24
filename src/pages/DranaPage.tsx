@@ -12,6 +12,7 @@ import {
   checkInstalledTools, runDranaCommand, aiParseOutput,
   type ToolStatus, type DranaRunResult,
 } from '@/lib/drana';
+import { SendToChatButton } from '@/components/SendToChatButton';
 
 const CATEGORIES: { id: DranaCategory; label: string; desc: string }[] = [
   { id: 'WAF', label: 'WAF Detection', desc: 'Identify firewalls protecting the target' },
@@ -129,14 +130,23 @@ export default function DranaPage() {
                         )}
                         <code className="text-xs text-muted-foreground truncate">{cmd.command}</code>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => runCmd(key, cmd.command, cmd.prompt)}
-                        disabled={state?.loading || installed === false}
-                      >
-                        {state?.loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                        Run
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <SendToChatButton
+                          text={`[RUN_CMD:${cmd.command.replace(/\{target\}/g, target.trim() || '{target}')}]`}
+                          autorun={!!target.trim()}
+                          variant="ghost"
+                          label=""
+                          title="Run this command in chat"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => runCmd(key, cmd.command, cmd.prompt)}
+                          disabled={state?.loading || installed === false}
+                        >
+                          {state?.loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                          Run
+                        </Button>
+                      </div>
                     </div>
                     {state?.error && (
                       <div className="text-xs text-destructive">{state.error}</div>
