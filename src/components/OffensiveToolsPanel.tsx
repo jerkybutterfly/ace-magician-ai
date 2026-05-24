@@ -286,7 +286,7 @@ function KaliRunner() {
   };
 
   return (
-    <ToolCard title="Kali Tool Runner" desc="Discover and invoke installed Kali/offsec binaries on the agent host.">
+    <ToolCard title="Kali Tool Runner" desc="Discover and invoke installed Kali/offsec binaries on the agent host." chatText={`[RUN_CMD:${tool} ${target}]`} chatAutorun={!!(tool.trim() && target.trim())}>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={load} disabled={loading} className="text-xs">
           {loading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
