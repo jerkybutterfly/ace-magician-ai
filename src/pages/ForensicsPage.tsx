@@ -58,11 +58,12 @@ export default function ForensicsPage() {
         <TabsContent value="hash">
           <Card><CardHeader><CardTitle className="text-base">File Hash (MD5 / SHA1 / SHA256)</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Input placeholder="C:\path\to\file" value={hashPath} onChange={(e) => setHashPath(e.target.value)} />
                 <Button disabled={busy} onClick={() => wrap(async () => { setHashRes(await hashFile(hashPath)); })}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Hash'}
                 </Button>
+                <SendToChatButton text={`[RUN_CMD:md5sum ${hashPath}]`} autorun={!!hashPath.trim()} variant="ghost" label="" title="Run in chat" />
               </div>
               {hashRes && (
                 <div className="text-xs font-mono space-y-1 bg-muted/30 rounded p-3">
