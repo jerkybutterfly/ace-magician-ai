@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, PlayCircle, Crosshair, Globe, Lock, Wifi, Terminal, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { SendToChatButton } from '@/components/SendToChatButton';
 import {
   portScan, labDirbust, labSubdomains, labLoginProbe, labHeaders, labSsl,
   labVulnProbe, labHostSweep, labBanner, labSpray, labRobots, labCors,
@@ -18,14 +19,21 @@ interface ToolCardProps {
   title: string;
   desc: string;
   children: ReactNode;
+  chatText?: string;
+  chatAutorun?: boolean;
 }
-const ToolCard = ({ title, desc, children }: ToolCardProps) => (
+const ToolCard = ({ title, desc, children, chatText, chatAutorun }: ToolCardProps) => (
   <Card>
     <CardHeader className="pb-2">
       <CardTitle className="text-sm">{title}</CardTitle>
       <CardDescription className="text-[11px]">{desc}</CardDescription>
     </CardHeader>
     <CardContent className="space-y-2">{children}</CardContent>
+    {chatText && (
+      <div className="px-6 pb-3">
+        <SendToChatButton text={chatText} autorun={chatAutorun} variant="ghost" className="w-full h-7 text-[10px]" label="Run in chat" />
+      </div>
+    )}
   </Card>
 );
 
