@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle, FlaskConical, Loader2 } from 'lucide-react';
+import { SendToChatButton } from '@/components/SendToChatButton';
 import {
   labDirbust, labSubdomains, labLoginProbe,
   labHeaders, labSsl, labVulnProbe, labHostSweep, labBanner, labSpray, labRobots, labCors,
@@ -163,11 +164,12 @@ export default function LabModePage() {
           <TabsContent value="dir">
             <Card><CardHeader><CardTitle className="text-base">Directory / file brute (gobuster-lite)</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Input placeholder="http://target/" value={base} onChange={(e) => setBase(e.target.value)} />
                   <Button disabled={busy} onClick={() => wrap(async () => { const r = await labDirbust(base); setDirRes(r.found); })}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Run'}
                   </Button>
+                  <SendToChatButton text={`[RUN_CMD:gobuster dir -u ${base} -w common.txt]`} autorun={!!base.trim()} variant="ghost" label="" title="Run in chat" />
                 </div>
                 <ScrollArea className="h-72 rounded border">
                   <table className="w-full text-xs font-mono">
@@ -190,11 +192,12 @@ export default function LabModePage() {
           <TabsContent value="sub">
             <Card><CardHeader><CardTitle className="text-base">Subdomain enumeration (DNS only)</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Input placeholder="example.com" value={domain} onChange={(e) => setDomain(e.target.value)} />
                   <Button disabled={busy} onClick={() => wrap(async () => { const r = await labSubdomains(domain); setSubRes(r.found); })}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enumerate'}
                   </Button>
+                  <SendToChatButton text={`[RUN_CMD:subfinder -d ${domain}]`} autorun={!!domain.trim()} variant="ghost" label="" title="Run in chat" />
                 </div>
                 <ScrollArea className="h-72 rounded border">
                   <table className="w-full text-xs font-mono">
@@ -222,9 +225,12 @@ export default function LabModePage() {
                   <Input placeholder="password" type="password" value={p} onChange={(e) => setP(e.target.value)} />
                 </div>
                 <Input placeholder="text appearing on failure (e.g. 'Invalid')" value={failText} onChange={(e) => setFailText(e.target.value)} />
-                <Button disabled={busy} onClick={() => wrap(async () => { setLoginRes(await labLoginProbe({ url: loginUrl, username: u, password: p, fail_text: failText })); })}>
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Try once'}
-                </Button>
+                <div className="flex gap-2 items-center">
+                  <Button disabled={busy} onClick={() => wrap(async () => { setLoginRes(await labLoginProbe({ url: loginUrl, username: u, password: p, fail_text: failText })); })}>
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Try once'}
+                  </Button>
+                  <SendToChatButton text={`[RUN_CMD:curl -X POST -d "username=${u}&password=${p}" ${loginUrl}]`} autorun={!!(loginUrl.trim() && u.trim() && p.trim())} variant="ghost" label="" title="Run in chat" />
+                </div>
                 {loginRes && (
                   <div className="space-y-2">
                     <div className="text-sm">
@@ -242,11 +248,12 @@ export default function LabModePage() {
           <TabsContent value="headers">
             <Card><CardHeader><CardTitle className="text-base">HTTP security headers</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Input placeholder="https://target/" value={hdrUrl} onChange={(e) => setHdrUrl(e.target.value)} />
                   <Button disabled={busy} onClick={() => wrap(async () => { setHdrRes(await labHeaders(hdrUrl)); })}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Inspect'}
                   </Button>
+                  <SendToChatButton text={`[RUN_CMD:curl -I ${hdrUrl}]`} autorun={!!hdrUrl.trim()} variant="ghost" label="" title="Run in chat" />
                 </div>
                 {hdrRes && (
                   <div className="space-y-2">
@@ -269,12 +276,13 @@ export default function LabModePage() {
           <TabsContent value="ssl">
             <Card><CardHeader><CardTitle className="text-base">TLS certificate inspection</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Input placeholder="host" value={sslHost} onChange={(e) => setSslHost(e.target.value)} />
                   <Input type="number" className="w-28" value={sslPort} onChange={(e) => setSslPort(Number(e.target.value))} />
                   <Button disabled={busy} onClick={() => wrap(async () => { setSslRes(await labSsl(sslHost, sslPort)); })}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Fetch'}
                   </Button>
+                  <SendToChatButton text={`[RUN_CMD:openssl s_client -connect ${sslHost}:${sslPort || 443}]`} autorun={!!sslHost.trim()} variant="ghost" label="" title="Run in chat" />
                 </div>
                 {sslRes && (
                   <div className="text-xs space-y-1">
@@ -290,12 +298,13 @@ export default function LabModePage() {
           <TabsContent value="vuln">
             <Card><CardHeader><CardTitle className="text-base">Vulnerability fingerprint (SQLi/XSS/LFI/SSTI/redir)</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Input placeholder="http://target/path" value={vulnUrl} onChange={(e) => setVulnUrl(e.target.value)} />
                   <Input className="w-32" placeholder="param" value={vulnParam} onChange={(e) => setVulnParam(e.target.value)} />
                   <Button disabled={busy} onClick={() => wrap(async () => { const r = await labVulnProbe(vulnUrl, vulnParam); setVulnRes(r.results); })}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Probe'}
                   </Button>
+                  <SendToChatButton text={`[RUN_CMD:python3 vuln_probe.py -u ${vulnUrl} -p ${vulnParam || 'q'}]`} autorun={!!vulnUrl.trim()} variant="ghost" label="" title="Run in chat" />
                 </div>
                 <ScrollArea className="h-72 rounded border">
                   <table className="w-full text-xs font-mono">
@@ -320,11 +329,12 @@ export default function LabModePage() {
           <TabsContent value="sweep">
             <Card><CardHeader><CardTitle className="text-base">LAN host sweep (ping)</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Input placeholder="192.168.1.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)} />
                   <Button disabled={busy} onClick={() => wrap(async () => { const r = await labHostSweep(cidr); setSweepRes(r.alive); })}>
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sweep'}
                   </Button>
+                  <SendToChatButton text={`[RUN_CMD:nmap -sn ${cidr}]`} autorun={!!cidr.trim()} variant="ghost" label="" title="Run in chat" />
                 </div>
                 <ScrollArea className="h-72 rounded border">
                   <table className="w-full text-xs font-mono">
