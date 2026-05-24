@@ -81,7 +81,7 @@ function PortScanTool() {
   const [ports, setPorts] = useState('');
   const r = useRunner();
   return (
-    <ToolCard title="Port Scan" desc="TCP connect scan with banner grab.">
+    <ToolCard title="Port Scan" desc="TCP connect scan with banner grab." chatText={`[RUN_CMD:nmap -sV -p ${ports || '1-1024'} ${target}]`} chatAutorun={!!target.trim()}>
       <Input placeholder="host or IP" value={target} onChange={(e) => setTarget(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="ports (e.g. 1-1024,8080) — blank = top ~80" value={ports} onChange={(e) => setPorts(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => portScan(target, ports || undefined))} label="Scan" />
@@ -95,7 +95,7 @@ function DirbustTool() {
   const [extra, setExtra] = useState('');
   const r = useRunner();
   return (
-    <ToolCard title="Directory Bust" desc="Brute-force common paths on a web target.">
+    <ToolCard title="Directory Bust" desc="Brute-force common paths on a web target." chatText={`[RUN_CMD:gobuster dir -u ${base} -w common.txt]`} chatAutorun={!!base.trim()}>
       <Input placeholder="base URL (https://target)" value={base} onChange={(e) => setBase(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="extra paths, comma-separated" value={extra} onChange={(e) => setExtra(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => labDirbust(base, extra.split(',').map((s) => s.trim()).filter(Boolean)))} />
@@ -109,7 +109,7 @@ function SubdomainTool() {
   const [words, setWords] = useState('');
   const r = useRunner();
   return (
-    <ToolCard title="Subdomain Enum" desc="Resolve common subdomain candidates.">
+    <ToolCard title="Subdomain Enum" desc="Resolve common subdomain candidates." chatText={`[RUN_CMD:subfinder -d ${domain}]`} chatAutorun={!!domain.trim()}>
       <Input placeholder="domain (example.com)" value={domain} onChange={(e) => setDomain(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="extra wordlist, comma-separated" value={words} onChange={(e) => setWords(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => labSubdomains(domain, words.split(',').map((s) => s.trim()).filter(Boolean)))} />
@@ -122,7 +122,7 @@ function HeadersTool() {
   const [u, setU] = useState('');
   const r = useRunner();
   return (
-    <ToolCard title="Security Headers" desc="Audit HTTP response headers (CSP, HSTS, etc).">
+    <ToolCard title="Security Headers" desc="Audit HTTP response headers (CSP, HSTS, etc)." chatText={`[RUN_CMD:curl -I ${u}]`} chatAutorun={!!u.trim()}>
       <Input placeholder="URL" value={u} onChange={(e) => setU(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => labHeaders(u))} />
       <Out data={r.out} />
@@ -135,7 +135,7 @@ function SslTool() {
   const [port, setPort] = useState('443');
   const r = useRunner();
   return (
-    <ToolCard title="SSL / TLS Inspect" desc="Cert chain, expiry, supported versions.">
+    <ToolCard title="SSL / TLS Inspect" desc="Cert chain, expiry, supported versions." chatText={`[RUN_CMD:openssl s_client -connect ${host}:${port || 443}]`} chatAutorun={!!host.trim()}>
       <Input placeholder="host" value={host} onChange={(e) => setHost(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="port" value={port} onChange={(e) => setPort(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => labSsl(host, Number(port) || 443))} />
@@ -148,7 +148,7 @@ function CorsTool() {
   const [u, setU] = useState('');
   const r = useRunner();
   return (
-    <ToolCard title="CORS Probe" desc="Test for permissive cross-origin policies.">
+    <ToolCard title="CORS Probe" desc="Test for permissive cross-origin policies." chatText={`[RUN_CMD:curl -H "Origin: https://evil.com" -I ${u}]`} chatAutorun={!!u.trim()}>
       <Input placeholder="URL" value={u} onChange={(e) => setU(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => labCors(u))} />
       <Out data={r.out} />
@@ -161,7 +161,7 @@ function VulnProbeTool() {
   const [param, setParam] = useState('q');
   const r = useRunner();
   return (
-    <ToolCard title="Param Vuln Probe" desc="Reflective XSS, SQLi error sigs, SSTI eval on a query parameter.">
+    <ToolCard title="Param Vuln Probe" desc="Reflective XSS, SQLi error sigs, SSTI eval on a query parameter." chatText={`[RUN_CMD:python3 vuln_probe.py -u ${u} -p ${param || 'q'}]`} chatAutorun={!!u.trim()}>
       <Input placeholder="URL (https://target/search)" value={u} onChange={(e) => setU(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="parameter name" value={param} onChange={(e) => setParam(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => labVulnProbe(u, param || 'q'))} />
@@ -174,7 +174,7 @@ function RobotsTool() {
   const [u, setU] = useState('');
   const r = useRunner();
   return (
-    <ToolCard title="Robots / Sitemap" desc="Pull robots.txt & sitemap entries.">
+    <ToolCard title="Robots / Sitemap" desc="Pull robots.txt & sitemap entries." chatText={`[RUN_CMD:curl ${u}/robots.txt]`} chatAutorun={!!u.trim()}>
       <Input placeholder="base URL" value={u} onChange={(e) => setU(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => labRobots(u))} />
       <Out data={r.out} />
@@ -190,7 +190,7 @@ function LoginProbeTool() {
   const [pass, setPass] = useState('admin');
   const r = useRunner();
   return (
-    <ToolCard title="Login Probe" desc="Single credential test against a form/JSON login endpoint.">
+    <ToolCard title="Login Probe" desc="Single credential test against a form/JSON login endpoint." chatText={`[RUN_CMD:curl -X POST -d "${userField}=${user}&${passField}=${pass}" ${url}]`} chatAutorun={!!url.trim()}>
       <Input placeholder="login URL" value={url} onChange={(e) => setUrl(e.target.value)} className="h-8 text-xs" />
       <div className="grid grid-cols-2 gap-2">
         <Input placeholder="user field" value={userField} onChange={(e) => setUserField(e.target.value)} className="h-8 text-xs" />
@@ -210,7 +210,7 @@ function SprayTool() {
   const [pass, setPass] = useState('Password1');
   const r = useRunner();
   return (
-    <ToolCard title="Password Spray" desc="One password across many users — slow, single attempt each.">
+    <ToolCard title="Password Spray" desc="One password across many users — slow, single attempt each." chatText={`Password spray ${url} with ${pass} against ${users}`} chatAutorun={!!url.trim()}>
       <Input placeholder="login URL" value={url} onChange={(e) => setUrl(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="users (comma-separated)" value={users} onChange={(e) => setUsers(e.target.value)} className="h-8 text-xs" />
       <Input placeholder="password" value={pass} onChange={(e) => setPass(e.target.value)} className="h-8 text-xs" />
@@ -224,7 +224,7 @@ function HostSweepTool() {
   const [cidr, setCidr] = useState('192.168.1.0/24');
   const r = useRunner();
   return (
-    <ToolCard title="Host Sweep" desc="Discover live hosts in a CIDR range.">
+    <ToolCard title="Host Sweep" desc="Discover live hosts in a CIDR range." chatText={`[RUN_CMD:nmap -sn ${cidr}]`} chatAutorun={!!cidr.trim()}>
       <Input placeholder="CIDR (e.g. 10.0.0.0/24)" value={cidr} onChange={(e) => setCidr(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => labHostSweep(cidr))} />
       <Out data={r.out} />
@@ -238,7 +238,7 @@ function BannerTool() {
   const [probe, setProbe] = useState('');
   const r = useRunner();
   return (
-    <ToolCard title="Banner Grab" desc="Open a TCP socket and read service banner.">
+    <ToolCard title="Banner Grab" desc="Open a TCP socket and read service banner." chatText={`[RUN_CMD:nc -v ${host} ${port || 22}]`} chatAutorun={!!host.trim()}>
       <div className="grid grid-cols-2 gap-2">
         <Input placeholder="host" value={host} onChange={(e) => setHost(e.target.value)} className="h-8 text-xs" />
         <Input placeholder="port" value={port} onChange={(e) => setPort(e.target.value)} className="h-8 text-xs" />
@@ -254,8 +254,9 @@ function DranaTool() {
   const [cmd, setCmd] = useState('nmap <target>');
   const [target, setTarget] = useState('');
   const r = useRunner();
+  const chatCmd = cmd.replace(/<target>/g, target.trim() || '<target>');
   return (
-    <ToolCard title="Drana Command" desc="Run a recon command via the local agent (substitutes <target>).">
+    <ToolCard title="Drana Command" desc="Run a recon command via the local agent (substitutes <target>)." chatText={`[RUN_CMD:${chatCmd}]`} chatAutorun={!!target.trim()}>
       <Input placeholder="command template" value={cmd} onChange={(e) => setCmd(e.target.value)} className="h-8 text-xs font-mono" />
       <Input placeholder="target" value={target} onChange={(e) => setTarget(e.target.value)} className="h-8 text-xs" />
       <RunBtn busy={r.busy} onClick={() => r.run(() => runDranaCommand(cmd, target, 90))} />
