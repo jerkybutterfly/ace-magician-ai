@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Eye, Play, Pause, Square, ShieldAlert, MousePointerClick, Keyboard, Monitor } from 'lucide-react';
+import { SendToChatButton } from '@/components/SendToChatButton';
 import { toast } from 'sonner';
 import {
   cuScreenshot, cuDecide, cuExecute, cuScreenSize, summarizeAction,
@@ -187,6 +188,7 @@ export default function ComputerUsePage() {
               <Input type="number" step="0.1" className="w-20 h-8" value={stepDelay} onChange={(e) => setStepDelay(parseFloat(e.target.value) || 0.5)} disabled={running} />
             </div>
             <div className="ml-auto flex gap-2">
+              <SendToChatButton text={`Use computer automation to: ${goal.trim() || '(no goal set)'}`} autorun={!!goal.trim()} label="Run in chat" />
               <Button variant="outline" size="sm" onClick={refreshShot} disabled={running}><Eye className="h-4 w-4 mr-1" /> Preview</Button>
               {!running ? (
                 <Button size="sm" onClick={start} disabled={pyAvailable === false}><Play className="h-4 w-4 mr-1" /> Start</Button>

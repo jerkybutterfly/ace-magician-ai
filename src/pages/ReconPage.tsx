@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { portScan, traceroute, dnsLookup, whois, geoip, type PortScanResult } from '@/lib/kali';
+import { SendToChatButton } from '@/components/SendToChatButton';
 import { Loader2, Radar } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -54,12 +55,13 @@ export default function ReconPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">TCP Connect Scan</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
                 <Input className="max-w-xs" placeholder="host or IP" value={target} onChange={(e) => setTarget(e.target.value)} />
                 <Input className="max-w-xs" placeholder="ports (e.g. 1-1024,3389) — blank = top ~80" value={ports} onChange={(e) => setPorts(e.target.value)} />
                 <Button disabled={busy} onClick={() => wrap(async () => { setScan(await portScan(target, ports || undefined)); })}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Scan'}
                 </Button>
+                <SendToChatButton text={`[RUN_CMD:nmap -sV -p ${ports || '1-1024'} ${target}]`} autorun={!!target.trim()} variant="ghost" label="" title="Run in chat" />
               </div>
               {scan && (
                 <div className="space-y-2">
@@ -90,11 +92,12 @@ export default function ReconPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Traceroute</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Input className="max-w-xs" value={trTarget} onChange={(e) => setTrTarget(e.target.value)} />
                 <Button disabled={busy} onClick={() => wrap(async () => { const r = await traceroute(trTarget); setTrOut(r.output); })}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Run'}
                 </Button>
+                <SendToChatButton text={`[RUN_CMD:traceroute ${trTarget}]`} autorun={!!trTarget.trim()} variant="ghost" label="" title="Run in chat" />
               </div>
               <pre className="text-xs font-mono bg-muted/30 rounded p-3 max-h-80 overflow-auto whitespace-pre-wrap">{trOut || '—'}</pre>
             </CardContent>
@@ -105,11 +108,12 @@ export default function ReconPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">DNS Lookup</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Input className="max-w-xs" value={dnsName} onChange={(e) => setDnsName(e.target.value)} />
                 <Button disabled={busy} onClick={() => wrap(async () => { const r = await dnsLookup(dnsName); setDnsOut(JSON.stringify(r.records, null, 2)); })}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resolve'}
                 </Button>
+                <SendToChatButton text={`[RUN_CMD:dig ${dnsName} ANY]`} autorun={!!dnsName.trim()} variant="ghost" label="" title="Run in chat" />
               </div>
               <pre className="text-xs font-mono bg-muted/30 rounded p-3 max-h-80 overflow-auto">{dnsOut || '—'}</pre>
             </CardContent>
@@ -120,11 +124,12 @@ export default function ReconPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Whois</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Input className="max-w-xs" value={whoisDomain} onChange={(e) => setWhoisDomain(e.target.value)} />
                 <Button disabled={busy} onClick={() => wrap(async () => { const r = await whois(whoisDomain); setWhoisOut(r.output); })}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lookup'}
                 </Button>
+                <SendToChatButton text={`[RUN_CMD:whois ${whoisDomain}]`} autorun={!!whoisDomain.trim()} variant="ghost" label="" title="Run in chat" />
               </div>
               <pre className="text-xs font-mono bg-muted/30 rounded p-3 max-h-96 overflow-auto whitespace-pre-wrap">{whoisOut || '—'}</pre>
             </CardContent>
@@ -135,11 +140,12 @@ export default function ReconPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">GeoIP (via ipapi.co)</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Input className="max-w-xs" value={geoIp} onChange={(e) => setGeoIp(e.target.value)} />
                 <Button disabled={busy} onClick={() => wrap(async () => { const r = await geoip(geoIp); setGeoOut(JSON.stringify(r, null, 2)); })}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Locate'}
                 </Button>
+                <SendToChatButton text={`[RUN_CMD:curl https://ipapi.co/${geoIp}/json]`} autorun={!!geoIp.trim()} variant="ghost" label="" title="Run in chat" />
               </div>
               <pre className="text-xs font-mono bg-muted/30 rounded p-3 max-h-80 overflow-auto">{geoOut || '—'}</pre>
             </CardContent>

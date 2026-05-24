@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, Network, RefreshCw } from 'lucide-react';
 import { startNetworkScan, getScanStatus, getLastDevices, type NetworkDevice } from '@/lib/network';
+import { SendToChatButton }  from '@/components/SendToChatButton';
 import { toast } from '@/hooks/use-toast';
 
 export default function NetworkPage() {
@@ -78,10 +79,13 @@ export default function NetworkPage() {
               <CardTitle className="text-base flex items-center gap-2"><Network className="h-4 w-4" /> Network Scanner</CardTitle>
               <CardDescription>Discover every device on your local network</CardDescription>
             </div>
-            <Button onClick={scan} disabled={scanning} size="sm">
-              {scanning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-              {scanning ? 'Scanning…' : 'Scan now'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <SendToChatButton text="[SCAN_NETWORK]" autorun label="Run in chat" />
+              <Button onClick={scan} disabled={scanning} size="sm">
+                {scanning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                {scanning ? 'Scanning…' : 'Scan now'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">
