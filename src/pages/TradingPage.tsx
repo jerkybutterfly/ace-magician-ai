@@ -28,10 +28,10 @@ export default function TradingPage() {
     <div className="flex min-h-screen w-full">
       <AppSidebar
         conversations={conversations}
-        currentConvoId={currentId}
-        onNewChat={() => { createNew(); navigate('/'); }}
-        onSelectConvo={(id) => { selectConvo(id); navigate('/'); }}
-        onDeleteConvo={deleteConvo}
+        currentConvoId={currentConvoId}
+        onNewChat={() => { createConversation(); navigate('/'); }}
+        onSelectConvo={(id) => { selectConversation(id); navigate('/'); }}
+        onDeleteConvo={deleteConversation}
       />
       <SidebarInset>
         <header className="h-12 border-b border-border/50 flex items-center px-4 gap-3">
