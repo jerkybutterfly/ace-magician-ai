@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { AppSidebar } from '@/components/AppSidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,14 +12,9 @@ import {
   activateWorkflow, deactivateWorkflow, deleteWorkflow, pingN8n, triggerWebhook,
   type N8nWorkflow, type N8nExecution,
 } from '@/lib/n8n';
-import {
-  useConversations,
-} from '@/hooks/useConversations';
-import { useNavigate } from 'react-router-dom';
 
 export default function N8nPage() {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [cfg, setCfg] = useState(getN8nConfig());
   const [showSettings, setShowSettings] = useState(!getN8nConfig().apiKey);
   const [connected, setConnected] = useState<boolean | null>(null);
