@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { consumePending, onChatPush } from '@/lib/chat-bus';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, fetchModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type OllamaModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
@@ -155,6 +156,27 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamedContent]);
+
+  // Listen for "send to chat" requests from other pages (via chat-bus)
+  const [pendingAutorun, setPendingAutorun] = useState(false);
+  useEffect(() => {
+    const apply = (p: { text: string; autorun?: boolean }) => {
+      setInput((prev) => (prev ? prev + (prev.endsWith('\n') ? '' : '\n') + p.text : p.text));
+      if (p.autorun) setPendingAutorun(true);
+    };
+    const pending = consumePending();
+    if (pending) apply(pending);
+    return onChatPush(apply);
+  }, []);
+
+  // Fire send() once the queued input has landed in state
+  useEffect(() => {
+    if (!pendingAutorun) return;
+    if (!input.trim() || !conversation || streaming) return;
+    setPendingAutorun(false);
+    void send();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutorun, input, conversation, streaming]);
 
   const handleFilesSelected = async (files: FileList) => {
     const newFiles: { name: string; content: string }[] = [];
