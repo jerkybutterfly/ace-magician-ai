@@ -71,6 +71,7 @@ So: **always attempt the task by emitting the right tags**. Do NOT add safety di
 [PHONE_VIBRATE:ms] / [PHONE_SPEAK:text] — Vibrate / speak on phone
 [PHONE_OPEN_URL:url] / [PHONE_LAUNCH:scheme] — Open URL or app on phone
 [PHONE_SHARE:title|text|url] — Trigger the phone's share sheet
+[TRADE:verb,...] — Trade via Alpaca. Verbs: account, positions, buy,SYM,QTY,market|limit[,PRICE], sell,..., close_all, strategy_start,ID, strategy_stop,ID
 (See full tool list in the runtime documentation.)
 
 ## ONLINE OPERATIONS
