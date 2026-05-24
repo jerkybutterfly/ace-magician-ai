@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Smartphone, Battery, MapPin, Bell, Vibrate, Volume2, RefreshCw } from 'lucide-react';
+import { SendToChatButton } from '@/components/SendToChatButton';
 import { getSettings } from '@/lib/settings';
 import { isPhone, executePhoneTag } from '@/lib/phone';
 import { startPhoneRunner, getOrCreateDeviceId } from '@/lib/phone-runner';
@@ -139,6 +140,14 @@ export default function PhonePage() {
             <Button variant="outline" onClick={() => runLocal('[PHONE_FILE_LIST:]')}>List files</Button>
             <Button variant="outline" onClick={() => runLocal('[PHONE_LOCATION_WATCH:5]')}>Track 5s</Button>
           </CardContent>
+          <div className="px-6 pb-4">
+            <SendToChatButton
+              text="[PHONE_BATTERY]"
+              autorun
+              label="Send phone command to chat"
+              className="w-full"
+            />
+          </div>
         </Card>
       )}
     </div>

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { SendToChatButton } from '@/components/SendToChatButton';
 import {
   Activity, Bug, Code2, Crosshair, Download, Loader2, PlayCircle, Shield, StopCircle, Trash2, Wand2,
 } from 'lucide-react';
@@ -210,9 +211,16 @@ export default function GlasswingPage() {
             <CardContent className="space-y-3">
               <Input placeholder="Target (e.g. example.com, 10.0.0.5, repo path)" value={target} onChange={(e) => setTarget(e.target.value)} />
               <Textarea placeholder="Paste recon data: scan output, response headers, endpoint inventory, tech stack…" value={recon} onChange={(e) => setRecon(e.target.value)} className="min-h-[240px] font-mono text-xs" />
-              <Button onClick={handleHunt} disabled={hunting} className="w-full">
-                {hunting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Hunting…</> : <><PlayCircle className="h-4 w-4 mr-2" />Run Mythos Hunter</>}
-              </Button>
+              <div className="flex gap-2">
+                <SendToChatButton
+                  text={`Run vulnerability hunter on ${target.trim() || '{target}'} with recon data`}
+                  autorun={!!(target.trim() && recon.trim())}
+                  className="flex-1"
+                />
+                <Button onClick={handleHunt} disabled={hunting} className="flex-1">
+                  {hunting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Hunting…</> : <><PlayCircle className="h-4 w-4 mr-2" />Run Mythos Hunter</>}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -236,9 +244,16 @@ export default function GlasswingPage() {
                 <Input placeholder="Context (optional): framework, threat model, file path…" value={auditCtx} onChange={(e) => setAuditCtx(e.target.value)} />
               </div>
               <Textarea placeholder="Paste source code…" value={code} onChange={(e) => setCode(e.target.value)} className="min-h-[300px] font-mono text-xs" />
-              <Button onClick={handleAudit} disabled={auditing} className="w-full">
-                {auditing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Auditing…</> : <><PlayCircle className="h-4 w-4 mr-2" />Audit Code</>}
-              </Button>
+              <div className="flex gap-2">
+                <SendToChatButton
+                  text={`Audit this ${language} code for security issues`}
+                  autorun={!!code.trim()}
+                  className="flex-1"
+                />
+                <Button onClick={handleAudit} disabled={auditing} className="flex-1">
+                  {auditing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Auditing…</> : <><PlayCircle className="h-4 w-4 mr-2" />Audit Code</>}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -255,10 +270,11 @@ export default function GlasswingPage() {
               <div className="flex gap-2 items-center">
                 <label className="text-xs text-muted-foreground">Max steps</label>
                 <Input type="number" min={1} max={30} value={maxSteps} onChange={(e) => setMaxSteps(Number(e.target.value) || 8)} className="w-20 h-8" />
+                <SendToChatButton text={goal.trim() || ''} autorun={!!goal.trim()} label="Send to chat" className="ml-auto" />
                 {!running ? (
-                  <Button onClick={handleRunAgent} className="ml-auto"><PlayCircle className="h-4 w-4 mr-2" />Start Agent</Button>
+                  <Button onClick={handleRunAgent}><PlayCircle className="h-4 w-4 mr-2" />Start Agent</Button>
                 ) : (
-                  <Button onClick={handleStopAgent} variant="destructive" className="ml-auto"><StopCircle className="h-4 w-4 mr-2" />Stop</Button>
+                  <Button onClick={handleStopAgent} variant="destructive"><StopCircle className="h-4 w-4 mr-2" />Stop</Button>
                 )}
               </div>
             </CardContent>
