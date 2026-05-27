@@ -3,6 +3,24 @@ import React from "react";
 import App from "./App.tsx";
 import "./index.css";
 
+// Register service worker safely (skip in Lovable preview / iframes)
+const isInIframe = (() => {
+  try { return window.self !== window.top; } catch { return true; }
+})();
+const isPreviewHost =
+  window.location.hostname.includes("id-preview--") ||
+  window.location.hostname.includes("lovableproject.com") ||
+  window.location.hostname.includes("lovable.app");
+
+if (isPreviewHost || isInIframe) {
+  navigator.serviceWorker?.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
+} else if ("serviceWorker" in navigator) {
+  import("virtual:pwa-register")
+    .then(({ registerSW }) => registerSW({ immediate: true }))
+    .catch(() => { /* no-op */ });
+}
+
+
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: {children: React.ReactNode}) {
     super(props);
