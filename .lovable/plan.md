@@ -1,39 +1,41 @@
-## Goal
+# Hermes-style learning on every Q&A
 
-Turn Pesto Steve's AI into an installable Progressive Web App so you can add it to your Galaxy S26 (or any phone) home screen from a browser — no Android Studio, no Capacitor build.
+The agent already has a memory loop (episodes + lessons + injection into every prompt via `src/lib/learning.ts`), but it only fires when a tool runs. This plan extends it so **every chat turn** teaches the system, with local-LLM reflection and an auto-growing user profile.
 
-## Heads up
+## What changes
 
-- PWA features (install prompt, service worker, offline shell) only work on the **published** Lovable URL or your own deployed URL, **not** inside the Lovable editor preview.
-- This app talks to `localhost:11434` (Ollama) and `localhost:8484` (agent). On your phone those won't resolve — after install, go to **Settings** in the app and point Ollama URL + Agent URL to your PC's LAN IP (e.g. `http://192.168.1.50:11434`). Make sure Ollama is bound to `0.0.0.0` on the PC.
-- Service worker will cache the app shell for offline launch, but chat/agent calls still need the LAN to be reachable.
+1. **Log every Q&A as an episode** — not just tool runs.
+2. **Local-LLM reflection on every reply** — Ollama writes a 1-line generalized rule (when one exists) and appends it to lessons. Empty/“no lesson” outputs are skipped so the lessons file stays signal-dense.
+3. **Auto-grown user profile** — a new `profile.md` (stored via the agent's `/memory/*` endpoints) is updated with stable facts (name, preferences, projects, tools used, recurring goals) extracted by the local LLM. Injected into every system prompt alongside Identity + Lessons.
+4. **Memory page gains a "Profile" tab** to view/edit/clear the auto-profile.
 
-## Changes
+## Files
 
-1. **Install `vite-plugin-pwa`** as a dev dependency.
+- `src/lib/learning.ts`
+  - Add `logChatTurn({ userMsg, assistantMsg })` → calls `logEpisode` with `tag="[CHAT]"`, `tool="chat"`, outcome `success`.
+  - Add `reflectChatTurn(userMsg, assistantMsg)` → prompts local LLM for one short lesson OR the literal string `NONE`; if not NONE, `recordLesson(...)`.
+  - Add profile helpers: `getProfile()`, `updateProfileFromTurn(userMsg, assistantMsg)`, `overwriteProfile()`, `clearProfile()` hitting new agent endpoints `/memory/profile` (GET/PUT/DELETE) and reusing the same file convention as lessons.
+  - Extend `buildMemoryContext` to also include `--- ABOUT THE USER ---\n{profile}` block.
+- `agent.py`
+  - Add `/memory/profile` GET/PUT/DELETE storing `~/.pesto-ai/memory/profile.md` (mirrors existing lessons endpoints — no schema changes).
+- `src/pages/Chat.tsx`
+  - After each assistant reply completes (success path, not aborted), fire-and-forget: `logChatTurn(...)`, `reflectChatTurn(...)`, `updateProfileFromTurn(...)`. All three are non-blocking and swallow errors.
+- `src/pages/MemoryPage.tsx`
+  - Add a 4th tab **Profile** with view/edit/clear (mirrors the Lessons tab UI).
 
-2. **Update `vite.config.ts`** — add `VitePWA` plugin configured with:
-   - `registerType: "autoUpdate"`
-   - `devOptions: { enabled: false }` (avoid breaking the Lovable preview)
-   - Manifest: name "Pesto Steve's AI", short_name "Pesto AI", theme color matching the green primary (`#2eb872`), dark background, `display: "standalone"`, icons 192/512 + maskable.
-   - Workbox: `NetworkFirst` for HTML navigations, `navigateFallbackDenylist` for `/~oauth`.
+## Reflection prompts (kept tiny so Ollama is fast)
 
-3. **Add icons** to `public/`:
-   - `pwa-192.png`, `pwa-512.png`, `pwa-maskable-512.png`, `apple-touch-icon.png` — generated from the existing app aesthetic (dark bg, green accent, "PS" or terminal glyph).
+- Lesson prompt: *"Given this user request and the assistant's answer, write ONE short generalized rule the assistant should remember for future similar requests, starting with 'Always', 'Never', or 'When'. If nothing useful can be learned, reply with exactly: NONE."*
+- Profile prompt: *"Extract any stable facts about the USER from this turn (name, role, preferences, tools, projects, locations, habits). Reply with bullet lines like '- prefers X'. If none, reply NONE."* Each new bullet is appended to `profile.md`, deduped by exact-line match.
 
-4. **Update `index.html`** — add `<link rel="apple-touch-icon">`, `<meta name="theme-color">`, `<meta name="apple-mobile-web-app-capable">`, `<meta name="apple-mobile-web-app-status-bar-style">`.
+## Guardrails
 
-5. **Register service worker safely** in `src/main.tsx`:
-   - Skip registration when running inside an iframe or on `*.lovableproject.com` / `id-preview--*` hosts (prevents the Lovable editor from caching stale builds).
-   - Otherwise auto-register via the plugin's virtual module.
+- Only learn when the assistant actually produced a reply (skip aborted/error streams).
+- Skip turns where user message is shorter than 3 chars or is a slash-command.
+- Cap profile at 200 lines; oldest trimmed.
+- All three async writes wrapped in try/catch — they never block the chat UI.
 
-6. **Create `/install` page** with simple instructions for iOS (Share → Add to Home Screen) and Android (browser menu → Install app), plus a button that triggers the `beforeinstallprompt` event when available. Wire route in `src/App.tsx` and add a sidebar link.
+## Out of scope
 
-7. **Publish reminder** — after the change builds, hit **Publish** in Lovable. Then on your phone, open the published URL in Chrome (Android) or Safari (iOS) and install.
-
-## How you'll install it (after this ships)
-
-**Android (Chrome):** Open published URL → tap ⋮ menu → "Install app" / "Add to Home Screen".
-**iOS (Safari):** Open published URL → tap Share → "Add to Home Screen".
-
-It will then launch fullscreen from your home screen like a native app.
+- No new model, no cloud dependency — uses the existing Ollama default model.
+- No changes to the permissions system, tool tags, or existing episode logging on tool runs.
