@@ -277,13 +277,18 @@ function predictTool(req: string): string | null {
  */
 export async function buildMemoryContext(currentRequest: string): Promise<string> {
   const predicted = predictTool(currentRequest);
-  const [lessons, similar, toolHistory] = await Promise.all([
+  const [lessons, similar, toolHistory, profile] = await Promise.all([
     getLessons(),
     searchEpisodes(currentRequest, 3),
     predicted ? recentEpisodesForTool(predicted, 3) : Promise.resolve<Episode[]>([]),
+    getProfile(),
   ]);
 
   const parts: string[] = [];
+
+  if (profile.trim()) {
+    parts.push(`--- ABOUT THE USER (learned from past chats) ---\n${profile.trim()}`);
+  }
 
   if (lessons.trim()) {
     parts.push(`--- LESSONS LEARNED (apply these — they came from past mistakes) ---\n${lessons.trim()}`);
