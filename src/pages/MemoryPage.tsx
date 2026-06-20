@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
-import { Save, RotateCcw, Trash2, RefreshCw, BookOpen, History, User, Plus } from 'lucide-react';
+import { Save, RotateCcw, Trash2, RefreshCw, BookOpen, History, User, Plus, UserCircle2 } from 'lucide-react';
 import {
   getEpisodes, clearEpisodes, getLessons, overwriteLessons, clearLessons, recordLesson,
+  getProfile, overwriteProfile, clearProfile,
   type Episode,
 } from '@/lib/learning';
 
