@@ -93,6 +93,99 @@ export async function overwriteLessons(content: string): Promise<void> {
   });
 }
 
+// ─── User profile (auto-grown "about you") ──────────────────────────
+export async function getProfile(): Promise<string> {
+  const res = await safeFetch(memUrl('/memory/profile'));
+  if (!res?.ok) return '';
+  const data = await res.json().catch(() => ({ content: '' }));
+  return data.content ?? '';
+}
+
+export async function overwriteProfile(content: string): Promise<void> {
+  await safeFetch(memUrl('/memory/profile'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function clearProfile(): Promise<void> {
+  await safeFetch(memUrl('/memory/profile'), { method: 'DELETE' });
+}
+
+const PROFILE_MAX_LINES = 200;
+
+async function appendProfileLines(newLines: string[]): Promise<void> {
+  if (!newLines.length) return;
+  const current = await getProfile();
+  const existing = new Set(current.split('\n').map(l => l.trim()).filter(Boolean));
+  const additions = newLines.map(l => l.trim()).filter(l => l && !existing.has(l));
+  if (!additions.length) return;
+  const merged = [...current.split('\n').filter(l => l.trim()), ...additions];
+  const trimmed = merged.slice(-PROFILE_MAX_LINES).join('\n');
+  await overwriteProfile(trimmed);
+}
+
+// ─── Chat-turn learning ─────────────────────────────────────────────
+export async function logChatTurn(userMsg: string, assistantMsg: string): Promise<void> {
+  await logEpisode({
+    request: userMsg.slice(0, 500),
+    tag: '[CHAT]',
+    tool: 'chat',
+    outcome: 'success',
+    summary: assistantMsg.slice(0, 400),
+  });
+}
+
+export async function reflectChatTurn(userMsg: string, assistantMsg: string): Promise<void> {
+  if (!userMsg.trim() || userMsg.trim().length < 3 || userMsg.trim().startsWith('/')) return;
+  const { generateText } = await import('./ollama');
+  const prompt = `You are extracting a single generalized rule the assistant should remember for future similar requests.
+
+USER ASKED:
+${userMsg.slice(0, 800)}
+
+ASSISTANT REPLIED:
+${assistantMsg.slice(0, 800)}
+
+Write ONE short sentence starting with "Always", "Never", or "When" — a rule that would improve future answers to similar requests. If nothing useful can be generalized, reply with exactly: NONE
+Reply with the single sentence and nothing else.`;
+  try {
+    const out = (await generateText(prompt)).trim().split('\n')[0].replace(/^["']|["']$/g, '').trim();
+    if (!out || /^none\b/i.test(out)) return;
+    if (out.length < 10 || out.length > 240) return;
+    await recordLesson(out, '[CHAT]', '');
+  } catch (e) {
+    console.error('reflectChatTurn failed:', e);
+  }
+}
+
+export async function updateProfileFromTurn(userMsg: string, assistantMsg: string): Promise<void> {
+  if (!userMsg.trim() || userMsg.trim().length < 3 || userMsg.trim().startsWith('/')) return;
+  const { generateText } = await import('./ollama');
+  const prompt = `Extract STABLE facts about the USER from this conversation turn (name, role, preferences, tools, projects, locations, recurring habits, goals). Ignore one-off questions and ephemeral details.
+
+USER:
+${userMsg.slice(0, 800)}
+
+ASSISTANT:
+${assistantMsg.slice(0, 400)}
+
+Reply with bullet lines, each starting with "- " (e.g. "- prefers dark mode", "- works on AM06 mini PC"). One fact per line, max 5 lines. If no stable facts can be extracted, reply with exactly: NONE`;
+  try {
+    const out = (await generateText(prompt)).trim();
+    if (!out || /^none\b/i.test(out)) return;
+    const lines = out.split('\n')
+      .map(l => l.trim())
+      .filter(l => l.startsWith('- ') && l.length > 4 && l.length < 200)
+      .slice(0, 5);
+    if (!lines.length) return;
+    await appendProfileLines(lines);
+  } catch (e) {
+    console.error('updateProfileFromTurn failed:', e);
+  }
+}
+
 export async function clearLessons(): Promise<void> {
   await safeFetch(memUrl('/memory/lessons'), { method: 'DELETE' });
 }
@@ -184,13 +277,18 @@ function predictTool(req: string): string | null {
  */
 export async function buildMemoryContext(currentRequest: string): Promise<string> {
   const predicted = predictTool(currentRequest);
-  const [lessons, similar, toolHistory] = await Promise.all([
+  const [lessons, similar, toolHistory, profile] = await Promise.all([
     getLessons(),
     searchEpisodes(currentRequest, 3),
     predicted ? recentEpisodesForTool(predicted, 3) : Promise.resolve<Episode[]>([]),
+    getProfile(),
   ]);
 
   const parts: string[] = [];
+
+  if (profile.trim()) {
+    parts.push(`--- ABOUT THE USER (learned from past chats) ---\n${profile.trim()}`);
+  }
 
   if (lessons.trim()) {
     parts.push(`--- LESSONS LEARNED (apply these — they came from past mistakes) ---\n${lessons.trim()}`);

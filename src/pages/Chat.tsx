@@ -434,6 +434,14 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         visibleHistory = [...visibleHistory, assistantMsg];
         updated = { ...updated, messages: visibleHistory, updatedAt: Date.now() };
         onUpdate(updated);
+        // Hermes-style learning: fire-and-forget, never blocks UI
+        if (full.trim()) {
+          import('@/lib/learning').then(({ logChatTurn, reflectChatTurn, updateProfileFromTurn }) => {
+            logChatTurn(request, full).catch(() => {});
+            reflectChatTurn(request, full).catch(() => {});
+            updateProfileFromTurn(request, full).catch(() => {});
+          });
+        }
         break;
       }
     } catch (err) {

@@ -2741,6 +2741,37 @@ async def clear_lessons():
     return {"status": "ok"}
 
 
+# ─── User profile (auto-grown "about you") ──────────────────────────
+PROFILE_FILE = MEMORY_DIR / "profile.md"
+
+
+class ProfileOverwrite(BaseModel):
+    content: str
+
+
+@app.get("/memory/profile")
+async def get_profile():
+    with _mem_lock:
+        if PROFILE_FILE.exists():
+            return {"content": PROFILE_FILE.read_text(encoding="utf-8")}
+    return {"content": ""}
+
+
+@app.put("/memory/profile")
+async def overwrite_profile(req: ProfileOverwrite):
+    with _mem_lock:
+        PROFILE_FILE.write_text(req.content, encoding="utf-8")
+    return {"status": "ok"}
+
+
+@app.delete("/memory/profile")
+async def clear_profile():
+    with _mem_lock:
+        if PROFILE_FILE.exists():
+            PROFILE_FILE.unlink()
+    return {"status": "ok"}
+
+
 # ═══════════════════════════════════════════════════════
 #  Built-in LLM Runtime (llama.cpp via llama-cpp-python)
 #  Acts as an Ollama-replacement: load GGUF, chat via SSE.
