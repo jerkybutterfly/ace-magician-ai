@@ -2769,6 +2769,7 @@ async def clear_profile():
     with _mem_lock:
         if PROFILE_FILE.exists():
             PROFILE_FILE.unlink()
+    return {"status": "ok"}
 
 
 # ═══════════════════════════════════════════════════════
