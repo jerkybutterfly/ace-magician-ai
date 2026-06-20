@@ -270,31 +270,81 @@ function EpisodesTab() {
   );
 }
 
+function ProfileTab() {
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setContent(await getProfile());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    await overwriteProfile(content);
+    toast({ title: 'Profile saved' });
+  };
+
+  const wipe = async () => {
+    if (!confirm('Clear the auto-grown profile?')) return;
+    await clearProfile();
+    setContent('');
+    toast({ title: 'Profile cleared' });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <UserCircle2 className="h-4 w-4" /> About You (auto-grown)
+        </CardTitle>
+        <CardDescription>
+          The agent extracts stable facts about you from every chat — preferences, projects, tools, habits — and injects them into every prompt so it adapts over time. Edit freely.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={18}
+          className="font-mono text-xs leading-relaxed"
+          placeholder={loading ? 'Loading…' : 'No profile facts yet. Chat with the agent and it will build a profile of you here.'}
+        />
+        <div className="flex gap-2">
+          <Button onClick={save} className="flex-1"><Save className="h-4 w-4 mr-2" /> Save edits</Button>
+          <Button variant="outline" onClick={load}><RefreshCw className="h-4 w-4 mr-2" /> Reload</Button>
+          <Button variant="outline" onClick={wipe} className="text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4 mr-2" /> Clear
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function MemoryPage() {
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Agent Memory & Learning</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Hermes-style memory loop: identity, lessons learned from mistakes, and the full action log.
+          Hermes-style memory loop: identity, an auto-grown profile of you, lessons learned, and the full action log.
         </p>
       </div>
 
       <Tabs defaultValue="identity">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="identity"><User className="h-3.5 w-3.5 mr-1.5" /> Identity</TabsTrigger>
+          <TabsTrigger value="profile"><UserCircle2 className="h-3.5 w-3.5 mr-1.5" /> Profile</TabsTrigger>
           <TabsTrigger value="lessons"><BookOpen className="h-3.5 w-3.5 mr-1.5" /> Lessons</TabsTrigger>
           <TabsTrigger value="episodes"><History className="h-3.5 w-3.5 mr-1.5" /> Episodes</TabsTrigger>
         </TabsList>
-        <TabsContent value="identity" className="mt-4">
-          <IdentityTab />
-        </TabsContent>
-        <TabsContent value="lessons" className="mt-4">
-          <LessonsTab />
-        </TabsContent>
-        <TabsContent value="episodes" className="mt-4">
-          <EpisodesTab />
-        </TabsContent>
+        <TabsContent value="identity" className="mt-4"><IdentityTab /></TabsContent>
+        <TabsContent value="profile" className="mt-4"><ProfileTab /></TabsContent>
+        <TabsContent value="lessons" className="mt-4"><LessonsTab /></TabsContent>
+        <TabsContent value="episodes" className="mt-4"><EpisodesTab /></TabsContent>
       </Tabs>
     </div>
   );
