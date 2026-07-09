@@ -51,6 +51,8 @@ export default function SettingsPage() {
   const [discordLoading, setDiscordLoading] = useState(true);
   const [discordAction, setDiscordAction] = useState<'connect' | 'disconnect' | null>(null);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings);
+  const [testingOllama, setTestingOllama] = useState(false);
+  const [testingAgent, setTestingAgent] = useState(false);
 
   const updateNotif = (patch: Partial<NotificationSettings>) => {
     const next = { ...notifSettings, ...patch };
