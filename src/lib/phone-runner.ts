@@ -39,14 +39,14 @@ async function register(deviceId: string): Promise<void> {
   } catch {}
 }
 
-async function poll(deviceId: string): Promise<QueuedCommand[]> {
+async function poll(deviceId: string): Promise<{ commands: QueuedCommand[]; ok: boolean }> {
   const { agentUrl } = getSettings();
   try {
     const r = await fetch(`${agentUrl}/phone/commands?device_id=${encodeURIComponent(deviceId)}`);
-    if (!r.ok) return [];
+    if (!r.ok) return { commands: [], ok: false };
     const j = await r.json();
-    return Array.isArray(j.commands) ? j.commands : [];
-  } catch { return []; }
+    return { commands: Array.isArray(j.commands) ? j.commands : [], ok: true };
+  } catch { return { commands: [], ok: false }; }
 }
 
 async function postResult(deviceId: string, id: string, ok: boolean, output: string): Promise<void> {
@@ -60,7 +60,7 @@ async function postResult(deviceId: string, id: string, ok: boolean, output: str
   } catch {}
 }
 
-async function heartbeat(deviceId: string): Promise<void> {
+async function heartbeat(deviceId: string): Promise<boolean> {
   const { agentUrl } = getSettings();
   try {
     let battery: number | null = null;
@@ -71,12 +71,13 @@ async function heartbeat(deviceId: string): Promise<void> {
       battery = b.batteryLevel != null ? Math.round(b.batteryLevel * 100) : null;
       charging = !!b.isCharging;
     } catch {}
-    await fetch(`${agentUrl}/phone/heartbeat`, {
+    const res = await fetch(`${agentUrl}/phone/heartbeat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: deviceId, battery, charging, ts: Date.now() }),
     });
-  } catch {}
+    return res.ok;
+  } catch { return false; }
 }
 
 export function startPhoneRunner(): void {
@@ -89,14 +90,23 @@ export function startPhoneRunner(): void {
 
   setInterval(() => void heartbeat(deviceId), HEARTBEAT_MS);
 
+  let pollMs = POLL_MS;
+  const maxPollMs = 60_000;
+
+  window.addEventListener('online', () => { pollMs = POLL_MS; });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollMs = POLL_MS; });
+
   const loop = async () => {
     while (true) {
-      const cmds = await poll(deviceId);
-      for (const c of cmds) {
+      const { commands, ok } = await poll(deviceId);
+      if (commands.length === 0) {
+        pollMs = ok ? POLL_MS : Math.min(pollMs * 2, maxPollMs);
+      }
+      for (const c of commands) {
         const res = await executePhoneTag(c.tag);
         await postResult(deviceId, c.id, res.ok, res.output);
       }
-      await new Promise(r => setTimeout(r, POLL_MS));
+      await new Promise(r => setTimeout(r, pollMs));
     }
   };
   void loop();
