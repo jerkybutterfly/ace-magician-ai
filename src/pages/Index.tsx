@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { AgentHealthPill } from '@/components/AgentHealthPill';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import Chat from './Chat';
 import FilesPage from './FilesPage';
 import SettingsPage from './SettingsPage';
