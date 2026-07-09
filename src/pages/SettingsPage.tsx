@@ -94,6 +94,32 @@ export default function SettingsPage() {
     toast({ title: 'Settings saved', description: 'Configuration updated successfully.' });
   };
 
+  const handleTestOllama = async () => {
+    setTestingOllama(true);
+    try {
+      await fetchModels();
+      toast({ title: 'Ollama reachable', description: `Connected to ${settings.ollamaUrl}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cannot reach Ollama';
+      toast({ title: 'Ollama unreachable', description: message, variant: 'destructive' });
+    } finally {
+      setTestingOllama(false);
+    }
+  };
+
+  const handleTestAgent = async () => {
+    setTestingAgent(true);
+    try {
+      await getSystemInfo();
+      toast({ title: 'Agent reachable', description: `Connected to ${settings.agentUrl}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cannot reach agent';
+      toast({ title: 'Agent unreachable', description: message, variant: 'destructive' });
+    } finally {
+      setTestingAgent(false);
+    }
+  };
+
   const refreshTelegramStatus = async () => {
     setTelegramLoading(true);
 
