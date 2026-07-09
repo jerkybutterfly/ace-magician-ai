@@ -68,15 +68,23 @@ interface Props {
   onModelChange: (m: string) => void;
 }
 
+const PROVIDER_KEY = 'chat-provider';
+
 export default function Chat({ conversation, onUpdate, model, onModelChange }: Props) {
   const [input, setInput] = useState('');
-  const isMobile = useIsMobile();
-  const [provider, setProvider] = useState<LLMProvider>('ollama');
+  const [provider, setProvider] = useState<LLMProvider>(() => {
+    try {
+      const saved = localStorage.getItem(PROVIDER_KEY);
+      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'local') return saved;
+    } catch {}
+    return 'ollama';
+  });
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
 
   useEffect(() => {
-    if (isMobile) setProvider('cloud');
-  }, [isMobile]);
+    try { localStorage.setItem(PROVIDER_KEY, provider); } catch {}
+  }, [provider]);
+
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
   const [googleModel, setGoogleModel] = useState(GOOGLE_MODELS[0].value);
   const [lmStudioModels, setLmStudioModels] = useState<LMStudioModel[]>([]);
