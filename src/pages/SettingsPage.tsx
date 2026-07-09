@@ -285,6 +285,17 @@ export default function SettingsPage() {
             <Label htmlFor="default-model">Default Model</Label>
             <Input id="default-model" value={settings.defaultModel} onChange={(e) => update('defaultModel', e.target.value)} placeholder="e.g. llama3.2" />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestOllama}
+            disabled={testingOllama}
+            className="w-fit"
+          >
+            {testingOllama && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Test Ollama connection
+          </Button>
         </CardContent>
       </Card>
 
