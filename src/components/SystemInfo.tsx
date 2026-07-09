@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getSystemInfo, type SystemInfo as SysInfo } from '@/lib/agent';
 import { Cpu, HardDrive, MemoryStick, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { useIntervalWithBackoff } from '@/hooks/useIntervalWithBackoff';
 
 function formatBytes(bytes: number) {
   const gb = bytes / (1024 ** 3);
@@ -18,14 +19,16 @@ export function SystemInfoPanel() {
     try {
       setInfo(await getSystemInfo());
       setError('');
+      return true;
     } catch {
       setError('Agent unavailable');
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t); }, []);
+  useIntervalWithBackoff(() => load(), 5000);
 
   if (error) return <div className="p-3 text-xs text-muted-foreground">{error}</div>;
   if (!info) return <div className="p-3 text-xs text-muted-foreground">Loading...</div>;

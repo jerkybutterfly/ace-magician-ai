@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { AgentHealthPill } from '@/components/AgentHealthPill';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import Chat from './Chat';
 import FilesPage from './FilesPage';
 import SettingsPage from './SettingsPage';
@@ -122,6 +123,7 @@ export default function Index() {
         <header className="h-12 flex items-center justify-between border-b border-border/50 px-2 shrink-0">
           <SidebarTrigger />
           <div className="flex items-center gap-1">
+            <ConnectionStatus />
             <AgentHealthPill />
           </div>
         </header>

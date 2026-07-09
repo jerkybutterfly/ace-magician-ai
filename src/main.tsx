@@ -3,16 +3,25 @@ import React from "react";
 import App from "./App.tsx";
 import "./index.css";
 
-// Register service worker safely (skip in Lovable preview / iframes)
+// Register service worker safely (skip in Lovable preview / dev / iframes)
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
 })();
-const isPreviewHost =
-  window.location.hostname.includes("id-preview--") ||
-  window.location.hostname.includes("lovableproject.com") ||
-  window.location.hostname.includes("lovable.app");
 
-if (isPreviewHost || isInIframe) {
+const host = window.location.hostname;
+const isPreviewHost =
+  host.startsWith("id-preview--") ||
+  host.startsWith("preview--") ||
+  host === "lovableproject.com" ||
+  host.endsWith(".lovableproject.com") ||
+  host === "lovableproject-dev.com" ||
+  host.endsWith(".lovableproject-dev.com") ||
+  host === "beta.lovable.dev" ||
+  host.endsWith(".beta.lovable.dev");
+
+const swOff = new URLSearchParams(window.location.search).get("sw") === "off";
+
+if (!import.meta.env.PROD || isPreviewHost || isInIframe || swOff) {
   navigator.serviceWorker?.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
 } else if ("serviceWorker" in navigator) {
   import("virtual:pwa-register")

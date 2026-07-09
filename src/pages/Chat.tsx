@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { consumePending, onChatPush } from '@/lib/chat-bus';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, fetchModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type OllamaModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
@@ -69,15 +68,26 @@ interface Props {
   onModelChange: (m: string) => void;
 }
 
+const PROVIDER_KEY = 'chat-provider';
+
 export default function Chat({ conversation, onUpdate, model, onModelChange }: Props) {
   const [input, setInput] = useState('');
-  const isMobile = useIsMobile();
-  const [provider, setProvider] = useState<LLMProvider>('ollama');
+  const [provider, setProvider] = useState<LLMProvider>(() => {
+    try {
+      const saved = localStorage.getItem(PROVIDER_KEY);
+      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'local') return saved;
+      // eslint-disable-next-line no-empty
+    } catch {}
+    return 'ollama';
+  });
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
 
   useEffect(() => {
-    if (isMobile) setProvider('cloud');
-  }, [isMobile]);
+    try { localStorage.setItem(PROVIDER_KEY, provider); }
+    // eslint-disable-next-line no-empty
+    catch {}
+  }, [provider]);
+
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
   const [googleModel, setGoogleModel] = useState(GOOGLE_MODELS[0].value);
   const [lmStudioModels, setLmStudioModels] = useState<LMStudioModel[]>([]);

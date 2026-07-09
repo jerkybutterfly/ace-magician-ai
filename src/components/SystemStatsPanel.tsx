@@ -1,26 +1,25 @@
-import { useState, useEffect } from "react";
-import { Activity, Cpu, HardDrive, Wifi } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
+import { Cpu, HardDrive, Wifi } from "lucide-react";
+import { getSettings } from "@/lib/settings";
+import { useIntervalWithBackoff } from "@/hooks/useIntervalWithBackoff";
 
 export function SystemStatsPanel() {
   const [stats, setStats] = useState<{ cpu: number; ram: number; network: { bytes_sent: number; bytes_recv: number } } | null>(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch("http://127.0.0.1:8484/system/stats");
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.error) setStats(data);
-        }
-      } catch (e) {
-        // silently fail if agent is down
+  useIntervalWithBackoff(async () => {
+    try {
+      const { agentUrl } = getSettings();
+      const res = await fetch(`${agentUrl}/system/stats`);
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.error) setStats(data);
+        return true;
       }
-    };
-    fetchStats();
-    const interval = setInterval(fetchStats, 2000);
-    return () => clearInterval(interval);
-  }, []);
+      return false;
+    } catch {
+      return false;
+    }
+  }, 2000);
 
   if (!stats) return null;
 

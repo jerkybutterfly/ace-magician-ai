@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
+import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, getSystemInfo, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
+import { fetchModels } from '@/lib/ollama';
 import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, type AppSettings, type TelegramProvider } from '@/lib/settings';
 import { isSmartRouterEnabled, setSmartRouterEnabled } from '@/lib/smart-router';
 import { getNotificationSettings, saveNotificationSettings, requestNotificationPermission, showNotification, postNotification, type NotificationSettings } from '@/lib/notifications';
@@ -50,6 +51,8 @@ export default function SettingsPage() {
   const [discordLoading, setDiscordLoading] = useState(true);
   const [discordAction, setDiscordAction] = useState<'connect' | 'disconnect' | null>(null);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings);
+  const [testingOllama, setTestingOllama] = useState(false);
+  const [testingAgent, setTestingAgent] = useState(false);
 
   const updateNotif = (patch: Partial<NotificationSettings>) => {
     const next = { ...notifSettings, ...patch };
@@ -89,6 +92,32 @@ export default function SettingsPage() {
   const handleSave = () => {
     saveSettings(settings);
     toast({ title: 'Settings saved', description: 'Configuration updated successfully.' });
+  };
+
+  const handleTestOllama = async () => {
+    setTestingOllama(true);
+    try {
+      await fetchModels();
+      toast({ title: 'Ollama reachable', description: `Connected to ${settings.ollamaUrl}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cannot reach Ollama';
+      toast({ title: 'Ollama unreachable', description: message, variant: 'destructive' });
+    } finally {
+      setTestingOllama(false);
+    }
+  };
+
+  const handleTestAgent = async () => {
+    setTestingAgent(true);
+    try {
+      await getSystemInfo();
+      toast({ title: 'Agent reachable', description: `Connected to ${settings.agentUrl}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cannot reach agent';
+      toast({ title: 'Agent unreachable', description: message, variant: 'destructive' });
+    } finally {
+      setTestingAgent(false);
+    }
   };
 
   const refreshTelegramStatus = async () => {
@@ -256,6 +285,17 @@ export default function SettingsPage() {
             <Label htmlFor="default-model">Default Model</Label>
             <Input id="default-model" value={settings.defaultModel} onChange={(e) => update('defaultModel', e.target.value)} placeholder="e.g. llama3.2" />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestOllama}
+            disabled={testingOllama}
+            className="w-fit"
+          >
+            {testingOllama && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Test Ollama connection
+          </Button>
         </CardContent>
       </Card>
 
@@ -328,6 +368,17 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
               Points to the Python agent (<code className="text-xs bg-muted px-1 rounded">agent.py</code>) — <strong>not</strong> LM Studio. Default: <code className="text-xs bg-muted px-1 rounded">http://localhost:8484</code>. From another device, use your PC&apos;s LAN IP (e.g. <code className="text-xs bg-muted px-1 rounded">http://192.168.0.239:8484</code>).
             </p>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestAgent}
+            disabled={testingAgent}
+            className="w-fit"
+          >
+            {testingAgent && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Test agent connection
+          </Button>
         </CardContent>
       </Card>
 
