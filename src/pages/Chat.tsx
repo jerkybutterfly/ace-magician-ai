@@ -76,13 +76,16 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     try {
       const saved = localStorage.getItem(PROVIDER_KEY);
       if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'local') return saved;
+      // eslint-disable-next-line no-empty
     } catch {}
     return 'ollama';
   });
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; content: string }[]>([]);
 
   useEffect(() => {
-    try { localStorage.setItem(PROVIDER_KEY, provider); } catch {}
+    try { localStorage.setItem(PROVIDER_KEY, provider); }
+    // eslint-disable-next-line no-empty
+    catch {}
   }, [provider]);
 
   const [cloudModel, setCloudModel] = useState(CLOUD_MODELS[0].value);
