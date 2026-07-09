@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Target, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { getSettings } from '@/lib/settings';
+import { useIntervalWithBackoff } from '@/hooks/useIntervalWithBackoff';
 
 interface Mission {
   goal: string;
@@ -12,25 +13,21 @@ export function MissionPanel() {
   const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchMission = async () => {
+  useIntervalWithBackoff(async () => {
     try {
       const { agentUrl } = getSettings();
       const res = await fetch(`${agentUrl}/mission`);
       if (res.ok) {
         setMission(await res.json());
+        setLoading(false);
+        return true;
       }
-    } catch (e) {
-      console.error('Failed to fetch mission:', e);
-    } finally {
+      return false;
+    } catch {
       setLoading(false);
+      return false;
     }
-  };
-
-  useEffect(() => {
-    fetchMission();
-    const interval = setInterval(fetchMission, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  }, 10000);
 
   if (loading) return null;
   if (!mission) return null;
