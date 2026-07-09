@@ -368,6 +368,17 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
               Points to the Python agent (<code className="text-xs bg-muted px-1 rounded">agent.py</code>) — <strong>not</strong> LM Studio. Default: <code className="text-xs bg-muted px-1 rounded">http://localhost:8484</code>. From another device, use your PC&apos;s LAN IP (e.g. <code className="text-xs bg-muted px-1 rounded">http://192.168.0.239:8484</code>).
             </p>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestAgent}
+            disabled={testingAgent}
+            className="w-fit"
+          >
+            {testingAgent && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Test agent connection
+          </Button>
         </CardContent>
       </Card>
 
