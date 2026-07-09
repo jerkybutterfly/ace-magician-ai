@@ -123,6 +123,7 @@ export default function Index() {
         <header className="h-12 flex items-center justify-between border-b border-border/50 px-2 shrink-0">
           <SidebarTrigger />
           <div className="flex items-center gap-1">
+            <ConnectionStatus />
             <AgentHealthPill />
           </div>
         </header>
