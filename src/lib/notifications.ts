@@ -118,25 +118,51 @@ export function startNotificationPoller(intervalMs = 10_000): void {
   if (!localStorage.getItem(LAST_TS_KEY)) {
     localStorage.setItem(LAST_TS_KEY, String(Date.now() / 1000));
   }
+
+  let currentInterval = intervalMs;
+  const maxInterval = 60_000;
+
+  const schedule = () => {
+    if (pollerInterval) clearInterval(pollerInterval);
+    pollerInterval = setInterval(tick, currentInterval);
+  };
+
   const tick = async () => {
     const settings = getNotificationSettings();
     if (!settings.enabled) return;
     const since = parseFloat(localStorage.getItem(LAST_TS_KEY) || '0');
-    const items = await pollNotifications(since);
-    if (!items.length) return;
-    let maxTs = since;
-    for (const item of items) {
-      if (item.ts > maxTs) maxTs = item.ts;
-      // filter by per-source toggles
-      if (item.kind === 'cron' && !settings.cron) continue;
-      if (item.kind === 'self' && !settings.selfNotify) continue;
-      if (item.kind === 'tool' && !settings.longTools) continue;
-      await showNotification({ title: item.title, body: item.body });
+    try {
+      const items = await pollNotifications(since);
+      currentInterval = intervalMs; // success — reset backoff
+      if (!items.length) return;
+      let maxTs = since;
+      for (const item of items) {
+        if (item.ts > maxTs) maxTs = item.ts;
+        // filter by per-source toggles
+        if (item.kind === 'cron' && !settings.cron) continue;
+        if (item.kind === 'self' && !settings.selfNotify) continue;
+        if (item.kind === 'tool' && !settings.longTools) continue;
+        await showNotification({ title: item.title, body: item.body });
+      }
+      localStorage.setItem(LAST_TS_KEY, String(maxTs));
+    } catch {
+      currentInterval = Math.min(currentInterval * 2, maxInterval);
     }
-    localStorage.setItem(LAST_TS_KEY, String(maxTs));
+    schedule();
   };
+
+  const reset = () => {
+    currentInterval = intervalMs;
+    schedule();
+  };
+
+  window.addEventListener('online', reset);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) reset();
+  });
+
   void tick();
-  pollerInterval = setInterval(tick, intervalMs);
+  schedule();
 }
 
 export function stopNotificationPoller(): void {
