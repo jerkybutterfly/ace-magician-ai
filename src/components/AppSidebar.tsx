@@ -146,12 +146,15 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
                       >
                         <MessageSquare className="mr-2 h-3.5 w-3.5 flex-shrink-0" />
                         <span className="truncate flex-1">{c.title}</span>
-                        <button
+                        <span
+                          role="button"
+                          tabIndex={0}
                           onClick={(e) => { e.stopPropagation(); onDeleteConvo(c.id); }}
-                          className="opacity-0 group-hover:opacity-100 ml-1 transition-opacity"
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onDeleteConvo(c.id); } }}
+                          className="opacity-0 group-hover:opacity-100 ml-1 transition-opacity cursor-pointer"
                         >
                           <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                        </button>
+                        </span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
