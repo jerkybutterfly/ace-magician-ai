@@ -54,6 +54,8 @@ export default function SettingsPage() {
   const [testingOllama, setTestingOllama] = useState(false);
   const [testingAgent, setTestingAgent] = useState(false);
   const [testingColibri, setTestingColibri] = useState(false);
+  const [colibriServerLoading, setColibriServerLoading] = useState(false);
+  const [colibriServerStatus, setColibriServerStatus] = useState<{ running: boolean; pid: number | null; health: any; models: any[] } | null>(null);
 
   const updateNotif = (patch: Partial<NotificationSettings>) => {
     const next = { ...notifSettings, ...patch };
@@ -138,6 +140,72 @@ export default function SettingsPage() {
       toast({ title: 'colibrì unreachable', description: message, variant: 'destructive' });
     } finally {
       setTestingColibri(false);
+    }
+  };
+
+  const refreshColibriServerStatus = async () => {
+    try {
+      const r = await fetch(`${settings.agentUrl.replace(/\/$/, '')}/colibri/status`, { signal: AbortSignal.timeout(4000) });
+      if (r.ok) {
+        const data = await r.json();
+        setColibriServerStatus({ running: !!data.running, pid: data.pid ?? null, health: data.health ?? null, models: data.models ?? [] });
+      }
+    } catch { /* agent may not be running — ignore */ }
+  };
+
+  useEffect(() => {
+    void refreshColibriServerStatus();
+    const id = setInterval(() => void refreshColibriServerStatus(), 4000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.agentUrl]);
+
+  const handleStartColibri = async () => {
+    if (!settings.colibriModelPath?.trim()) {
+      toast({ title: 'Model path required', description: 'Set colibrì Model Path first (the folder containing GLM-5.2 int4 weights).', variant: 'destructive' });
+      return;
+    }
+    setColibriServerLoading(true);
+    try {
+      const payload: any = {
+        model_path: settings.colibriModelPath.trim(),
+        ram_gb: Number(settings.colibriRamGb) || 24,
+      };
+      if (settings.colibriGpu) payload.gpu = settings.colibriGpu;
+      const r = await fetch(`${settings.agentUrl.replace(/\/$/, '')}/colibri/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+      toast({
+        title: data.already_running ? 'colibrì already running' : 'Starting colibrì…',
+        description: `PID ${data.pid} — RAM_GB=${payload.ram_gb}${payload.gpu ? ` · GPU=${payload.gpu}` : ' · CPU-only'} · polling server for readiness…`,
+      });
+      setTimeout(() => void refreshColibriServerStatus(), 1500);
+      setTimeout(() => void handleTestColibri(), 3500);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start colibrì';
+      toast({ title: 'colibrì start failed', description: message, variant: 'destructive' });
+    } finally {
+      setColibriServerLoading(false);
+    }
+  };
+
+  const handleStopColibri = async () => {
+    setColibriServerLoading(true);
+    try {
+      const r = await fetch(`${settings.agentUrl.replace(/\/$/, '')}/colibri/stop`, { method: 'POST' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+      toast({ title: data.already_stopped ? 'colibrì already stopped' : 'colibrì stopped', description: data.killed ? 'Process terminated (graceful→kill fallback).' : 'No process was running.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to stop colibrì';
+      toast({ title: 'colibrì stop failed', description: message, variant: 'destructive' });
+    } finally {
+      setColibriServerLoading(false);
+      void refreshColibriServerStatus();
     }
   };
 
@@ -382,19 +450,60 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
           <CardDescription>Run the 744B-parameter GLM-5.2 Mixture-of-Experts model on consumer hardware via colibrì</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="colibri-url">colibrì API URL</Label>
-            <Input id="colibri-url" value={settings.colibriUrl} onChange={(e) => update('colibriUrl', e.target.value)} placeholder="http://localhost:8000" />
-            <p className="text-xs text-muted-foreground">
-              Start the colibrì server: <code className="text-xs bg-muted px-1 rounded">cd colibri/c &amp;&amp; ./coli serve --model /path/to/glm52_i4</code> or <code className="text-xs bg-muted px-1 rounded">python openai_server.py --model /path/to/glm52_i4</code>. Default port 8000.
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
+              <span className={`h-2 w-2 rounded-full ${colibriServerStatus?.running ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/40'}`} />
+              <span className="font-medium">
+                {colibriServerStatus?.running ? `Running · PID ${colibriServerStatus.pid}` : 'Not running'}
+              </span>
+              {colibriServerStatus?.running && colibriServerStatus.health?.active !== undefined && (
+                <span className="text-muted-foreground">
+                  · active {colibriServerStatus.health.active} · queued {colibriServerStatus.health.queued}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="colibri-url">colibrì API URL</Label>
+              <Input id="colibri-url" value={settings.colibriUrl} onChange={(e) => update('colibriUrl', e.target.value)} placeholder="http://localhost:8000" />
+              <p className="text-xs text-muted-foreground">
+                Where the colibrì OpenAI-compatible server listens. Default port 8000.
+              </p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="colibri-model-path">Model path (on your PC)</Label>
+              <Input id="colibri-model-path" value={settings.colibriModelPath} onChange={(e) => update('colibriModelPath', e.target.value)} placeholder="D:\glm52_i4  (folder with GLM-5.2 int4 weights, ~372GB)" />
+              <p className="text-xs text-muted-foreground">
+                Absolute path on this PC to the downloaded model folder. Required to launch from UI.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="colibri-ram-gb">RAM budget (GB)</Label>
+              <Input id="colibri-ram-gb" type="number" min={4} max={2048} value={settings.colibriRamGb} onChange={(e) => update('colibriRamGb', Math.max(4, Number(e.target.value) || 0))} />
+              <p className="text-xs text-muted-foreground">Expert working-set size. Leave 8–16 GB headroom for OS.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="colibri-gpu">GPU accelerator</Label>
+              <Select value={settings.colibriGpu} onValueChange={(v: '' | 'cuda' | 'metal') => update('colibriGpu', v)}>
+                <SelectTrigger id="colibri-gpu">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">CPU only</SelectItem>
+                  <SelectItem value="cuda">NVIDIA CUDA</SelectItem>
+                  <SelectItem value="metal">Apple Metal</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Offloads QKV/MLP/experts to GPU when available.</p>
+            </div>
           </div>
           <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
             <p className="text-xs font-semibold">💡 Quick Start</p>
             <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
-              <li>Download the pre-built Windows binary from <a className="underline text-primary hover:underline" href="https://github.com/JustVugg/colibri/releases" target="_blank" rel="noopener noreferrer">colibrì Releases</a> or build from source.</li>
-              <li>Download the GLM-5.2 int4 model (372 GB) from <a className="underline text-primary hover:underline" href="https://huggingface.co/mateogrgic/GLM-5.2-colibri-int4-with-int8-mtp" target="_blank" rel="noopener noreferrer">Hugging Face</a>.</li>
-              <li>Set <code className="bg-muted px-1 rounded">$env:COLI_MODEL=D:\glm52_i4</code> and run <code className="bg-muted px-1 rounded">.\coli serve --host 0.0.0.0 --port 8000</code>.</li>
+              <li>Download the pre-built Windows binary from <a className="underline text-primary hover:underline" href="https://github.com/JustVugg/colibri/releases" target="_blank" rel="noopener noreferrer">colibrì Releases</a> or build from source, then drop <code className="bg-muted px-1 rounded">coli.bat</code> / <code className="bg-muted px-1 rounded">coli</code> into <code className="bg-muted px-1 rounded">colibri/c/</code>.</li>
+              <li>Download the GLM-5.2 int4 model (372 GB) from <a className="underline text-primary hover:underline" href="https://huggingface.co/mateogrgic/GLM-5.2-colibri-int4-with-int8-mtp" target="_blank" rel="noopener noreferrer">Hugging Face</a> and paste the folder path above.</li>
+              <li>Click <span className="font-medium text-foreground">Start colibrì server</span> below — or run <code className="bg-muted px-1 rounded">$env:COLI_MODEL=D:\glm52_i4; .\coli serve --host 0.0.0.0 --port 8000</code>.</li>
               <li>Select &quot;colibrì (744B MoE)&quot; as the provider in Chat.</li>
             </ol>
           </div>
@@ -420,10 +529,32 @@ COLI_MODEL_MIRROR=E:\\glm52_i4_mirror
 COLI_GPU=none
 # Learnable hot-store: re-pin hottest experts every N tokens
 REPIN=2048`}</pre>
-              <p><strong>Windows (PowerShell):</strong> Set with <code className="bg-muted px-1 rounded">$env:RAM_GB="24"; $env:PILOT="1"; ...</code> before running <code className="bg-muted px-1 rounded">coli serve</code>.</p>
+              <p><strong>Windows (PowerShell):</strong> Set with <code className="bg-muted px-1 rounded">$env:RAM_GB="24"; $env:PILOT="1"; ...</code> before running <code className="bg-muted px-1 rounded">coli serve</code>. When launching from the UI, you can pass any extra vars via agent <code className="bg-muted px-1 rounded">POST /colibri/start extra_env</code>.</p>
             </div>
           </details>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={handleStartColibri}
+              disabled={colibriServerLoading || colibriServerStatus?.running === true}
+              className="w-fit"
+            >
+              {colibriServerLoading && !colibriServerStatus?.running && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+              Start colibrì server
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={handleStopColibri}
+              disabled={colibriServerLoading || !colibriServerStatus?.running}
+              className="w-fit"
+            >
+              {colibriServerLoading && colibriServerStatus?.running && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+              Stop colibrì server
+            </Button>
             <Button
               type="button"
               variant="outline"

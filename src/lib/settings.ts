@@ -6,6 +6,9 @@ export interface AppSettings {
   ollamaUrl: string;
   lmStudioUrl: string;
   colibriUrl: string;
+  colibriModelPath: string;
+  colibriRamGb: number;
+  colibriGpu: '' | 'cuda' | 'metal';
   agentUrl: string;
   defaultModel: string;
   systemPrompt: string;
@@ -33,6 +36,9 @@ const defaultSettings: AppSettings = {
   ollamaUrl: isNativePlatform() ? `${NATIVE_HOST}:11434` : 'http://localhost:11434',
   lmStudioUrl: isNativePlatform() ? `${NATIVE_HOST}:1234` : 'http://127.0.0.1:1234',
   colibriUrl: isNativePlatform() ? `${NATIVE_HOST}:8000` : 'http://localhost:8000',
+  colibriModelPath: '',
+  colibriRamGb: 24,
+  colibriGpu: '',
   agentUrl: isNativePlatform() ? `${NATIVE_HOST}:8484` : 'http://localhost:8484',
   defaultModel: '',
   telegramBotToken: '',
