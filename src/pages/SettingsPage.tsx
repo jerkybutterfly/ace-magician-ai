@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, getSystemInfo, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
-import { fetchModels } from '@/lib/ollama';
+import { fetchModels, fetchColibriHealth, fetchColibriModels } from '@/lib/ollama';
 import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, type AppSettings, type TelegramProvider } from '@/lib/settings';
 import { isSmartRouterEnabled, setSmartRouterEnabled } from '@/lib/smart-router';
 import { getNotificationSettings, saveNotificationSettings, requestNotificationPermission, showNotification, postNotification, type NotificationSettings } from '@/lib/notifications';
@@ -53,6 +53,7 @@ export default function SettingsPage() {
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings);
   const [testingOllama, setTestingOllama] = useState(false);
   const [testingAgent, setTestingAgent] = useState(false);
+  const [testingColibri, setTestingColibri] = useState(false);
 
   const updateNotif = (patch: Partial<NotificationSettings>) => {
     const next = { ...notifSettings, ...patch };
@@ -117,6 +118,26 @@ export default function SettingsPage() {
       toast({ title: 'Agent unreachable', description: message, variant: 'destructive' });
     } finally {
       setTestingAgent(false);
+    }
+  };
+
+  const handleTestColibri = async () => {
+    setTestingColibri(true);
+    try {
+      const [health, models] = await Promise.all([
+        fetchColibriHealth(),
+        fetchColibriModels(),
+      ]);
+      const healthInfo = health
+        ? ` (active=${health.active}, queued=${health.queued}, completed=${health.completed})`
+        : '';
+      const modelInfo = models.length > 0 ? ` — model: ${models[0].id}` : '';
+      toast({ title: 'colibrì reachable', description: `Connected to ${settings.colibriUrl}${healthInfo}${modelInfo}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cannot reach colibrì';
+      toast({ title: 'colibrì unreachable', description: message, variant: 'destructive' });
+    } finally {
+      setTestingColibri(false);
     }
   };
 
@@ -357,6 +378,78 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">colibrì Configuration (GLM-5.2 744B MoE)</CardTitle>
+          <CardDescription>Run the 744B-parameter GLM-5.2 Mixture-of-Experts model on consumer hardware via colibrì</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="colibri-url">colibrì API URL</Label>
+            <Input id="colibri-url" value={settings.colibriUrl} onChange={(e) => update('colibriUrl', e.target.value)} placeholder="http://localhost:8000" />
+            <p className="text-xs text-muted-foreground">
+              Start the colibrì server: <code className="text-xs bg-muted px-1 rounded">cd colibri/c &amp;&amp; ./coli serve --model /path/to/glm52_i4</code> or <code className="text-xs bg-muted px-1 rounded">python openai_server.py --model /path/to/glm52_i4</code>. Default port 8000.
+            </p>
+          </div>
+          <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+            <p className="text-xs font-semibold">💡 Quick Start</p>
+            <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
+              <li>Download the pre-built Windows binary from <a className="underline text-primary hover:underline" href="https://github.com/JustVugg/colibri/releases" target="_blank" rel="noopener noreferrer">colibrì Releases</a> or build from source.</li>
+              <li>Download the GLM-5.2 int4 model (372 GB) from <a className="underline text-primary hover:underline" href="https://huggingface.co/mateogrgic/GLM-5.2-colibri-int4-with-int8-mtp" target="_blank" rel="noopener noreferrer">Hugging Face</a>.</li>
+              <li>Set <code className="bg-muted px-1 rounded">$env:COLI_MODEL=D:\glm52_i4</code> and run <code className="bg-muted px-1 rounded">.\coli serve --host 0.0.0.0 --port 8000</code>.</li>
+              <li>Select &quot;colibrì (744B MoE)&quot; as the provider in Chat.</li>
+            </ol>
+          </div>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer hover:text-foreground">⚡ Performance Tuning Env Vars (set before starting colibrì)</summary>
+            <div className="mt-2 space-y-2">
+              <pre className="text-xs bg-muted/60 rounded p-3 overflow-x-auto leading-relaxed">{`# RAM budget for expert working set (auto ≈ 88% free RAM)
+RAM_GB=24
+# Context length — auto is safest
+CTX=8192
+# I/O pipe: 1 = async disk overlap while computing (default)
+PIPE=1
+# Router lookahead prefetch — 71.6% predictable 1 layer ahead
+PILOT=1
+# Speculative decoding via MTP (int8 MTP head required!)
+DRAFT=4
+# O_DIRECT on Linux / FILE_FLAG_NO_BUFFERING on Windows — often +34%
+DIRECT=1
+# Dual-SSD mirror: set both to a copy of the model dir
+COLI_MODEL=D:\\glm52_i4
+COLI_MODEL_MIRROR=E:\\glm52_i4_mirror
+# GPU: none=CPU-only, auto=detect all, 0,1=device list
+COLI_GPU=none
+# Learnable hot-store: re-pin hottest experts every N tokens
+REPIN=2048`}</pre>
+              <p><strong>Windows (PowerShell):</strong> Set with <code className="bg-muted px-1 rounded">$env:RAM_GB="24"; $env:PILOT="1"; ...</code> before running <code className="bg-muted px-1 rounded">coli serve</code>.</p>
+            </div>
+          </details>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleTestColibri}
+              disabled={testingColibri}
+              className="w-fit"
+            >
+              {testingColibri && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+              Test colibrì connection
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open(settings.colibriUrl, '_blank')}
+              className="w-fit"
+            >
+              Open Dashboard ↗
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Agent Configuration</CardTitle>
           <CardDescription>Configure connection to the local Python agent for PC control</CardDescription>
         </CardHeader>
@@ -405,6 +498,7 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
               <SelectContent>
                 <SelectItem value="ollama">Ollama</SelectItem>
                 <SelectItem value="lmstudio">LM Studio</SelectItem>
+                <SelectItem value="colibri">colibrì (744B MoE)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
@@ -414,10 +508,12 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
 
           <div className="space-y-2">
             <Label htmlFor="telegram-model">Model</Label>
-            <Input id="telegram-model" value={settings.telegramModel} onChange={(e) => update('telegramModel', e.target.value)} placeholder={settings.telegramProvider === 'lmstudio' ? 'Uses loaded model' : 'e.g. llama3.2 (defaults to Default Model)'} />
+            <Input id="telegram-model" value={settings.telegramModel} onChange={(e) => update('telegramModel', e.target.value)} placeholder={settings.telegramProvider === 'lmstudio' ? 'Uses loaded model' : settings.telegramProvider === 'colibri' ? 'e.g. glm-5.2-colibri' : 'e.g. llama3.2 (defaults to Default Model)'} />
             <p className="text-xs text-muted-foreground">
               {settings.telegramProvider === 'lmstudio'
                 ? 'LM Studio uses whichever model is currently loaded. You can leave this empty.'
+                : settings.telegramProvider === 'colibri'
+                ? 'The colibrì model ID. Defaults to glm-5.2-colibri if left empty.'
                 : 'The Ollama model the Telegram bot will use. Leave empty to use the Default Model from Ollama settings.'}
             </p>
           </div>

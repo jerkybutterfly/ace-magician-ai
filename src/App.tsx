@@ -52,6 +52,7 @@ const App = () => {
               <Route path="/trading" element={<TradingPage />} />
               <Route path="/n8n" element={<N8nPage />} />
               <Route path="/install" element={<InstallPage />} />
+              <Route path="/colibri" element={<Index />} />
               <Route path="/files" element={<Index />} />
               <Route path="/skills" element={<Index />} />
               <Route path="/speckit" element={<Index />} />

@@ -1,7 +1,7 @@
 import { getSettings } from './settings';
 import { classifyRequest, truncateHistory, tunedOllamaOptions, tunedSamplingParams, type TaskKind } from './smart-router';
 
-export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'local';
+export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'local' | 'colibri';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
@@ -648,4 +648,122 @@ export async function generateText(prompt: string): Promise<string> {
     console.error('generateText failed:', e);
   }
   return result;
+}
+
+export interface ColibriModel {
+  id: string;
+  object: string;
+}
+
+export async function fetchColibriModels(): Promise<ColibriModel[]> {
+  const { colibriUrl } = getSettings();
+  let res: Response;
+  try {
+    res = await fetch(`${colibriUrl}/v1/models`);
+  } catch {
+    const isHttps = window.location.protocol === 'https:';
+    const hint = isHttps
+      ? 'Your browser is blocking the request because this page is served over HTTPS but colibrì runs on HTTP. To use colibrì, open this app from your local network (e.g. http://localhost:5173) instead of the cloud preview.'
+      : `Cannot reach colibrì at ${colibriUrl}. Check: 1) colibrì server is running (\`cd colibri/c && ./coli serve\` or \`python openai_server.py\`), 2) Port 8000 is accessible, 3) Model snapshot is loaded (COLI_MODEL set).`;
+    throw new Error(hint);
+  }
+  if (!res.ok) throw new Error(`colibrì returned an error (${res.status}). Ensure the server is running with a model loaded.`);
+  const data = await res.json();
+  const models = data.data ?? [];
+  if (models.length === 0) {
+    return [{ id: 'glm-5.2-colibri', object: 'model' }];
+  }
+  return models;
+}
+
+export interface ColibriHealth {
+  active: number;
+  queued: number;
+  completed: number;
+  rejected: number;
+}
+
+export async function fetchColibriHealth(): Promise<ColibriHealth | null> {
+  const { colibriUrl } = getSettings();
+  try {
+    const res = await fetch(`${colibriUrl}/health`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function* streamColibriChat(
+  model: string,
+  messages: ChatMessage[],
+  taskHint?: TaskKind,
+): AsyncGenerator<StreamChunk> {
+  const { colibriUrl, systemPrompt } = getSettings();
+  const agentMemory = (await import('./memory')).getAgentMemory();
+  const currentObjective = getLatestObjective(messages);
+  const memoryContext = currentObjective
+    ? await (await import('./learning')).buildMemoryContext(currentObjective)
+    : '';
+  const fullSystemPrompt = [
+    systemPrompt.trim(),
+    RUNTIME_EXECUTION_PROMPT,
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    memoryContext,
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const baseMessages: ChatMessage[] = [
+    { role: 'system', content: fullSystemPrompt },
+    ...messages,
+  ];
+  const allMessages = truncateHistory(baseMessages, 14, 8000);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const sampling = tunedSamplingParams(task);
+
+  const res = await fetch(`${colibriUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages: allMessages, stream: true, ...sampling }),
+  });
+
+  if (!res.ok) throw new Error(`colibrì error: ${res.statusText}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return;
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.thinking) chunk.thinking = delta.thinking;
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
+      } catch {
+        buffer = line + '\n' + buffer;
+        break;
+      }
+    }
+  }
 }

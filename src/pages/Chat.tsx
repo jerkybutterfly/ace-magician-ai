@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { consumePending, onChatPush } from '@/lib/chat-bus';
-import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, fetchLMStudioModels, fetchModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type OllamaModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamColibriChat, fetchLMStudioModels, fetchModels, fetchColibriModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type OllamaModel, type ColibriModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X, RefreshCw, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X, RefreshCw, ShieldCheck, ShieldAlert, Bird } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 10;
@@ -75,7 +75,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [provider, setProvider] = useState<LLMProvider>(() => {
     try {
       const saved = localStorage.getItem(PROVIDER_KEY);
-      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'local') return saved;
+      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'local' || saved === 'colibri') return saved;
       // eslint-disable-next-line no-empty
     } catch {}
     return 'ollama';
@@ -94,6 +94,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [lmStudioModel, setLmStudioModel] = useState('');
   const [lmStudioError, setLmStudioError] = useState('');
   const [lmStudioLoading, setLmStudioLoading] = useState(false);
+  const [colibriModels, setColibriModels] = useState<ColibriModel[]>([]);
+  const [colibriModel, setColibriModel] = useState('');
+  const [colibriError, setColibriError] = useState('');
+  const [colibriLoading, setColibriLoading] = useState(false);
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [localModel, setLocalModel] = useState('');
   const [localError, setLocalError] = useState('');
@@ -117,6 +121,19 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     }).finally(() => setLmStudioLoading(false));
   };
 
+  const loadColibriModels = () => {
+    setColibriLoading(true);
+    setColibriError('');
+    fetchColibriModels().then((models) => {
+      setColibriModels(models);
+      setColibriError('');
+      if (models.length > 0 && !colibriModel) setColibriModel(models[0].id);
+    }).catch((err) => {
+      setColibriModels([]);
+      setColibriError(err instanceof Error ? err.message : 'Failed to connect to colibrì');
+    }).finally(() => setColibriLoading(false));
+  };
+
   const loadLocalRuntimeModels = () => {
     setLocalError('');
     listLocalModels().then((res) => {
@@ -132,6 +149,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   useEffect(() => {
     if (provider === 'lmstudio') loadLmStudioModels();
     if (provider === 'local') loadLocalRuntimeModels();
+    if (provider === 'colibri') loadColibriModels();
   }, [provider]);
 
   const [streaming, setStreaming] = useState(false);
@@ -288,6 +306,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       const excludedModels: string[] = [];
       let routedOllama = model;
       let routedLmStudio = lmStudioModel;
+      let routedColibri = colibriModel;
       let routedCloud = cloudModel;
       let round = 0;
 
@@ -304,6 +323,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             routedOllama = pickModel(ollamaModels.map(m => m.name), task, model);
           } else if (provider === 'lmstudio' && lmStudioModels.length > 0) {
             routedLmStudio = pickModel(lmStudioModels.map(m => m.id), task, lmStudioModel);
+          } else if (provider === 'colibri' && colibriModels.length > 0) {
+            routedColibri = pickModel(colibriModels.map(m => m.id), task, colibriModel);
           } else if (provider === 'cloud') {
             routedCloud = pickModel(CLOUD_MODELS.map(m => m.value), task, cloudModel);
           }
@@ -318,8 +339,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             ...currentMessages.slice(insertAt),
           ];
         }
-        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           if (chunk.thinking) {
             fullThinking += chunk.thinking;
@@ -491,6 +512,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectItem value="ollama">
               <span className="flex items-center gap-1.5"><Monitor className="h-3 w-3" /> Ollama (PC)</span>
             </SelectItem>
+            <SelectItem value="colibri">
+              <span className="flex items-center gap-1.5"><Bird className="h-3 w-3" /> colibrì (744B MoE)</span>
+            </SelectItem>
             <SelectItem value="cloud">
               <span className="flex items-center gap-1.5"><Cloud className="h-3 w-3" /> Cloud AI</span>
             </SelectItem>
@@ -557,6 +581,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             </button>
             {lmStudioError && (
               <span className="text-[10px] text-destructive max-w-[200px] truncate" title={lmStudioError}>⚠️ {lmStudioError}</span>
+            )}
+          </div>
+        ) : provider === 'colibri' ? (
+          <div className="flex items-center gap-2">
+            <Select value={colibriModel} onValueChange={setColibriModel}>
+              <SelectTrigger className="w-[220px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={colibriLoading ? 'Loading...' : colibriError ? 'colibrì unreachable' : colibriModels.length === 0 ? 'GLM-5.2 (default)' : 'Select model'} />
+              </SelectTrigger>
+              <SelectContent>
+                {colibriModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button onClick={loadColibriModels} disabled={colibriLoading} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${colibriLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {colibriError && (
+              <span className="text-[10px] text-destructive max-w-[220px] truncate" title={colibriError}>⚠️ {colibriError}</span>
             )}
           </div>
         ) : (

@@ -854,6 +854,186 @@ async def system_info():
     }
 
 
+# ═══════════════════════════════════════════════════════
+#  colibrì (GLM-5.2 744B MoE) integration
+# ═══════════════════════════════════════════════════════
+_COLIBRI_PROC: Optional[subprocess.Popen] = None
+_COLIBRI_LOCK = threading.Lock()
+_COLIBRI_BASE_DIR = Path(__file__).parent.parent / "colibri" / "c"
+
+
+def _colibri_find_binary() -> Optional[Path]:
+    """Locate the colibrì engine binary or launcher script."""
+    candidates = [
+        _COLIBRI_BASE_DIR / "coli.bat",
+        _COLIBRI_BASE_DIR / "coli",
+        _COLIBRI_BASE_DIR / "colibri.exe",
+        _COLIBRI_BASE_DIR / "colibri",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
+
+
+class ColibriStartRequest(BaseModel):
+    model_path: Optional[str] = None
+    host: str = "0.0.0.0"
+    port: int = 8000
+    ram_gb: Optional[int] = None
+    gpu: Optional[str] = None
+    extra_env: Optional[dict] = None
+
+
+@app.get("/colibri/status")
+async def colibri_status():
+    global _COLIBRI_PROC
+    info = {
+        "running": False,
+        "pid": None,
+        "exit_code": None,
+        "binary": str(_colibri_find_binary()) if _colibri_find_binary() else None,
+        "base_dir": str(_COLIBRI_BASE_DIR),
+        "health": None,
+        "models": None,
+    }
+    with _COLIBRI_LOCK:
+        if _COLIBRI_PROC is not None:
+            rc = _COLIBRI_PROC.poll()
+            if rc is None:
+                info["running"] = True
+                info["pid"] = _COLIBRI_PROC.pid
+            else:
+                _COLIBRI_PROC = None
+                info["exit_code"] = rc
+    if info["running"]:
+        try:
+            r = _requests.get("http://127.0.0.1:8000/health", timeout=3)
+            if r.ok:
+                info["health"] = r.json()
+        except Exception:
+            pass
+        try:
+            r = _requests.get("http://127.0.0.1:8000/v1/models", timeout=3)
+            if r.ok:
+                info["models"] = r.json().get("data", [])
+        except Exception:
+            pass
+    return info
+
+
+@app.post("/colibri/start")
+async def colibri_start(req: ColibriStartRequest):
+    global _COLIBRI_PROC
+    binary = _colibri_find_binary()
+    if binary is None:
+        raise HTTPException(status_code=404, detail=f"colibrì binary not found. Looked in {_COLIBRI_BASE_DIR}. Download a prebuilt release or build from source first.")
+    with _COLIBRI_LOCK:
+        if _COLIBRI_PROC is not None and _COLIBRI_PROC.poll() is None:
+            return {"ok": True, "already_running": True, "pid": _COLIBRI_PROC.pid}
+        env = os.environ.copy()
+        if req.model_path:
+            env["COLI_MODEL"] = req.model_path
+        if req.ram_gb:
+            env["RAM_GB"] = str(req.ram_gb)
+        if req.gpu:
+            env["COLI_GPU"] = req.gpu
+        if req.extra_env:
+            for k, v in req.extra_env.items():
+                env[str(k)] = str(v)
+        if platform.system() == "Windows":
+            cmd = [
+                "python", str(binary),
+                "serve",
+                "--host", req.host,
+                "--port", str(req.port),
+            ]
+            if req.model_path:
+                cmd += ["--model", req.model_path]
+        else:
+            cmd = [
+                str(binary),
+                "serve",
+                "--host", req.host,
+                "--port", str(req.port),
+            ]
+            if req.model_path:
+                cmd += ["--model", req.model_path]
+        try:
+            _COLIBRI_PROC = subprocess.Popen(
+                cmd,
+                cwd=str(_COLIBRI_BASE_DIR),
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to start colibrì: {e}")
+    return {"ok": True, "pid": _COLIBRI_PROC.pid, "cmd": cmd, "cwd": str(_COLIBRI_BASE_DIR)}
+
+
+@app.post("/colibri/stop")
+async def colibri_stop():
+    global _COLIBRI_PROC
+    killed = False
+    with _COLIBRI_LOCK:
+        if _COLIBRI_PROC is None:
+            return {"ok": True, "already_stopped": True}
+        rc = _COLIBRI_PROC.poll()
+        if rc is not None:
+            _COLIBRI_PROC = None
+            return {"ok": True, "already_stopped": True, "exit_code": rc}
+        try:
+            _COLIBRI_PROC.terminate()
+            try:
+                _COLIBRI_PROC.wait(timeout=10)
+                killed = True
+            except subprocess.TimeoutExpired:
+                _COLIBRI_PROC.kill()
+                _COLIBRI_PROC.wait(timeout=5)
+                killed = True
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to stop colibrì: {e}")
+        finally:
+            _COLIBRI_PROC = None
+    return {"ok": True, "killed": killed}
+
+
+@app.get("/colibri/health")
+async def colibri_health_proxy():
+    try:
+        r = _requests.get("http://127.0.0.1:8000/health", timeout=5)
+        return r.json() if r.ok else {"error": r.status_code, "text": r.text[:500]}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"colibrì not reachable: {e}")
+
+
+@app.api_route("/colibri/v1/{sub:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def colibri_api_proxy(sub: str, request: Request):
+    """Proxy any /colibri/v1/* call to the colibrì server at localhost:8000/v1/*"""
+    url = f"http://127.0.0.1:8000/v1/{sub}"
+    method = request.method.upper()
+    try:
+        body = await request.body()
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
+        r = _requests.request(
+            method, url,
+            data=body if body else None,
+            headers=headers,
+            timeout=600,
+            stream=True,
+        )
+        from fastapi.responses import Response, StreamingResponse
+        if method == "POST" and sub.endswith("chat/completions"):
+            return StreamingResponse(r.iter_content(chunk_size=1), media_type=r.headers.get("content-type", "text/event-stream"), status_code=r.status_code)
+        return Response(content=r.content, status_code=r.status_code, media_type=r.headers.get("content-type"))
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"colibrì proxy failed: {e}")
+
+
+
 @app.get("/telegram/status")
 async def telegram_status():
     return get_telegram_state()

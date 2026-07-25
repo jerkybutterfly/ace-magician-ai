@@ -1,10 +1,11 @@
 import { Capacitor } from '@capacitor/core';
 
-export type TelegramProvider = 'ollama' | 'lmstudio';
+export type TelegramProvider = 'ollama' | 'lmstudio' | 'colibri';
 
 export interface AppSettings {
   ollamaUrl: string;
   lmStudioUrl: string;
+  colibriUrl: string;
   agentUrl: string;
   defaultModel: string;
   systemPrompt: string;
@@ -31,6 +32,7 @@ const NATIVE_HOST = 'http://192.168.1.50';
 const defaultSettings: AppSettings = {
   ollamaUrl: isNativePlatform() ? `${NATIVE_HOST}:11434` : 'http://localhost:11434',
   lmStudioUrl: isNativePlatform() ? `${NATIVE_HOST}:1234` : 'http://127.0.0.1:1234',
+  colibriUrl: isNativePlatform() ? `${NATIVE_HOST}:8000` : 'http://localhost:8000',
   agentUrl: isNativePlatform() ? `${NATIVE_HOST}:8484` : 'http://localhost:8484',
   defaultModel: '',
   telegramBotToken: '',
