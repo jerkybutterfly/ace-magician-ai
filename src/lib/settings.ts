@@ -8,7 +8,7 @@ export interface AppSettings {
   colibriUrl: string;
   colibriModelPath: string;
   colibriRamGb: number;
-  colibriGpu: '' | 'cuda' | 'metal';
+  colibriGpu: 'cpu' | 'cuda' | 'metal';
   agentUrl: string;
   defaultModel: string;
   systemPrompt: string;
@@ -38,7 +38,7 @@ const defaultSettings: AppSettings = {
   colibriUrl: isNativePlatform() ? `${NATIVE_HOST}:8000` : 'http://localhost:8000',
   colibriModelPath: '',
   colibriRamGb: 24,
-  colibriGpu: '',
+  colibriGpu: 'cpu',
   agentUrl: isNativePlatform() ? `${NATIVE_HOST}:8484` : 'http://localhost:8484',
   defaultModel: '',
   telegramBotToken: '',

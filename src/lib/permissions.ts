@@ -100,6 +100,9 @@ const DEFAULT_CONFIG: PermissionConfig = {
     { pattern: '[RUN_CMD:*rmdir /s*]', mode: 'deny', note: 'Recursive delete' },
     { pattern: '[RUN_CMD:*rd /s*]', mode: 'deny' },
     { pattern: '[OPEN_URL:*]', mode: 'allow' },
+    // Polymarket research — read-only market data APIs, safe to auto-allow
+    { pattern: '[HTTP_REQUEST:*polymarket.com*]', mode: 'allow', note: 'Polymarket market data (gamma-api / clob / main site)' },
+    { pattern: '[HTTP_REQUEST:*polymarket.us*]', mode: 'allow', note: 'Polymarket US site' },
     { pattern: '[WRITE_FILE:C:\\Users\\Stephen Dunne\\Desktop*]', mode: 'allow', note: 'Desktop is whitelisted' },
     { pattern: '[WRITE_FILE:C:\\Windows*]', mode: 'deny', note: 'System dir protected' },
     { pattern: '[WRITE_FILE:C:\\Program Files*]', mode: 'deny' },

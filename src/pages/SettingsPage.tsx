@@ -171,7 +171,7 @@ export default function SettingsPage() {
         model_path: settings.colibriModelPath.trim(),
         ram_gb: Number(settings.colibriRamGb) || 24,
       };
-      if (settings.colibriGpu) payload.gpu = settings.colibriGpu;
+      if (settings.colibriGpu && settings.colibriGpu !== 'cpu') payload.gpu = settings.colibriGpu;
       const r = await fetch(`${settings.agentUrl.replace(/\/$/, '')}/colibri/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -485,12 +485,12 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
             </div>
             <div className="space-y-2">
               <Label htmlFor="colibri-gpu">GPU accelerator</Label>
-              <Select value={settings.colibriGpu} onValueChange={(v: '' | 'cuda' | 'metal') => update('colibriGpu', v)}>
+              <Select value={settings.colibriGpu} onValueChange={(v) => update('colibriGpu', v as 'cpu' | 'cuda' | 'metal')}>
                 <SelectTrigger id="colibri-gpu">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">CPU only</SelectItem>
+                  <SelectItem value="cpu">CPU only</SelectItem>
                   <SelectItem value="cuda">NVIDIA CUDA</SelectItem>
                   <SelectItem value="metal">Apple Metal</SelectItem>
                 </SelectContent>
