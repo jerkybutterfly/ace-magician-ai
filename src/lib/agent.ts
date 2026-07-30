@@ -586,3 +586,95 @@ export async function pollAgentNotifications(since: number): Promise<AgentNotifi
   if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to poll notifications'));
   return res.json();
 }
+
+// ── ADB / Phone Control ──
+
+export interface AdbDevice {
+  serial: string;
+  model?: string;
+  status: string;
+}
+
+export interface AdbFileEntry {
+  name: string;
+  is_dir: boolean;
+  size?: number;
+  modified?: string;
+}
+
+export async function getAdbStatus(): Promise<{ installed: boolean; path: string }> {
+  const res = await fetch(agentUrl('/adb/status'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to get ADB status'));
+  return res.json();
+}
+
+export async function getAdbDevices(): Promise<{ devices: AdbDevice[] }> {
+  const res = await fetch(agentUrl('/adb/devices'));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to list ADB devices'));
+  return res.json();
+}
+
+export async function adbConnect(tailscaleIp: string, port: number = 5555): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(agentUrl('/adb/connect'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tailscale_ip: tailscaleIp, port }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to connect ADB'));
+  return res.json();
+}
+
+export async function adbDisconnect(ip?: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(agentUrl('/adb/disconnect'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tailscale_ip: ip || '' }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to disconnect ADB'));
+  return res.json();
+}
+
+export async function adbCommand(command: string, device?: string): Promise<CommandResult> {
+  const res = await fetch(agentUrl('/adb/command'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command, device: device || null }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'ADB command failed'));
+  return res.json();
+}
+
+export async function adbScreenshot(device?: string): Promise<{ image: string }> {
+  const params = device ? `?device=${encodeURIComponent(device)}` : '';
+  const res = await fetch(agentUrl(`/adb/screenshot${params}`));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to take screenshot'));
+  return res.json();
+}
+
+export async function adbListFiles(path: string = '/sdcard/', device?: string): Promise<{ files: AdbFileEntry[] }> {
+  const params = new URLSearchParams({ path });
+  if (device) params.set('device', device);
+  const res = await fetch(agentUrl(`/adb/files?${params}`));
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to list phone files'));
+  return res.json();
+}
+
+export async function adbPullFile(remotePath: string, localPath?: string, device?: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(agentUrl('/adb/pull'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remote_path: remotePath, local_path: localPath || null, device: device || null }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to pull file'));
+  return res.json();
+}
+
+export async function adbPushFile(localPath: string, remotePath: string, device?: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(agentUrl('/adb/push'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ local_path: localPath, remote_path: remotePath, device: device || null }),
+  });
+  if (!res.ok) throw new Error(await parseAgentError(res, 'Failed to push file'));
+  return res.json();
+}

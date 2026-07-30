@@ -117,7 +117,7 @@ export function AppSidebar({ conversations, currentConvoId, onNewChat, onSelectC
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {!collapsed && location.pathname === '/' && (
+        {!collapsed && (location.pathname === '/' || location.pathname === '/chat') && (
           <>
             <SidebarSeparator className="bg-border/40" />
             <SidebarGroup>

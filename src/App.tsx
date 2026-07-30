@@ -13,6 +13,7 @@ import VoicePage from "./pages/VoicePage.tsx";
 import TradingPage from "./pages/TradingPage.tsx";
 import N8nPage from "./pages/N8nPage.tsx";
 import InstallPage from "./pages/InstallPage.tsx";
+import PhonePage from "./pages/PhonePage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
@@ -61,7 +62,7 @@ const App = () => {
               <Route path="/memory" element={<Index />} />
               <Route path="/local-models" element={<Index />} />
               <Route path="/permissions" element={<Index />} />
-              <Route path="/phone" element={<Index />} />
+              <Route path="/phone" element={<PhonePage />} />
               <Route path="/on-device-model" element={<Index />} />
               <Route path="/briefing" element={<Index />} />
               <Route path="/network" element={<Index />} />

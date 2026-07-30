@@ -1,4 +1,4 @@
-import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar, webSearch, webFetch } from './agent';
+import { listFiles, readFile, writeFile, runCommand, browserNavigate, browserClick, browserFill, browserType, browserScreenshot, browserGetText, browserGetHtml, browserExecJS, browserWaitFor, updateMission, executeSkill, listSkills, listProcesses, killProcess, getClipboard, setClipboard, sendNotification, getNetworkInfo, httpRequest, downloadFile, searchFiles, zipFiles, unzipFile, systemPower, launchApp, textToSpeech, getDiskUsage, desktopScreenshot, getWifiNetworks, getInstalledPrograms, getEnvVars, setEnvVar, webSearch, webFetch, adbCommand, adbScreenshot, adbListFiles } from './agent';
 import { checkPermission, isSessionAllowed, sessionAllowOnce, allowForDuration, getToolName } from './permissions';
 import { logEpisode, recordLesson, deriveLesson, type EpisodeOutcome } from './learning';
 
@@ -64,6 +64,9 @@ const TOOL_PATTERNS = [
   { regex: /\[RAG_QUERY:([\s\S]*?)\]/g, handler: handleRagQuery },
   { regex: /\[PHONE_[A-Z_]+(?::[\s\S]*?)?\]/g, handler: handlePhoneTag },
   { regex: /\[TRADE:([\s\S]*?)\]/g, handler: handleTrade },
+  { regex: /\[ADB_CMD:(.*?)\]/g, handler: handleAdbCmd },
+  { regex: /\[ADB_SCREENSHOT:?(.*?)\]/g, handler: handleAdbScreenshot },
+  { regex: /\[ADB_LIST:(.*?)\]/g, handler: handleAdbList },
 ];
 
 async function handlePhoneTag(match: RegExpMatchArray): Promise<ToolResult> {
@@ -651,6 +654,39 @@ async function handleTrade(match: RegExpMatchArray): Promise<ToolResult> {
 
 
 
+
+async function handleAdbCmd(match: RegExpMatchArray): Promise<ToolResult> {
+  const cmd = match[1].trim();
+  try {
+    const result = await adbCommand(cmd);
+    const output = result.stdout || result.stderr || 'Command executed (no output)';
+    return { tag: match[0], result: `\n📱 ADB Command: \`${cmd}\`\n\`\`\`\n${output.trim()}\n\`\`\`\n${result.returncode !== 0 ? `Exit code: ${result.returncode}` : ''}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ ADB command failed \`${cmd}\`: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleAdbScreenshot(match: RegExpMatchArray): Promise<ToolResult> {
+  try {
+    const result = await adbScreenshot();
+    return { tag: match[0], result: `\n📸 Screenshot captured (base64 image data, ${result.image.length} chars)` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ ADB screenshot failed: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
+
+async function handleAdbList(match: RegExpMatchArray): Promise<ToolResult> {
+  const path = match[1].trim();
+  try {
+    const result = await adbListFiles(path);
+    const listing = result.files
+      .map(f => `${f.is_dir ? '📁' : '📄'} ${f.name}${f.size ? ` (${f.size} bytes)` : ''}`)
+      .join('\n');
+    return { tag: match[0], result: `\n📱 Phone files in \`${path}\`:\n\`\`\`\n${listing || 'Empty directory'}\n\`\`` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ Failed to list phone files \`${path}\`: ${e instanceof Error ? e.message : 'unknown error'}` };
+  }
+}
 
 export function hasToolCommands(text: string): boolean {
   return TOOL_PATTERNS.some(({ regex }) => {
