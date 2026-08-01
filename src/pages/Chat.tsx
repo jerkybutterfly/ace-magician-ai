@@ -606,6 +606,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
               <span className="text-[10px] text-destructive max-w-[200px] truncate" title={lmStudioError}>⚠️ {lmStudioError}</span>
             )}
           </div>
+        ) : provider === 'llamacpp' ? (
+          <div className="flex items-center gap-2">
+            <Select value={llamaCppModel} onValueChange={setLlamaCppModel}>
+              <SelectTrigger className="w-[220px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={llamaCppLoading ? 'Loading...' : llamaCppError ? 'llama-server unreachable' : 'Select model'} />
+              </SelectTrigger>
+              <SelectContent>
+                {llamaCppModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button onClick={loadLlamaCppModels} disabled={llamaCppLoading} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${llamaCppLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {llamaCppError && (
+              <span className="text-[10px] text-destructive max-w-[200px] truncate" title={llamaCppError}>⚠️ {llamaCppError}</span>
+            )}
+          </div>
         ) : provider === 'colibri' ? (
           <div className="flex items-center gap-2">
             <Select value={colibriModel} onValueChange={setColibriModel}>
