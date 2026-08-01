@@ -446,6 +446,41 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">llama.cpp Configuration</CardTitle>
+          <CardDescription>Fastest local inference — runs GGUF models directly with no daemon overhead</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="llamacpp-url">llama-server URL</Label>
+            <Input id="llamacpp-url" value={settings.llamaCppUrl} onChange={(e) => update('llamaCppUrl', e.target.value)} placeholder="http://127.0.0.1:8080" />
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={handleTestLlamaCpp} disabled={testingLlamaCpp} className="w-fit">
+            {testingLlamaCpp && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Test llama.cpp connection
+          </Button>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Install and start it on your AM06 Pro, then pick &quot;llama.cpp (fast)&quot; as the provider in Chat.</p>
+            <pre className="text-xs bg-muted/60 rounded p-3 overflow-x-auto leading-relaxed">{`# Install (Windows)
+winget install ggml.llamacpp
+
+# Start the OpenAI-compatible server
+llama-server -m models/your-model.gguf \\
+  --host 0.0.0.0 --port 8080 \\
+  -c 8192 -t 8 -ngl 99 --flash-attn \\
+  --cont-batching --mlock`}</pre>
+            <p className="text-xs text-muted-foreground">
+              <strong>-ngl 99</strong> offloads all layers to the iGPU/GPU, <strong>--flash-attn</strong> speeds up attention,
+              <strong> --mlock</strong> keeps weights resident in RAM. Drop <code className="bg-muted px-1 rounded">-ngl</code> for CPU-only.
+              Use <code className="bg-muted px-1 rounded">--host 0.0.0.0</code> so your phone can reach it over the LAN.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">colibrì Configuration (GLM-5.2 744B MoE)</CardTitle>
           <CardDescription>Run the 744B-parameter GLM-5.2 Mixture-of-Experts model on consumer hardware via colibrì</CardDescription>
         </CardHeader>
