@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { consumePending, onChatPush } from '@/lib/chat-bus';
-import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamColibriChat, fetchLMStudioModels, fetchModels, fetchColibriModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type OllamaModel, type ColibriModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, X, RefreshCw, ShieldCheck, ShieldAlert, Bird } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, Zap, X, RefreshCw, ShieldCheck, ShieldAlert, Bird } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 10;
@@ -75,7 +75,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [provider, setProvider] = useState<LLMProvider>(() => {
     try {
       const saved = localStorage.getItem(PROVIDER_KEY);
-      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'local' || saved === 'colibri') return saved;
+      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri') return saved;
       // eslint-disable-next-line no-empty
     } catch {}
     return 'ollama';
@@ -94,6 +94,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [lmStudioModel, setLmStudioModel] = useState('');
   const [lmStudioError, setLmStudioError] = useState('');
   const [lmStudioLoading, setLmStudioLoading] = useState(false);
+  const [llamaCppModels, setLlamaCppModels] = useState<LlamaCppModel[]>([]);
+  const [llamaCppModel, setLlamaCppModel] = useState('');
+  const [llamaCppError, setLlamaCppError] = useState('');
+  const [llamaCppLoading, setLlamaCppLoading] = useState(false);
   const [colibriModels, setColibriModels] = useState<ColibriModel[]>([]);
   const [colibriModel, setColibriModel] = useState('');
   const [colibriError, setColibriError] = useState('');
@@ -120,6 +124,21 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       setLmStudioError(err instanceof Error ? err.message : 'Failed to connect to LM Studio');
     }).finally(() => setLmStudioLoading(false));
   };
+
+  const loadLlamaCppModels = () => {
+    setLlamaCppLoading(true);
+    setLlamaCppError('');
+    fetchLlamaCppModels().then((models) => {
+      setLlamaCppModels(models);
+      setLlamaCppError('');
+      if (models.length > 0) setLlamaCppModel((prev) => prev || models[0].id);
+    }).catch((err) => {
+      setLlamaCppModels([]);
+      setLlamaCppError(err instanceof Error ? err.message : 'Failed to connect to llama.cpp');
+    }).finally(() => setLlamaCppLoading(false));
+  };
+
+
 
   const loadColibriModels = () => {
     setColibriLoading(true);
@@ -148,6 +167,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
   useEffect(() => {
     if (provider === 'lmstudio') loadLmStudioModels();
+    if (provider === 'llamacpp') loadLlamaCppModels();
     if (provider === 'local') loadLocalRuntimeModels();
     if (provider === 'colibri') loadColibriModels();
   }, [provider]);
@@ -339,8 +359,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             ...currentMessages.slice(insertAt),
           ];
         }
-        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           if (chunk.thinking) {
             fullThinking += chunk.thinking;
@@ -477,8 +497,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'local' ? 'Local runtime' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'lmstudio' ? '' : 'Please try again.';
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'local' ? 'Local runtime' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'lmstudio' ? '' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
@@ -523,6 +543,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             </SelectItem>
             <SelectItem value="lmstudio">
               <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> LM Studio</span>
+            </SelectItem>
+            <SelectItem value="llamacpp">
+              <span className="flex items-center gap-1.5"><Zap className="h-3 w-3" /> llama.cpp (fast)</span>
             </SelectItem>
             <SelectItem value="local">
               <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> Local (built-in)</span>
@@ -581,6 +604,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             </button>
             {lmStudioError && (
               <span className="text-[10px] text-destructive max-w-[200px] truncate" title={lmStudioError}>⚠️ {lmStudioError}</span>
+            )}
+          </div>
+        ) : provider === 'llamacpp' ? (
+          <div className="flex items-center gap-2">
+            <Select value={llamaCppModel} onValueChange={setLlamaCppModel}>
+              <SelectTrigger className="w-[220px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={llamaCppLoading ? 'Loading...' : llamaCppError ? 'llama-server unreachable' : 'Select model'} />
+              </SelectTrigger>
+              <SelectContent>
+                {llamaCppModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button onClick={loadLlamaCppModels} disabled={llamaCppLoading} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${llamaCppLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {llamaCppError && (
+              <span className="text-[10px] text-destructive max-w-[200px] truncate" title={llamaCppError}>⚠️ {llamaCppError}</span>
             )}
           </div>
         ) : provider === 'colibri' ? (

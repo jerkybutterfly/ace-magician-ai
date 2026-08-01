@@ -5,6 +5,7 @@ export type TelegramProvider = 'ollama' | 'lmstudio' | 'colibri';
 export interface AppSettings {
   ollamaUrl: string;
   lmStudioUrl: string;
+  llamaCppUrl: string;
   colibriUrl: string;
   colibriModelPath: string;
   colibriRamGb: number;
@@ -35,6 +36,7 @@ const NATIVE_HOST = 'http://192.168.1.50';
 const defaultSettings: AppSettings = {
   ollamaUrl: isNativePlatform() ? `${NATIVE_HOST}:11434` : 'http://localhost:11434',
   lmStudioUrl: isNativePlatform() ? `${NATIVE_HOST}:1234` : 'http://127.0.0.1:1234',
+  llamaCppUrl: isNativePlatform() ? `${NATIVE_HOST}:8080` : 'http://127.0.0.1:8080',
   colibriUrl: isNativePlatform() ? `${NATIVE_HOST}:8000` : 'http://localhost:8000',
   colibriModelPath: '',
   colibriRamGb: 24,
