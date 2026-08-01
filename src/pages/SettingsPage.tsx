@@ -124,6 +124,24 @@ export default function SettingsPage() {
     }
   };
 
+  const handleTestLlamaCpp = async () => {
+    setTestingLlamaCpp(true);
+    try {
+      const [health, models] = await Promise.all([
+        fetchLlamaCppHealth().catch(() => null),
+        fetchLlamaCppModels(),
+      ]);
+      const modelInfo = models.length > 0 ? ` — model: ${models[0].id}` : '';
+      const healthInfo = health ? ` (${health.status})` : '';
+      toast({ title: 'llama.cpp reachable', description: `Connected to ${settings.llamaCppUrl}${healthInfo}${modelInfo}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cannot reach llama.cpp';
+      toast({ title: 'llama.cpp unreachable', description: message, variant: 'destructive' });
+    } finally {
+      setTestingLlamaCpp(false);
+    }
+  };
+
   const handleTestColibri = async () => {
     setTestingColibri(true);
     try {
