@@ -4,7 +4,7 @@ export type TelegramProvider = 'ollama' | 'lmstudio' | 'colibri';
 
 export interface AppSettings {
   ollamaUrl: string;
-  lmStudioUrl: string;
+  lm
   colibriUrl: string;
   colibriModelPath: string;
   colibriRamGb: number;
