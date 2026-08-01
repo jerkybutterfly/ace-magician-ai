@@ -359,8 +359,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             ...currentMessages.slice(insertAt),
           ];
         }
-        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           if (chunk.thinking) {
             fullThinking += chunk.thinking;
