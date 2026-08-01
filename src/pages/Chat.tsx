@@ -167,6 +167,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
 
   useEffect(() => {
     if (provider === 'lmstudio') loadLmStudioModels();
+    if (provider === 'llamacpp') loadLlamaCppModels();
     if (provider === 'local') loadLocalRuntimeModels();
     if (provider === 'colibri') loadColibriModels();
   }, [provider]);
