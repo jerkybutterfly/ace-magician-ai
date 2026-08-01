@@ -94,6 +94,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [lmStudioModel, setLmStudioModel] = useState('');
   const [lmStudioError, setLmStudioError] = useState('');
   const [lmStudioLoading, setLmStudioLoading] = useState(false);
+  const [llamaCppModels, setLlamaCppModels] = useState<LlamaCppModel[]>([]);
+  const [llamaCppModel, setLlamaCppModel] = useState('');
+  const [llamaCppError, setLlamaCppError] = useState('');
+  const [llamaCppLoading, setLlamaCppLoading] = useState(false);
   const [colibriModels, setColibriModels] = useState<ColibriModel[]>([]);
   const [colibriModel, setColibriModel] = useState('');
   const [colibriError, setColibriError] = useState('');
