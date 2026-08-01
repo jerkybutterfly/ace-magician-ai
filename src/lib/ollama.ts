@@ -698,7 +698,81 @@ export async function* streamLMStudioChat(
 }
 
 /**
- * llama.cpp `
+ * llama.cpp `llama-server` uses the same OpenAI-compatible SSE format as LM Studio.
+ * It's typically faster than Ollama for the same GGUF (no daemon overhead, direct llama.cpp).
+ */
+export async function* streamLlamaCppChat(
+  model: string,
+  messages: ChatMessage[],
+  taskHint?: TaskKind,
+): AsyncGenerator<StreamChunk> {
+  const { systemPrompt } = getSettings();
+  const base = llamaCppBase();
+  const agentMemory = (await import('./memory')).getAgentMemory();
+  const currentObjective = getLatestObjective(messages);
+  const memoryContext = currentObjective
+    ? await (await import('./learning')).buildMemoryContext(currentObjective)
+    : '';
+  const fullSystemPrompt = [
+    systemPrompt.trim(),
+    RUNTIME_EXECUTION_PROMPT,
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    memoryContext,
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const baseMessages: ChatMessage[] = [
+    { role: 'system', content: fullSystemPrompt },
+    ...messages,
+  ];
+  const allMessages = truncateHistory(baseMessages, 14, 8000);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const sampling = tunedSamplingParams(task);
+
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // llama-server ignores `model`, but sending it keeps the payload OpenAI-shaped.
+    body: JSON.stringify({ model: model || 'llama.cpp', messages: allMessages, stream: true, ...sampling }),
+  });
+
+  if (!res.ok) throw new Error(`llama.cpp error: ${res.status} ${res.statusText}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
+      } catch {
+        buffer = line + '\n' + buffer;
+        break;
+      }
+    }
+  }
+}
+
+
 
 export async function generateText(prompt: string): Promise<string> {
   const { defaultModel } = getSettings();
