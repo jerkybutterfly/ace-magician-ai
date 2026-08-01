@@ -43,6 +43,52 @@ export async function fetchLMStudioModels(): Promise<LMStudioModel[]> {
   return models;
 }
 
+// ---------- llama.cpp (llama-server, OpenAI-compatible) ----------
+
+export interface LlamaCppModel {
+  id: string;
+  object: string;
+}
+
+/** Strip a trailing slash so URL joins stay clean. */
+function llamaCppBase(): string {
+  return getSettings().llamaCppUrl.replace(/\/$/, '');
+}
+
+export interface LlamaCppHealth {
+  ok: boolean;
+  status: string;
+  slotsIdle?: number;
+  slotsProcessing?: number;
+}
+
+export async function fetchLlamaCppHealth(): Promise<LlamaCppHealth> {
+  const base = llamaCppBase();
+  let res: Response;
+  try {
+    res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(4000) });
+  } catch {
+    throw new Error(
+      `Cannot reach llama.cpp at ${base}. Start it with: llama-server -m <model.gguf> --host 0.0.0.0 --port 8080`,
+    );
+  }
+  const data = await res.json().catch(() => ({}));
+  return {
+    ok: res.ok,
+    status: data.status ?? (res.ok ? 'ok' : `HTTP ${res.status}`),
+    slotsIdle: data.slots_idle,
+    slotsProcessing: data.slots_processing,
+  };
+}
+
+export async function fetchLlamaCppModels(): Promise<LlamaCppModel[]> {
+  const base = llamaCppBase();
+  let res: Response;
+  try {
+    res = await fetch(`${base}/v1/models`);
+  } catch {
+    const isHttps = window
+
 export interface OllamaModel {
   name: string;
   size: number;
