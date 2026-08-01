@@ -87,7 +87,24 @@ export async function fetchLlamaCppModels(): Promise<LlamaCppModel[]> {
   try {
     res = await fetch(`${base}/v1/models`);
   } catch {
-    const isHttps = window
+    const isHttps = window.location.protocol === 'https:';
+    throw new Error(
+      isHttps
+        ? 'Your browser blocks HTTP requests from an HTTPS page. Open this app over your LAN (e.g. http://localhost:5173) to use llama.cpp.'
+        : `Cannot reach llama.cpp at ${base}. Start it with: llama-server -m <model.gguf> --host 0.0.0.0 --port 8080`,
+    );
+  }
+  if (!res.ok) throw new Error(`llama.cpp returned an error (${res.status}).`);
+  const data = await res.json();
+  const models: LlamaCppModel[] = data.data ?? [];
+  if (models.length === 0) {
+    // llama-server always serves exactly one model; fall back to a generic id.
+    return [{ id: 'llama.cpp', object: 'model' }];
+  }
+  return models;
+}
+
+
 
 export interface OllamaModel {
   name: string;
