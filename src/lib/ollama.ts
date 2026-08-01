@@ -697,6 +697,9 @@ export async function* streamLMStudioChat(
   }
 }
 
+/**
+ * llama.cpp `
+
 export async function generateText(prompt: string): Promise<string> {
   const { defaultModel } = getSettings();
   if (!defaultModel) return '';
