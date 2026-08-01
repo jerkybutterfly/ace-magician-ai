@@ -53,6 +53,7 @@ export default function SettingsPage() {
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings);
   const [testingOllama, setTestingOllama] = useState(false);
   const [testingAgent, setTestingAgent] = useState(false);
+  const [testingLlamaCpp, setTestingLlamaCpp] = useState(false);
   const [testingColibri, setTestingColibri] = useState(false);
   const [colibriServerLoading, setColibriServerLoading] = useState(false);
   const [colibriServerStatus, setColibriServerStatus] = useState<{ running: boolean; pid: number | null; health: any; models: any[] } | null>(null);
