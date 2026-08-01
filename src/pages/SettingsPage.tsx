@@ -88,7 +88,7 @@ export default function SettingsPage() {
 
   const telegramBusy = telegramAction !== null;
 
-  const update = (key: keyof AppSettings, value: string | number) => { keyof AppSettings, value: string) => {
+  const update = (key: keyof AppSettings, value: string | number) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
