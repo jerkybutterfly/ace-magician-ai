@@ -125,6 +125,21 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     }).finally(() => setLmStudioLoading(false));
   };
 
+  const loadLlamaCppModels = () => {
+    setLlamaCppLoading(true);
+    setLlamaCppError('');
+    fetchLlamaCppModels().then((models) => {
+      setLlamaCppModels(models);
+      setLlamaCppError('');
+      if (models.length > 0) setLlamaCppModel((prev) => prev || models[0].id);
+    }).catch((err) => {
+      setLlamaCppModels([]);
+      setLlamaCppError(err instanceof Error ? err.message : 'Failed to connect to llama.cpp');
+    }).finally(() => setLlamaCppLoading(false));
+  };
+
+
+
   const loadColibriModels = () => {
     setColibriLoading(true);
     setColibriError('');
