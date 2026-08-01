@@ -544,6 +544,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectItem value="lmstudio">
               <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> LM Studio</span>
             </SelectItem>
+            <SelectItem value="llamacpp">
+              <span className="flex items-center gap-1.5"><Zap className="h-3 w-3" /> llama.cpp (fast)</span>
+            </SelectItem>
             <SelectItem value="local">
               <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> Local (built-in)</span>
             </SelectItem>
