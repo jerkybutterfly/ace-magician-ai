@@ -33,6 +33,7 @@ import AutomationsPage from './AutomationsPage';
 import UnderstandPage from './UnderstandPage';
 import MontagePage from './MontagePage';
 import AuditLogPage from './AuditLogPage';
+import ObsidianPage from './ObsidianPage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -106,6 +107,8 @@ export default function Index() {
         return <MontagePage />;
       case '/audit-log':
         return <AuditLogPage />;
+      case '/obsidian':
+        return <ObsidianPage />;
       case '/settings':
         return <SettingsPage />;
       default:
