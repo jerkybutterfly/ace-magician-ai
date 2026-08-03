@@ -107,6 +107,8 @@ export default function Index() {
         return <MontagePage />;
       case '/audit-log':
         return <AuditLogPage />;
+      case '/obsidian':
+        return <ObsidianPage />;
       case '/settings':
         return <SettingsPage />;
       default:
