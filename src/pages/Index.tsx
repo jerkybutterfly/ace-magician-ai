@@ -31,6 +31,7 @@ import KnowledgeGraphPage from './KnowledgeGraphPage';
 import VoicePage from './VoicePage';
 import AutomationsPage from './AutomationsPage';
 import UnderstandPage from './UnderstandPage';
+import MontagePage from './MontagePage';
 import AuditLogPage from './AuditLogPage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
@@ -101,6 +102,8 @@ export default function Index() {
         return <AutomationsPage />;
       case '/understand':
         return <UnderstandPage />;
+      case '/montage':
+        return <MontagePage />;
       case '/audit-log':
         return <AuditLogPage />;
       case '/settings':

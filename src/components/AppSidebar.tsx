@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -24,6 +24,7 @@ const navItems = [
   { title: 'Swarm', url: '/swarm', icon: Network },
   { title: 'Knowledge Graph', url: '/knowledge-graph', icon: Brain },
   { title: 'Understand', url: '/understand', icon: BookOpen },
+  { title: 'Montage', url: '/montage', icon: Clapperboard },
   { title: 'Voice', url: '/voice', icon: Mic },
   { title: 'Files', url: '/files', icon: FolderOpen },
   { title: 'Skills', url: '/skills', icon: Zap },
