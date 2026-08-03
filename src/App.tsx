@@ -76,6 +76,7 @@ const App = () => {
               <Route path="/drana" element={<Index />} />
               <Route path="/glasswing" element={<Index />} />
               <Route path="/understand" element={<Index />} />
+              <Route path="/montage" element={<Index />} />
               <Route path="/audit-log" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
