@@ -11,7 +11,7 @@ import { searchVault, type VaultSearchHit } from '@/lib/obsidian';
 import { ragQuery, type RagChunk } from '@/lib/rag';
 import { loadConversations, type Conversation } from '@/lib/conversations';
 import { getAgentMemory } from '@/lib/memory';
-import { pushToChat } from '@/lib/chat-bus';
+import { sendToChat } from '@/lib/chat-bus';
 import { useNavigate } from 'react-router-dom';
 
 const VAULT_KEY = 'obsidian-vault-path';
@@ -102,7 +102,7 @@ export default function SearchPage() {
     }
     tasks.push(
       ragQuery(needle, 8)
-        .then((r) => setRagHits(r.chunks || []))
+        .then((r) => { setRagHits(r.chunks || []); })
         .catch(() => {/* RAG offline — skip silently */})
     );
     await Promise.allSettled(tasks);
@@ -112,7 +112,7 @@ export default function SearchPage() {
   const totalCount = vaultHits.length + ragHits.length + convoHits.length + memoryHits.length;
 
   const askChatAbout = (context: string) => {
-    pushToChat(`Given this context, help me with "${q}":\n\n${context}`);
+    sendToChat({ text: `Given this context, help me with "${q}":\n\n${context}` });
     nav('/');
   };
 
@@ -176,11 +176,12 @@ export default function SearchPage() {
                       <CardTitle className="text-sm flex items-center gap-2">
                         <BookMarked className="h-3 w-3 text-primary" />
                         {h.path}
+                        <Badge variant="secondary" className="text-[10px]">line {h.line}</Badge>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="text-xs space-y-2">
-                      <pre className="whitespace-pre-wrap font-mono text-muted-foreground">{h.snippet || ''}</pre>
-                      <Button size="sm" variant="ghost" onClick={() => askChatAbout(`[Obsidian ${h.path}]\n${h.snippet}`)}>Ask chat</Button>
+                      <pre className="whitespace-pre-wrap font-mono text-muted-foreground">{h.text}</pre>
+                      <Button size="sm" variant="ghost" onClick={() => askChatAbout(`[Obsidian ${h.path}:${h.line}]\n${h.text}`)}>Ask chat</Button>
                     </CardContent>
                   </Card>
                 ))}
