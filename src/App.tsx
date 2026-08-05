@@ -79,6 +79,9 @@ const App = () => {
               <Route path="/montage" element={<Index />} />
               <Route path="/audit-log" element={<Index />} />
               <Route path="/obsidian" element={<Index />} />
+              <Route path="/local-voice" element={<Index />} />
+              <Route path="/vector-store" element={<Index />} />
+              <Route path="/browser-use" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>

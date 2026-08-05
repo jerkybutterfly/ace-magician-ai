@@ -34,6 +34,9 @@ import UnderstandPage from './UnderstandPage';
 import MontagePage from './MontagePage';
 import AuditLogPage from './AuditLogPage';
 import ObsidianPage from './ObsidianPage';
+import LocalVoicePage from './LocalVoicePage';
+import VectorStorePage from './VectorStorePage';
+import BrowserUsePage from './BrowserUsePage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -109,6 +112,12 @@ export default function Index() {
         return <AuditLogPage />;
       case '/obsidian':
         return <ObsidianPage />;
+      case '/local-voice':
+        return <LocalVoicePage />;
+      case '/vector-store':
+        return <VectorStorePage />;
+      case '/browser-use':
+        return <BrowserUsePage />;
       case '/settings':
         return <SettingsPage />;
       default:
