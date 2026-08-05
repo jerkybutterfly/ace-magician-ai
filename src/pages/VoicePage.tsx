@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Mic, MicOff, Settings, Sparkles, Activity, CheckCircle2, XCircle } from "lucide-react";
+import { getSettings } from "@/lib/settings";
 
-const AGENT_URL = "http://127.0.0.1:8484";
+const AGENT_URL_FN = () => getSettings().agentUrl;
 
 export default function VoicePage() {
   const { toast } = useToast();
