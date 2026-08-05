@@ -266,7 +266,7 @@ export default function McpPage() {
                 {selected && (
                   <SendToChatButton
                     label="Ask chat"
-                    prompt={`Call the MCP tool "${activeTool}" on server "${selected.name}" with args ${argsJson}. Analyse the result.`}
+                    text={`Call the MCP tool "${activeTool}" on server "${selected.name}" with args ${argsJson}. Analyse the result.`}
                   />
                 )}
               </div>
