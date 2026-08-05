@@ -236,6 +236,8 @@ export default function SwarmPage() {
           model,
           worker_model: workerModel.trim() || null,
           max_workers: maxWorkers,
+          engine,
+
         }),
       });
       const data = await res.json();
