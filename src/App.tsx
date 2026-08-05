@@ -11,6 +11,7 @@ import SwarmPage from "./pages/SwarmPage.tsx";
 import KnowledgeGraphPage from "./pages/KnowledgeGraphPage.tsx";
 import VoicePage from "./pages/VoicePage.tsx";
 import TradingPage from "./pages/TradingPage.tsx";
+import FinancePage from "./pages/FinancePage.tsx";
 import N8nPage from "./pages/N8nPage.tsx";
 import InstallPage from "./pages/InstallPage.tsx";
 import PhonePage from "./pages/PhonePage.tsx";
