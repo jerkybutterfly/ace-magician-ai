@@ -213,6 +213,7 @@ class SwarmRunRequest(BaseModel):
     model: str = "gemma3:4b"
     worker_model: Optional[str] = None
     max_workers: int = 4
+    engine: str = "auto"
 
 
 @app.post("/swarm/run")
@@ -225,7 +226,9 @@ async def swarm_run(req: SwarmRunRequest):
             worker_model=req.worker_model,
             max_workers=max(1, min(req.max_workers, 8)),
             ollama_url=OLLAMA_URL,
+            engine=req.engine if req.engine in ("auto", "langgraph", "ollama") else "auto",
         )
+
         return {"swarm_id": swarm_id, "status": "started"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -186,6 +186,108 @@ def _run_with_crewai(
     return getattr(result, "raw", None) or str(result)
 
 
+# ── LangGraph runner ─────────────────────────────────────────────────────────
+# Graph shape:  plan -> [worker_1 .. worker_n] (parallel fan-out)
+#                    -> synthesise -> critic -> (revise | end)
+# The critic/revise cycle is what LangGraph buys us over a linear crew.
+
+MAX_REVISIONS = 2
+
+
+def _run_with_langgraph(
+    swarm_id: str,
+    goal: str,
+    sub_tasks: list[str],
+    manager_model: str,
+    worker_model: str,
+    ollama_url: str,
+) -> str:
+    import operator
+    from typing import Annotated, TypedDict
+
+    from langgraph.graph import END, START, StateGraph  # type: ignore
+
+    class SwarmState(TypedDict):
+        outputs: Annotated[list[str], operator.add]
+        draft: str
+        critique: str
+        revisions: int
+
+    def _make_worker_node(worker_id: str, task_text: str):
+        def _node(_state: SwarmState) -> dict[str, Any]:
+            _update_worker(swarm_id, worker_id, status="running",
+                           started_at=datetime.utcnow().isoformat())
+            try:
+                res = _ollama_chat(worker_model, [
+                    {"role": "system", "content": (
+                        "You are a specialist agent in a coordinated swarm. "
+                        f"Overall mission: {goal}. Answer only your assigned sub-task, "
+                        "concisely and actionably."
+                    )},
+                    {"role": "user", "content": task_text},
+                ], ollama_url)
+                _update_worker(swarm_id, worker_id, status="done", result=res,
+                               finished_at=datetime.utcnow().isoformat())
+                return {"outputs": [f"### {task_text}\n{res}"]}
+            except Exception as e:  # noqa: BLE001
+                _update_worker(swarm_id, worker_id, status="error", result=str(e),
+                               finished_at=datetime.utcnow().isoformat())
+                return {"outputs": [f"### {task_text}\n(failed: {e})"]}
+        return _node
+
+    def _synthesise(state: SwarmState) -> dict[str, Any]:
+        _update_swarm(swarm_id, status="synthesising")
+        prior = f"\n\nPrevious draft to improve:\n{state.get('draft','')}\n\nCritique to address:\n{state.get('critique','')}" \
+            if state.get("critique") else ""
+        answer = _ollama_chat(manager_model, [{
+            "role": "user",
+            "content": (
+                f"Synthesise these worker outputs into one complete final answer.\n"
+                f"Goal: {goal}\n\n" + "\n\n".join(state["outputs"]) + prior
+            ),
+        }], ollama_url)
+        return {"draft": answer}
+
+    def _critic(state: SwarmState) -> dict[str, Any]:
+        verdict = _ollama_chat(manager_model, [{
+            "role": "user",
+            "content": (
+                "You are a strict reviewer. Judge whether the answer fully achieves the goal.\n"
+                f"Goal: {goal}\n\nAnswer:\n{state['draft']}\n\n"
+                "Reply with 'APPROVED' on the first line if it is complete and correct. "
+                "Otherwise reply 'REVISE' on the first line followed by specific, concrete gaps to fix."
+            ),
+        }], ollama_url)
+        return {"critique": verdict, "revisions": state.get("revisions", 0) + 1}
+
+    def _route(state: SwarmState) -> str:
+        if state.get("revisions", 0) >= MAX_REVISIONS:
+            return "end"
+        if state.get("critique", "").strip().upper().startswith("APPROVED"):
+            return "end"
+        return "revise"
+
+    graph = StateGraph(SwarmState)
+    worker_names: list[str] = []
+    for i, sub in enumerate(sub_tasks):
+        worker_id = f"w-{i+1}"
+        node_name = f"worker_{i+1}"
+        graph.add_node(node_name, _make_worker_node(worker_id, sub))
+        graph.add_edge(START, node_name)
+        worker_names.append(node_name)
+
+    graph.add_node("synthesise", _synthesise)
+    graph.add_node("critic", _critic)
+    for n in worker_names:
+        graph.add_edge(n, "synthesise")
+    graph.add_edge("synthesise", "critic")
+    graph.add_conditional_edges("critic", _route, {"revise": "synthesise", "end": END})
+
+    app = graph.compile()
+    final_state = app.invoke({"outputs": [], "draft": "", "critique": "", "revisions": 0})
+    return final_state.get("draft", "")
+
+
 # ── Manager orchestration thread ─────────────────────────────────────────────
 
 def _manager_run(
@@ -195,7 +297,9 @@ def _manager_run(
     worker_model: str,
     max_workers: int,
     ollama_url: str,
+    engine: str = "auto",
 ) -> None:
+
     try:
         _update_swarm(swarm_id, status="planning")
         sub_tasks = _plan_subtasks(goal, model, ollama_url, max_workers)
@@ -214,13 +318,23 @@ def _manager_run(
         _update_swarm(swarm_id, status="working", workers=workers, plan=sub_tasks)
 
         try:
-            import crewai  # noqa: F401
-            _update_swarm(swarm_id, engine="crewai")
-            _update_swarm(swarm_id, status="synthesising")
-            final_answer = _run_with_crewai(
-                swarm_id, goal, sub_tasks, model, worker_model, ollama_url,
-            )
+            if engine == "langgraph":
+                import langgraph  # noqa: F401
+                _update_swarm(swarm_id, engine="langgraph")
+                final_answer = _run_with_langgraph(
+                    swarm_id, goal, sub_tasks, model, worker_model, ollama_url,
+                )
+            elif engine == "ollama":
+                raise ImportError("forced fallback")
+            else:
+                import crewai  # noqa: F401
+                _update_swarm(swarm_id, engine="crewai")
+                _update_swarm(swarm_id, status="synthesising")
+                final_answer = _run_with_crewai(
+                    swarm_id, goal, sub_tasks, model, worker_model, ollama_url,
+                )
         except ImportError:
+
             # Fallback: run workers sequentially via raw Ollama
             _update_swarm(swarm_id, engine="ollama-fallback")
             outputs = []
@@ -272,6 +386,7 @@ def start_swarm(
     worker_model: str | None = None,
     max_workers: int = 4,
     ollama_url: str = OLLAMA_URL_DEFAULT,
+    engine: str = "auto",
 ) -> str:
     swarm_id = str(uuid.uuid4())
     with _swarms_lock:
@@ -283,6 +398,7 @@ def start_swarm(
             "max_workers": max_workers,
             "status": "starting",
             "engine": "pending",
+            "requested_engine": engine,
             "plan": [],
             "workers": [],
             "final_answer": None,
@@ -294,8 +410,9 @@ def start_swarm(
 
     threading.Thread(
         target=_manager_run,
-        args=(swarm_id, goal, model, worker_model or model, max_workers, ollama_url),
+        args=(swarm_id, goal, model, worker_model or model, max_workers, ollama_url, engine),
         daemon=True,
     ).start()
+
 
     return swarm_id

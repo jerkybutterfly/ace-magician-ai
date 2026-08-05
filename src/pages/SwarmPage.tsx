@@ -13,6 +13,13 @@ import {
 
 const AGENT_URL = 'http://localhost:8484';
 
+const ENGINES = [
+  { value: 'auto', label: 'Auto (CrewAI)', hint: 'Hierarchical crew: manager delegates to specialist workers. Falls back to raw Ollama if CrewAI is not installed.' },
+  { value: 'langgraph', label: 'LangGraph', hint: 'Graph flow: workers fan out in parallel, then a critic node reviews and can send the answer back for up to 2 revisions. Needs `pip install langgraph` on the host.' },
+  { value: 'ollama', label: 'Raw Ollama', hint: 'No framework — sequential workers plus one synthesis pass. Lightest and most predictable.' },
+];
+
+
 interface Worker {
   id: string;
   task: string;
@@ -192,6 +199,8 @@ export default function SwarmPage() {
   const [model, setModel] = useState('gemma3:4b');
   const [workerModel, setWorkerModel] = useState('');
   const [maxWorkers, setMaxWorkers] = useState(4);
+  const [engine, setEngine] = useState('auto');
+
   const [swarms, setSwarms] = useState<Swarm[]>([]);
   const [activeSwarmId, setActiveSwarmId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -227,6 +236,8 @@ export default function SwarmPage() {
           model,
           worker_model: workerModel.trim() || null,
           max_workers: maxWorkers,
+          engine,
+
         }),
       });
       const data = await res.json();
@@ -310,7 +321,31 @@ export default function SwarmPage() {
                 className="h-8 text-xs bg-background/50"
               />
             </div>
+            <div className="space-y-1 col-span-2 md:col-span-3">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Engine</label>
+              <div className="flex flex-wrap gap-2">
+                {ENGINES.map((e) => (
+                  <button
+                    key={e.value}
+                    type="button"
+                    onClick={() => setEngine(e.value)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] border transition-colors ${
+                      engine === e.value
+                        ? 'bg-primary/15 text-primary border-primary/40'
+                        : 'bg-background/50 text-muted-foreground border-border/50 hover:bg-secondary/60'
+                    }`}
+                    title={e.hint}
+                  >
+                    {e.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground/70">
+                {ENGINES.find(e => e.value === engine)?.hint}
+              </p>
+            </div>
           </div>
+
 
           {error && (
             <p className="text-xs text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
