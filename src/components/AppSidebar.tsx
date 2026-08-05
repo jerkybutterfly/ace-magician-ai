@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -46,6 +46,7 @@ const navItems = [
   { title: 'Drana Recon', url: '/drana', icon: InfinityIcon },
   { title: 'Glasswing', url: '/glasswing', icon: Sparkles },
   { title: 'Offensive', url: '/offensive', icon: Skull },
+  { title: 'MCP Servers', url: '/mcp', icon: Plug },
   { title: 'Computer Use', url: '/computer-use', icon: Monitor },
   { title: 'MQTT', url: '/mqtt', icon: Radio },
   { title: 'Cron', url: '/cron', icon: Clock },

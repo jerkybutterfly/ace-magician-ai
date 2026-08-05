@@ -38,6 +38,7 @@ import LocalVoicePage from './LocalVoicePage';
 import VectorStorePage from './VectorStorePage';
 import BrowserUsePage from './BrowserUsePage';
 import OffensivePage from './OffensivePage';
+import McpPage from './McpPage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -121,6 +122,8 @@ export default function Index() {
         return <BrowserUsePage />;
       case '/offensive':
         return <OffensivePage />;
+      case '/mcp':
+        return <McpPage />;
       case '/settings':
         return <SettingsPage />;
       default:
