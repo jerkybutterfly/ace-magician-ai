@@ -110,7 +110,7 @@ export default function FinancePage() {
     const ctx = q
       ? `${sym} (${q.name}) — ${q.price.toFixed(2)} ${q.currency}, ${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}% today.`
       : sym;
-    sendToChat(`Analyze ${sym} for me. Context: ${ctx}\n\nGive me a quick technical + sentiment view and any catalysts to watch.`);
+    sendToChat({ text: `Analyze ${sym} for me. Context: ${ctx}\n\nGive me a quick technical + sentiment view and any catalysts to watch.` });
     toast.success('Sent to chat');
   };
 
