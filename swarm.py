@@ -386,6 +386,7 @@ def start_swarm(
     worker_model: str | None = None,
     max_workers: int = 4,
     ollama_url: str = OLLAMA_URL_DEFAULT,
+    engine: str = "auto",
 ) -> str:
     swarm_id = str(uuid.uuid4())
     with _swarms_lock:
@@ -397,6 +398,7 @@ def start_swarm(
             "max_workers": max_workers,
             "status": "starting",
             "engine": "pending",
+            "requested_engine": engine,
             "plan": [],
             "workers": [],
             "final_answer": None,
@@ -408,8 +410,9 @@ def start_swarm(
 
     threading.Thread(
         target=_manager_run,
-        args=(swarm_id, goal, model, worker_model or model, max_workers, ollama_url),
+        args=(swarm_id, goal, model, worker_model or model, max_workers, ollama_url, engine),
         daemon=True,
     ).start()
+
 
     return swarm_id
