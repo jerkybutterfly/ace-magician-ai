@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -26,6 +26,9 @@ const navItems = [
   { title: 'Understand', url: '/understand', icon: BookOpen },
   { title: 'Montage', url: '/montage', icon: Clapperboard },
   { title: 'Voice', url: '/voice', icon: Mic },
+  { title: 'Local Voice', url: '/local-voice', icon: AudioLines },
+  { title: 'Vector Store', url: '/vector-store', icon: Database },
+  { title: 'Browser Use', url: '/browser-use', icon: Globe },
   { title: 'Files', url: '/files', icon: FolderOpen },
   { title: 'Skills', url: '/skills', icon: Zap },
   { title: 'Spec Kit', url: '/speckit', icon: FileCode2 },
