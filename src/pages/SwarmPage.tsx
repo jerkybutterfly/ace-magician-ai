@@ -192,6 +192,8 @@ export default function SwarmPage() {
   const [model, setModel] = useState('gemma3:4b');
   const [workerModel, setWorkerModel] = useState('');
   const [maxWorkers, setMaxWorkers] = useState(4);
+  const [engine, setEngine] = useState('auto');
+
   const [swarms, setSwarms] = useState<Swarm[]>([]);
   const [activeSwarmId, setActiveSwarmId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
