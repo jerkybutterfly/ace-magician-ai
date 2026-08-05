@@ -84,6 +84,7 @@ const App = () => {
               <Route path="/vector-store" element={<Index />} />
               <Route path="/browser-use" element={<Index />} />
               <Route path="/offensive" element={<Index />} />
+              <Route path="/mcp" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
