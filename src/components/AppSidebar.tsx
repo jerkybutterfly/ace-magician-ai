@@ -17,6 +17,7 @@ import type { Conversation } from '@/lib/conversations';
 
 const navItems = [
   { title: 'Chat', url: '/', icon: MessageSquare },
+  { title: 'Search', url: '/search', icon: Search },
   { title: 'Trading', url: '/trading', icon: TrendingUp },
   { title: 'colibrì Brain', url: '/colibri', icon: Bird },
   { title: 'Automations', url: '/automations', icon: Zap },
