@@ -13,6 +13,13 @@ import {
 
 const AGENT_URL = 'http://localhost:8484';
 
+const ENGINES = [
+  { value: 'auto', label: 'Auto (CrewAI)', hint: 'Hierarchical crew: manager delegates to specialist workers. Falls back to raw Ollama if CrewAI is not installed.' },
+  { value: 'langgraph', label: 'LangGraph', hint: 'Graph flow: workers fan out in parallel, then a critic node reviews and can send the answer back for up to 2 revisions. Needs `pip install langgraph` on the host.' },
+  { value: 'ollama', label: 'Raw Ollama', hint: 'No framework — sequential workers plus one synthesis pass. Lightest and most predictable.' },
+];
+
+
 interface Worker {
   id: string;
   task: string;
