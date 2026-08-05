@@ -11,6 +11,7 @@ import SwarmPage from "./pages/SwarmPage.tsx";
 import KnowledgeGraphPage from "./pages/KnowledgeGraphPage.tsx";
 import VoicePage from "./pages/VoicePage.tsx";
 import TradingPage from "./pages/TradingPage.tsx";
+import FinancePage from "./pages/FinancePage.tsx";
 import N8nPage from "./pages/N8nPage.tsx";
 import InstallPage from "./pages/InstallPage.tsx";
 import PhonePage from "./pages/PhonePage.tsx";
@@ -52,6 +53,7 @@ const App = () => {
               <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
               <Route path="/voice" element={<VoicePage />} />
               <Route path="/trading" element={<TradingPage />} />
+              <Route path="/finance" element={<FinancePage />} />
               <Route path="/n8n" element={<N8nPage />} />
               <Route path="/install" element={<InstallPage />} />
               <Route path="/colibri" element={<Index />} />
