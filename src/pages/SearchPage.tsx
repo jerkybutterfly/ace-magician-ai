@@ -92,7 +92,7 @@ export default function SearchPage() {
     setConvoHits(searchConvos(needle));
     setMemoryHits(searchMemory(needle));
 
-    const tasks: Promise<void>[] = [];
+    const tasks: Promise<unknown>[] = [];
     if (vault) {
       tasks.push(
         searchVault(vault, needle, 40)
