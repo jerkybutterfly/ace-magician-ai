@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getSettings } from "@/lib/settings";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ export default function AutomationsPage() {
 
   const fetchTriggers = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8484/automations");
+      const res = await fetch(`${getSettings().agentUrl}/automations`);
       if (res.ok) {
         const data = await res.json();
         setTriggers(data.triggers || []);
@@ -35,7 +36,7 @@ export default function AutomationsPage() {
       return;
     }
     try {
-      const res = await fetch("http://127.0.0.1:8484/automations", {
+      const res = await fetch(`${getSettings().agentUrl}/automations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folder_path: folderPath, action: "notify", message })

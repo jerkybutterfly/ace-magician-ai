@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { getSettings } from "@/lib/settings";
 import { AppSidebar } from '@/components/AppSidebar';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import {
   CheckCircle, XCircle, Loader, Clock, Sparkles, Users, Cpu, ListTree
 } from 'lucide-react';
 
-const AGENT_URL = 'http://localhost:8484';
+
 
 const ENGINES = [
   { value: 'auto', label: 'Auto (CrewAI)', hint: 'Hierarchical crew: manager delegates to specialist workers. Falls back to raw Ollama if CrewAI is not installed.' },
@@ -209,7 +210,7 @@ export default function SwarmPage() {
 
   const fetchSwarms = async () => {
     try {
-      const res = await fetch(`${AGENT_URL}/swarm/list`);
+      const res = await fetch(`${getSettings().agentUrl}/swarm/list`);
       if (res.ok) {
         const data: Swarm[] = await res.json();
         setSwarms(data.slice().reverse());
@@ -228,7 +229,7 @@ export default function SwarmPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${AGENT_URL}/swarm/run`, {
+      const res = await fetch(`${getSettings().agentUrl}/swarm/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

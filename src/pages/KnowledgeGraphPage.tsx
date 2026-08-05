@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getSettings } from "@/lib/settings";
 import { AppSidebar } from '@/components/AppSidebar';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useConversations } from '@/hooks/useConversations';
 import { Brain, Plus, Search, GitBranch, Trash2, ArrowRight, BarChart3, RefreshCw, X } from 'lucide-react';
 
-const AGENT = 'http://localhost:8484';
+
 
 const TYPE_COLORS: Record<string, string> = {
   concept: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
@@ -91,12 +92,12 @@ export default function KnowledgeGraphPage() {
   const [pSrc, setPSrc] = useState(''); const [pTgt, setPTgt] = useState(''); const [pathResult, setPathResult] = useState<any>(null);
 
   const fetchStats = useCallback(async () => {
-    try { const r = await fetch(`${AGENT}/graph/stats`); if (r.ok) setStats(await r.json()); } catch {}
+    try { const r = await fetch(`${getSettings().agentUrl}/graph/stats`); if (r.ok) setStats(await r.json()); } catch {}
   }, []);
 
   const fetchEntities = useCallback(async (q = '') => {
     try {
-      const url = q ? `${AGENT}/graph/search?q=${encodeURIComponent(q)}` : `${AGENT}/graph/search?q=`;
+      const url = q ? `${getSettings().agentUrl}/graph/search?q=${encodeURIComponent(q)}` : `${getSettings().agentUrl}/graph/search?q=`;
       const r = await fetch(url); if (r.ok) setEntities(await r.json());
     } catch {}
   }, []);
@@ -108,7 +109,7 @@ export default function KnowledgeGraphPage() {
     if (!eName.trim()) return;
     setLoading(true);
     try {
-      await fetch(`${AGENT}/graph/entity`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: eName.trim(), entity_type: eType, description: eDesc }) });
+      await fetch(`${getSettings().agentUrl}/graph/entity`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: eName.trim(), entity_type: eType, description: eDesc }) });
       setStatus(`✅ Entity '${eName}' added`); setEName(''); setEDesc('');
       fetchEntities(searchQ); fetchStats();
     } catch (e: any) { setStatus(`❌ ${e.message}`); } finally { setLoading(false); }
@@ -118,7 +119,7 @@ export default function KnowledgeGraphPage() {
     if (!rSrc.trim() || !rTgt.trim() || !rRel.trim()) return;
     setLoading(true);
     try {
-      await fetch(`${AGENT}/graph/relation`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ source: rSrc, target: rTgt, relation: rRel, notes: rNotes }) });
+      await fetch(`${getSettings().agentUrl}/graph/relation`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ source: rSrc, target: rTgt, relation: rRel, notes: rNotes }) });
       setStatus(`✅ Relation added`); setRSrc(''); setRTgt(''); setRRel(''); setRNotes('');
       fetchStats();
     } catch (e: any) { setStatus(`❌ ${e.message}`); } finally { setLoading(false); }
@@ -126,14 +127,14 @@ export default function KnowledgeGraphPage() {
 
   const deleteEntity = async (name: string) => {
     try {
-      await fetch(`${AGENT}/graph/entity/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      await fetch(`${getSettings().agentUrl}/graph/entity/${encodeURIComponent(name)}`, { method: 'DELETE' });
       setStatus(`🗑️ Deleted '${name}'`); fetchEntities(searchQ); fetchStats();
     } catch {}
   };
 
   const exploreNeighbours = async (name: string) => {
     try {
-      const r = await fetch(`${AGENT}/graph/neighbours/${encodeURIComponent(name)}?depth=2`);
+      const r = await fetch(`${getSettings().agentUrl}/graph/neighbours/${encodeURIComponent(name)}?depth=2`);
       if (r.ok) { const d = await r.json(); setNeighbour({ centre: d.centre, nodes: d.nodes, edges: d.edges }); }
     } catch {}
   };
@@ -142,7 +143,7 @@ export default function KnowledgeGraphPage() {
     if (!pSrc.trim() || !pTgt.trim()) return;
     setLoading(true);
     try {
-      const r = await fetch(`${AGENT}/graph/path`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ source: pSrc, target: pTgt }) });
+      const r = await fetch(`${getSettings().agentUrl}/graph/path`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ source: pSrc, target: pTgt }) });
       setPathResult(await r.json());
     } catch (e: any) { setPathResult({ error: e.message }); } finally { setLoading(false); }
   };
