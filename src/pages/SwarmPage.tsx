@@ -310,7 +310,31 @@ export default function SwarmPage() {
                 className="h-8 text-xs bg-background/50"
               />
             </div>
+            <div className="space-y-1 col-span-2 md:col-span-3">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Engine</label>
+              <div className="flex flex-wrap gap-2">
+                {ENGINES.map((e) => (
+                  <button
+                    key={e.value}
+                    type="button"
+                    onClick={() => setEngine(e.value)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] border transition-colors ${
+                      engine === e.value
+                        ? 'bg-primary/15 text-primary border-primary/40'
+                        : 'bg-background/50 text-muted-foreground border-border/50 hover:bg-secondary/60'
+                    }`}
+                    title={e.hint}
+                  >
+                    {e.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground/70">
+                {ENGINES.find(e => e.value === engine)?.hint}
+              </p>
+            </div>
           </div>
+
 
           {error && (
             <p className="text-xs text-red-400 bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
