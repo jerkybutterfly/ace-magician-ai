@@ -37,6 +37,7 @@ import ObsidianPage from './ObsidianPage';
 import LocalVoicePage from './LocalVoicePage';
 import VectorStorePage from './VectorStorePage';
 import BrowserUsePage from './BrowserUsePage';
+import OffensivePage from './OffensivePage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -118,6 +119,8 @@ export default function Index() {
         return <VectorStorePage />;
       case '/browser-use':
         return <BrowserUsePage />;
+      case '/offensive':
+        return <OffensivePage />;
       case '/settings':
         return <SettingsPage />;
       default:
