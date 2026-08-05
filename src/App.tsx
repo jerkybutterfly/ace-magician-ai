@@ -85,6 +85,7 @@ const App = () => {
               <Route path="/browser-use" element={<Index />} />
               <Route path="/offensive" element={<Index />} />
               <Route path="/mcp" element={<Index />} />
+              <Route path="/search" element={<Index />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
