@@ -318,13 +318,23 @@ def _manager_run(
         _update_swarm(swarm_id, status="working", workers=workers, plan=sub_tasks)
 
         try:
-            import crewai  # noqa: F401
-            _update_swarm(swarm_id, engine="crewai")
-            _update_swarm(swarm_id, status="synthesising")
-            final_answer = _run_with_crewai(
-                swarm_id, goal, sub_tasks, model, worker_model, ollama_url,
-            )
+            if engine == "langgraph":
+                import langgraph  # noqa: F401
+                _update_swarm(swarm_id, engine="langgraph")
+                final_answer = _run_with_langgraph(
+                    swarm_id, goal, sub_tasks, model, worker_model, ollama_url,
+                )
+            elif engine == "ollama":
+                raise ImportError("forced fallback")
+            else:
+                import crewai  # noqa: F401
+                _update_swarm(swarm_id, engine="crewai")
+                _update_swarm(swarm_id, status="synthesising")
+                final_answer = _run_with_crewai(
+                    swarm_id, goal, sub_tasks, model, worker_model, ollama_url,
+                )
         except ImportError:
+
             # Fallback: run workers sequentially via raw Ollama
             _update_swarm(swarm_id, engine="ollama-fallback")
             outputs = []
