@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Mic, MicOff, Settings, Sparkles, Activity, CheckCircle2, XCircle } from "lucide-react";
+import { getSettings } from "@/lib/settings";
 
-const AGENT_URL = "http://127.0.0.1:8484";
+
 
 export default function VoicePage() {
   const { toast } = useToast();
@@ -14,7 +15,7 @@ export default function VoicePage() {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch(`${AGENT_URL}/voice/status`);
+      const res = await fetch(`${getSettings().agentUrl}/voice/status`);
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
@@ -34,7 +35,7 @@ export default function VoicePage() {
     setLoading(true);
     const action = status?.running ? "stop" : "start";
     try {
-      const res = await fetch(`${AGENT_URL}/voice/${action}`, { method: "POST" });
+      const res = await fetch(`${getSettings().agentUrl}/voice/${action}`, { method: "POST" });
       if (res.ok) {
         toast({
           title: `Voice Assistant ${action === "start" ? "Started" : "Stopped"}`,

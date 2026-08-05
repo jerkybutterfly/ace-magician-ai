@@ -9,7 +9,7 @@ import { getSettings, saveSettings, isNativePlatform } from '@/lib/settings';
 import { isPhone } from '@/lib/phone';
 import { toast } from 'sonner';
 
-const ON_DEVICE_URL = 'http://127.0.0.1:11434';
+
 
 const RECOMMENDED = [
   { name: 'qwen2.5:0.5b', size: '~400 MB', note: 'Tiniest, fastest, OK for short replies' },
@@ -43,7 +43,7 @@ export default function OnDeviceModelPage() {
   const ping = async () => {
     setReach((s) => ({ ...s, checking: true }));
     try {
-      const r = await fetch(`${ON_DEVICE_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      const r = await fetch(`${getSettings().ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = await r.json();
       const models = Array.isArray(j.models) ? j.models.map((m: { name: string }) => m.name) : [];
@@ -99,7 +99,7 @@ export default function OnDeviceModelPage() {
             {reach.ok === true && (
               <>
                 <CheckCircle2 className="h-4 w-4 text-primary" />
-                <span>Reachable at <code className="text-xs">{ON_DEVICE_URL}</code></span>
+                <span>Reachable at <code className="text-xs">{getSettings().ollamaUrl}</code></span>
               </>
             )}
             {reach.ok === false && (
@@ -135,7 +135,7 @@ export default function OnDeviceModelPage() {
           <Button
             size="sm"
             variant={usingOnDevice ? 'default' : 'outline'}
-            onClick={() => switchTo(ON_DEVICE_URL, 'on-phone')}
+            onClick={() => switchTo(getSettings().ollamaUrl, 'on-phone')}
           >
             Use on-phone model
           </Button>
