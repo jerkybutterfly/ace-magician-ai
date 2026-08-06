@@ -40,6 +40,9 @@ import BrowserUsePage from './BrowserUsePage';
 import OffensivePage from './OffensivePage';
 import McpPage from './McpPage';
 import SearchPage from './SearchPage';
+import Mem0Page from './Mem0Page';
+import OmniParserPage from './OmniParserPage';
+import ExoPage from './ExoPage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -127,6 +130,12 @@ export default function Index() {
         return <McpPage />;
       case '/search':
         return <SearchPage />;
+      case '/mem0':
+        return <Mem0Page />;
+      case '/omniparser':
+        return <OmniParserPage />;
+      case '/exo':
+        return <ExoPage />;
       case '/settings':
         return <SettingsPage />;
       default:
