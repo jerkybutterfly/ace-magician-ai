@@ -130,6 +130,12 @@ export default function Index() {
         return <McpPage />;
       case '/search':
         return <SearchPage />;
+      case '/mem0':
+        return <Mem0Page />;
+      case '/omniparser':
+        return <OmniParserPage />;
+      case '/exo':
+        return <ExoPage />;
       case '/settings':
         return <SettingsPage />;
       default:
