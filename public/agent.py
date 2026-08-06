@@ -985,6 +985,309 @@ async def adb_push(req: AdbPushRequest):
     return {"output": result.stdout.strip(), "remote_path": req.remote_path}
 
 
+# ═══════════════════════════════════════════════════════
+#  mem0 — long-term semantic memory
+# ═══════════════════════════════════════════════════════
+
+MEM0_DIR = Path.home() / ".pesto-ai" / "mem0"
+_mem0_client = None
+
+
+class Mem0AddRequest(BaseModel):
+    text: str
+    metadata: dict[str, Any] = {}
+
+
+class Mem0SearchRequest(BaseModel):
+    query: str
+    limit: int = 8
+
+
+def _get_mem0():
+    """Lazy-init a local mem0 client backed by Ollama (embeddings + LLM)."""
+    global _mem0_client
+    if _mem0_client is not None:
+        return _mem0_client
+    try:
+        from mem0 import Memory
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail="mem0 not installed — run POST /mem0/install") from e
+
+    MEM0_DIR.mkdir(parents=True, exist_ok=True)
+    config = {
+        "vector_store": {
+            "provider": "chroma",
+            "config": {"collection_name": "pesto", "path": str(MEM0_DIR / "chroma")},
+        },
+        "embedder": {
+            "provider": "ollama",
+            "config": {"model": os.environ.get("MEM0_EMBED_MODEL", "nomic-embed-text"),
+                       "ollama_base_url": OLLAMA_URL},
+        },
+        "llm": {
+            "provider": "ollama",
+            "config": {"model": os.environ.get("MEM0_LLM_MODEL", "llama3.2"),
+                       "ollama_base_url": OLLAMA_URL},
+        },
+    }
+    _mem0_client = Memory.from_config(config)
+    return _mem0_client
+
+
+MEM0_USER = "stephen"
+
+
+def _mem0_rows(raw: Any) -> list[dict[str, Any]]:
+    items = raw.get("results", raw) if isinstance(raw, dict) else raw
+    out = []
+    for it in items or []:
+        out.append({
+            "id": it.get("id", ""),
+            "memory": it.get("memory", it.get("text", "")),
+            "score": it.get("score"),
+            "metadata": it.get("metadata", {}),
+            "created_at": it.get("created_at"),
+        })
+    return out
+
+
+@app.post("/mem0/install")
+async def mem0_install():
+    result = subprocess.run(
+        "pip install -U mem0ai chromadb", shell=True, capture_output=True, text=True, timeout=900
+    )
+    return {"ok": result.returncode == 0, "log": (result.stdout + result.stderr)[-6000:]}
+
+
+@app.post("/mem0/add")
+async def mem0_add(req: Mem0AddRequest):
+    m = _get_mem0()
+    try:
+        raw = m.add(req.text, user_id=MEM0_USER, metadata=req.metadata or {})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    rows = _mem0_rows(raw)
+    return rows[0] if rows else {"id": "", "memory": req.text, "metadata": req.metadata}
+
+
+@app.post("/mem0/search")
+async def mem0_search(req: Mem0SearchRequest):
+    m = _get_mem0()
+    try:
+        return _mem0_rows(m.search(req.query, user_id=MEM0_USER, limit=req.limit))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/mem0/list")
+async def mem0_list(limit: int = 100):
+    m = _get_mem0()
+    try:
+        return _mem0_rows(m.get_all(user_id=MEM0_USER))[:limit]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/mem0/{mem_id}")
+async def mem0_delete(mem_id: str):
+    m = _get_mem0()
+    try:
+        m.delete(memory_id=mem_id)
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/mem0/reset")
+async def mem0_reset():
+    global _mem0_client
+    m = _get_mem0()
+    try:
+        m.delete_all(user_id=MEM0_USER)
+    except Exception:
+        _mem0_client = None
+        shutil.rmtree(MEM0_DIR, ignore_errors=True)
+    return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════
+#  OmniParser — screenshot → labeled UI elements
+# ═══════════════════════════════════════════════════════
+
+OMNI_DIR = Path.home() / ".pesto-ai" / "omniparser"
+_omni_models: dict[str, Any] = {}
+
+
+class OmniParseRequest(BaseModel):
+    image: Optional[str] = None  # base64 PNG; if None, grab the screen
+
+
+@app.post("/omniparser/install")
+async def omniparser_install():
+    OMNI_DIR.mkdir(parents=True, exist_ok=True)
+    steps = [
+        "pip install -U ultralytics easyocr torch torchvision pillow huggingface_hub",
+        f'huggingface-cli download microsoft/OmniParser-v2.0 --local-dir "{OMNI_DIR}"',
+    ]
+    log = ""
+    ok = True
+    for s in steps:
+        r = subprocess.run(s, shell=True, capture_output=True, text=True, timeout=1800)
+        log += f"$ {s}\n{r.stdout}{r.stderr}\n"
+        if r.returncode != 0:
+            ok = False
+            break
+    return {"ok": ok, "log": log[-8000:]}
+
+
+def _omni_weights() -> Optional[Path]:
+    for c in OMNI_DIR.rglob("*.pt"):
+        return c
+    return None
+
+
+@app.get("/omniparser/status")
+async def omniparser_status():
+    try:
+        import ultralytics  # noqa: F401
+    except ImportError:
+        return {"available": False, "error": "ultralytics not installed"}
+    w = _omni_weights()
+    if not w:
+        return {"available": False, "error": "OmniParser weights not downloaded"}
+    return {"available": True, "model": w.name}
+
+
+def _omni_load():
+    if "det" in _omni_models:
+        return _omni_models
+    try:
+        from ultralytics import YOLO
+        import easyocr
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail="OmniParser deps missing — run POST /omniparser/install") from e
+    w = _omni_weights()
+    if not w:
+        raise HTTPException(status_code=503, detail="OmniParser weights missing — run POST /omniparser/install")
+    _omni_models["det"] = YOLO(str(w))
+    _omni_models["ocr"] = easyocr.Reader(["en"], gpu=False)
+    return _omni_models
+
+
+@app.post("/omniparser/parse")
+async def omniparser_parse(req: OmniParseRequest):
+    import io
+    from PIL import Image, ImageDraw
+
+    started = time.time()
+    if req.image:
+        img = Image.open(io.BytesIO(base64.b64decode(req.image))).convert("RGB")
+    else:
+        try:
+            import pyautogui
+        except ImportError as e:
+            raise HTTPException(status_code=503, detail="pyautogui not installed") from e
+        img = pyautogui.screenshot().convert("RGB")
+
+    models = _omni_load()
+    elements: list[dict[str, Any]] = []
+    idx = 0
+
+    try:
+        det = models["det"].predict(img, conf=0.05, iou=0.1, verbose=False)[0]
+        for b in det.boxes:
+            x1, y1, x2, y2 = [int(v) for v in b.xyxy[0].tolist()]
+            elements.append({
+                "id": idx, "type": "icon", "content": "icon",
+                "bbox": [x1, y1, x2, y2], "interactable": True,
+                "confidence": float(b.conf[0]),
+            })
+            idx += 1
+    except Exception as e:
+        print(f"OmniParser detection failed: {e}")
+
+    try:
+        import numpy as np
+        for box, text, conf in models["ocr"].readtext(np.array(img)):
+            xs = [int(p[0]) for p in box]
+            ys = [int(p[1]) for p in box]
+            elements.append({
+                "id": idx, "type": "text", "content": text,
+                "bbox": [min(xs), min(ys), max(xs), max(ys)],
+                "interactable": False, "confidence": float(conf),
+            })
+            idx += 1
+    except Exception as e:
+        print(f"OmniParser OCR failed: {e}")
+
+    annotated = img.copy()
+    draw = ImageDraw.Draw(annotated)
+    for el in elements:
+        x1, y1, x2, y2 = el["bbox"]
+        draw.rectangle([x1, y1, x2, y2], outline=(0, 255, 120) if el["interactable"] else (90, 160, 255), width=2)
+        draw.text((x1 + 2, max(0, y1 - 10)), str(el["id"]), fill=(255, 255, 0))
+    buf = io.BytesIO()
+    annotated.save(buf, format="PNG")
+
+    return {
+        "width": img.width,
+        "height": img.height,
+        "elements": elements,
+        "annotated_image": base64.b64encode(buf.getvalue()).decode(),
+        "latency_ms": int((time.time() - started) * 1000),
+    }
+
+
+# ═══════════════════════════════════════════════════════
+#  exo — distributed inference cluster
+# ═══════════════════════════════════════════════════════
+
+EXO_DIR = Path.home() / ".pesto-ai" / "exo"
+_exo_proc: Optional[subprocess.Popen] = None
+
+
+@app.post("/exo/install")
+async def exo_install():
+    EXO_DIR.parent.mkdir(parents=True, exist_ok=True)
+    if EXO_DIR.exists():
+        cmd = f'cd "{EXO_DIR}" && git pull && pip install -e .'
+    else:
+        cmd = f'git clone https://github.com/exo-explore/exo.git "{EXO_DIR}" && cd "{EXO_DIR}" && pip install -e .'
+    r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=1800)
+    return {"ok": r.returncode == 0, "log": (r.stdout + r.stderr)[-8000:]}
+
+
+@app.post("/exo/start")
+async def exo_start():
+    global _exo_proc
+    if _exo_proc and _exo_proc.poll() is None:
+        return {"ok": True, "pid": _exo_proc.pid, "log": "already running"}
+    if not EXO_DIR.exists():
+        raise HTTPException(status_code=503, detail="exo not installed — run POST /exo/install")
+    try:
+        _exo_proc = subprocess.Popen(
+            "exo", shell=True, cwd=str(EXO_DIR),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"ok": True, "pid": _exo_proc.pid, "log": "exo node starting on :52415"}
+
+
+@app.post("/exo/stop")
+async def exo_stop():
+    global _exo_proc
+    if _exo_proc and _exo_proc.poll() is None:
+        _exo_proc.terminate()
+        try:
+            _exo_proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            _exo_proc.kill()
+    _exo_proc = None
+    return {"ok": True}
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Local AI Agent")
     parser.add_argument("--telegram-token", help="Telegram bot token from @BotFather")
