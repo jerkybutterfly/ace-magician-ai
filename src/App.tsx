@@ -17,6 +17,7 @@ import InstallPage from "./pages/InstallPage.tsx";
 import PhonePage from "./pages/PhonePage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import OffensivePage from "./pages/OffensivePage.tsx";
+import VortexPage from "./pages/VortexPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -91,6 +92,7 @@ const App = () => {
               <Route path="/mem0" element={<Index />} />
               <Route path="/omniparser" element={<Index />} />
               <Route path="/exo" element={<Index />} />
+              <Route path="/vortex" element={<VortexPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
