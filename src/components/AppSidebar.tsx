@@ -48,6 +48,7 @@ const navItems = [
   { title: 'Drana Recon', url: '/drana', icon: InfinityIcon },
   { title: 'Glasswing', url: '/glasswing', icon: Sparkles },
   { title: 'Offensive', url: '/offensive', icon: Skull },
+  { title: 'Vortex Agent', url: '/vortex', icon: Shield },
   { title: 'MCP Servers', url: '/mcp', icon: Plug },
   { title: 'Computer Use', url: '/computer-use', icon: Monitor },
   { title: 'MQTT', url: '/mqtt', icon: Radio },
