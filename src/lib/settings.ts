@@ -6,6 +6,7 @@ export interface AppSettings {
   ollamaUrl: string;
   lmStudioUrl: string;
   llamaCppUrl: string;
+  opencodeUrl: string;
   colibriUrl: string;
   colibriModelPath: string;
   colibriRamGb: number;
