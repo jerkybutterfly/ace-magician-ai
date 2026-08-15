@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { consumePending, onChatPush } from '@/lib/chat-bus';
-import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, streamOpencodeChat, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, fetchOpencodeModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, type OpencodeModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, Zap, X, RefreshCw, ShieldCheck, ShieldAlert, Bird } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, Zap, X, RefreshCw, ShieldCheck, ShieldAlert, Bird, FileCode2 } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 10;
@@ -75,7 +75,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [provider, setProvider] = useState<LLMProvider>(() => {
     try {
       const saved = localStorage.getItem(PROVIDER_KEY);
-      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri') return saved;
+      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri' || saved === 'opencode') return saved;
       // eslint-disable-next-line no-empty
     } catch {}
     return 'ollama';
@@ -102,6 +102,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [colibriModel, setColibriModel] = useState('');
   const [colibriError, setColibriError] = useState('');
   const [colibriLoading, setColibriLoading] = useState(false);
+  const [opencodeModels, setOpencodeModels] = useState<OpencodeModel[]>([]);
+  const [opencodeModel, setOpencodeModel] = useState('');
+  const [opencodeError, setOpencodeError] = useState('');
+  const [opencodeLoading, setOpencodeLoading] = useState(false);
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [localModel, setLocalModel] = useState('');
   const [localError, setLocalError] = useState('');
@@ -165,11 +169,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     });
   };
 
+  const loadOpencodeModels = () => {
+    setOpencodeLoading(true);
+    setOpencodeError('');
+    fetchOpencodeModels().then((models) => {
+      setOpencodeModels(models);
+      setOpencodeError('');
+      if (models.length > 0) setOpencodeModel((prev) => prev || models[0].id);
+    }).catch((err) => {
+      setOpencodeModels([]);
+      setOpencodeError(err instanceof Error ? err.message : 'Failed to connect to opencode');
+    }).finally(() => setOpencodeLoading(false));
+  };
+
   useEffect(() => {
     if (provider === 'lmstudio') loadLmStudioModels();
     if (provider === 'llamacpp') loadLlamaCppModels();
     if (provider === 'local') loadLocalRuntimeModels();
     if (provider === 'colibri') loadColibriModels();
+    if (provider === 'opencode') loadOpencodeModels();
   }, [provider]);
 
   const [streaming, setStreaming] = useState(false);
@@ -359,8 +377,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             ...currentMessages.slice(insertAt),
           ];
         }
-        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'opencode' ? opencodeModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'opencode' ? streamOpencodeChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         for await (const chunk of streamer(activeModel, currentMessages)) {
           if (chunk.thinking) {
             fullThinking += chunk.thinking;
@@ -497,8 +515,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'local' ? 'Local runtime' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'lmstudio' ? '' : 'Please try again.';
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'opencode' ? 'opencode' : provider === 'local' ? 'Local runtime' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'opencode' ? 'Start it with `opencode serve --hostname 0.0.0.0 --port 4096`.' : provider === 'lmstudio' ? '' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
@@ -546,6 +564,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             </SelectItem>
             <SelectItem value="llamacpp">
               <span className="flex items-center gap-1.5"><Zap className="h-3 w-3" /> llama.cpp (fast)</span>
+            </SelectItem>
+            <SelectItem value="opencode">
+              <span className="flex items-center gap-1.5"><FileCode2 className="h-3 w-3" /> opencode (coding)</span>
             </SelectItem>
             <SelectItem value="local">
               <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> Local (built-in)</span>
@@ -625,7 +646,27 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
               <span className="text-[10px] text-destructive max-w-[200px] truncate" title={llamaCppError}>⚠️ {llamaCppError}</span>
             )}
           </div>
+        ) : provider === 'opencode' ? (
+          <div className="flex items-center gap-2">
+            <Select value={opencodeModel} onValueChange={setOpencodeModel}>
+              <SelectTrigger className="w-[240px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={opencodeLoading ? 'Loading...' : opencodeError ? 'opencode unreachable' : 'Select model'} />
+              </SelectTrigger>
+              <SelectContent>
+                {opencodeModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button onClick={loadOpencodeModels} disabled={opencodeLoading} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${opencodeLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {opencodeError && (
+              <span className="text-[10px] text-destructive max-w-[220px] truncate" title={opencodeError}>⚠️ {opencodeError}</span>
+            )}
+          </div>
         ) : provider === 'colibri' ? (
+
           <div className="flex items-center gap-2">
             <Select value={colibriModel} onValueChange={setColibriModel}>
               <SelectTrigger className="w-[220px] h-8 text-xs bg-secondary/50 border-border/50">

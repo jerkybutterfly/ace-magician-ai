@@ -1,7 +1,7 @@
 import { getSettings } from './settings';
 import { classifyRequest, truncateHistory, tunedOllamaOptions, tunedSamplingParams, type TaskKind } from './smart-router';
 
-export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'llamacpp' | 'local' | 'colibri';
+export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'llamacpp' | 'local' | 'colibri' | 'opencode';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
@@ -907,3 +907,111 @@ export async function* streamColibriChat(
     }
   }
 }
+
+// ---------- opencode (sst/opencode — OpenAI-compatible /v1) ----------
+
+export interface OpencodeModel {
+  id: string;
+  object: string;
+}
+
+function opencodeBase(): string {
+  return getSettings().opencodeUrl.replace(/\/$/, '');
+}
+
+export async function fetchOpencodeModels(): Promise<OpencodeModel[]> {
+  const base = opencodeBase();
+  let res: Response;
+  try {
+    res = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(4000) });
+  } catch {
+    const isHttps = window.location.protocol === 'https:';
+    throw new Error(
+      isHttps
+        ? 'Your browser blocks HTTP requests from an HTTPS page. Open this app over your LAN (e.g. http://localhost:5173) to use opencode.'
+        : `Cannot reach opencode at ${base}. Start it with: opencode serve --hostname 0.0.0.0 --port 4096`,
+    );
+  }
+  if (!res.ok) throw new Error(`opencode returned an error (${res.status}). Is \`opencode serve\` running?`);
+  const data = await res.json().catch(() => ({}));
+  const models: OpencodeModel[] = data.data ?? data.models ?? [];
+  if (models.length === 0) return [{ id: 'opencode', object: 'model' }];
+  return models;
+}
+
+/**
+ * opencode's server exposes an OpenAI-compatible chat completions endpoint.
+ * It routes to whichever provider/model is configured inside opencode (Anthropic, OpenAI, local, etc.),
+ * so the app just streams SSE the same way as LM Studio / llama.cpp.
+ */
+export async function* streamOpencodeChat(
+  model: string,
+  messages: ChatMessage[],
+  taskHint?: TaskKind,
+): AsyncGenerator<StreamChunk> {
+  const { systemPrompt } = getSettings();
+  const base = opencodeBase();
+  const agentMemory = (await import('./memory')).getAgentMemory();
+  const currentObjective = getLatestObjective(messages);
+  const memoryContext = currentObjective
+    ? await (await import('./learning')).buildMemoryContext(currentObjective)
+    : '';
+  const fullSystemPrompt = [
+    systemPrompt.trim(),
+    RUNTIME_EXECUTION_PROMPT,
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    memoryContext,
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const baseMessages: ChatMessage[] = [
+    { role: 'system', content: fullSystemPrompt },
+    ...messages,
+  ];
+  const allMessages = truncateHistory(baseMessages, 14, 8000);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const sampling = tunedSamplingParams(task);
+
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: model || 'opencode', messages: allMessages, stream: true, ...sampling }),
+  });
+
+  if (!res.ok) throw new Error(`opencode error: ${res.status} ${res.statusText}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.thinking) chunk.thinking = delta.thinking;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
+      } catch {
+        buffer = line + '\n' + buffer;
+        break;
+      }
+    }
+  }
+}
+
