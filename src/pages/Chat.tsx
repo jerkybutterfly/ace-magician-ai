@@ -657,6 +657,15 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
                   <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
                 ))}
               </SelectContent>
+            </Select>
+            <button onClick={loadOpencodeModels} disabled={opencodeLoading} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${opencodeLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {opencodeError && (
+              <span className="text-[10px] text-destructive max-w-[220px] truncate" title={opencodeError}>⚠️ {opencodeError}</span>
+            )}
+          </div>
+        ) : provider === 'colibri' ? (
 
           <div className="flex items-center gap-2">
             <Select value={colibriModel} onValueChange={setColibriModel}>
