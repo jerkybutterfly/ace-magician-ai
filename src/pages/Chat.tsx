@@ -646,7 +646,18 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
               <span className="text-[10px] text-destructive max-w-[200px] truncate" title={llamaCppError}>⚠️ {llamaCppError}</span>
             )}
           </div>
-        ) : provider === 'colibri' ? (
+        ) : provider === 'opencode' ? (
+          <div className="flex items-center gap-2">
+            <Select value={opencodeModel} onValueChange={setOpencodeModel}>
+              <SelectTrigger className="w-[240px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={opencodeLoading ? 'Loading...' : opencodeError ? 'opencode unreachable' : 'Select model'} />
+              </SelectTrigger>
+              <SelectContent>
+                {opencodeModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
+                ))}
+              </SelectContent>
+
           <div className="flex items-center gap-2">
             <Select value={colibriModel} onValueChange={setColibriModel}>
               <SelectTrigger className="w-[220px] h-8 text-xs bg-secondary/50 border-border/50">
