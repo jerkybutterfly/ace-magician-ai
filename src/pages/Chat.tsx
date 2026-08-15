@@ -102,6 +102,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [colibriModel, setColibriModel] = useState('');
   const [colibriError, setColibriError] = useState('');
   const [colibriLoading, setColibriLoading] = useState(false);
+  const [opencodeModels, setOpencodeModels] = useState<OpencodeModel[]>([]);
+  const [opencodeModel, setOpencodeModel] = useState('');
+  const [opencodeError, setOpencodeError] = useState('');
+  const [opencodeLoading, setOpencodeLoading] = useState(false);
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [localModel, setLocalModel] = useState('');
   const [localError, setLocalError] = useState('');
