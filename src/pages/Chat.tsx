@@ -515,8 +515,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'local' ? 'Local runtime' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'lmstudio' ? '' : 'Please try again.';
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'opencode' ? 'opencode' : provider === 'local' ? 'Local runtime' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'opencode' ? 'Start it with `opencode serve --hostname 0.0.0.0 --port 4096`.' : provider === 'lmstudio' ? '' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
