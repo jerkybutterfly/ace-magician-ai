@@ -169,11 +169,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     });
   };
 
+  const loadOpencodeModels = () => {
+    setOpencodeLoading(true);
+    setOpencodeError('');
+    fetchOpencodeModels().then((models) => {
+      setOpencodeModels(models);
+      setOpencodeError('');
+      if (models.length > 0) setOpencodeModel((prev) => prev || models[0].id);
+    }).catch((err) => {
+      setOpencodeModels([]);
+      setOpencodeError(err instanceof Error ? err.message : 'Failed to connect to opencode');
+    }).finally(() => setOpencodeLoading(false));
+  };
+
   useEffect(() => {
     if (provider === 'lmstudio') loadLmStudioModels();
     if (provider === 'llamacpp') loadLlamaCppModels();
     if (provider === 'local') loadLocalRuntimeModels();
     if (provider === 'colibri') loadColibriModels();
+    if (provider === 'opencode') loadOpencodeModels();
   }, [provider]);
 
   const [streaming, setStreaming] = useState(false);
