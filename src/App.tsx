@@ -92,6 +92,10 @@ const App = () => {
               <Route path="/mem0" element={<Index />} />
               <Route path="/omniparser" element={<Index />} />
               <Route path="/exo" element={<Index />} />
+              <Route path="/mobsf" element={<Index />} />
+              <Route path="/frida" element={<Index />} />
+              <Route path="/scrcpy" element={<Index />} />
+              <Route path="/avd" element={<Index />} />
               <Route path="/vortex" element={<VortexPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
