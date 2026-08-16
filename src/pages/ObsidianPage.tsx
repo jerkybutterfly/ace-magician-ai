@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SendToChatButton } from '@/components/SendToChatButton';
 import {
-  BookMarked, Download, FileText, Loader2, RefreshCw, Save, Search, Sparkles, Plus,
+  BookMarked, Download, FileText, Loader2, RefreshCw, Save, Search, Sparkles, Plus, Network,
 } from 'lucide-react';
+import VaultGraph from '@/components/VaultGraph';
 import { toast } from 'sonner';
 import {
   CLAUDE_OBSIDIAN_REPO, checkVault, listNotes, readNote, writeNote, searchVault,
