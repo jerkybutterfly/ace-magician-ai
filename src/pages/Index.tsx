@@ -43,6 +43,10 @@ import SearchPage from './SearchPage';
 import Mem0Page from './Mem0Page';
 import OmniParserPage from './OmniParserPage';
 import ExoPage from './ExoPage';
+import MobsfPage from './MobsfPage';
+import FridaPage from './FridaPage';
+import ScrcpyPage from './ScrcpyPage';
+import AvdPage from './AvdPage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -136,6 +140,14 @@ export default function Index() {
         return <OmniParserPage />;
       case '/exo':
         return <ExoPage />;
+      case '/mobsf':
+        return <MobsfPage />;
+      case '/frida':
+        return <FridaPage />;
+      case '/scrcpy':
+        return <ScrcpyPage />;
+      case '/avd':
+        return <AvdPage />;
       case '/settings':
         return <SettingsPage />;
       default:
