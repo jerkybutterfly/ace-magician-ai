@@ -199,8 +199,25 @@ export default function ObsidianPage() {
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
           <TabsTrigger value="capture">Capture</TabsTrigger>
+          <TabsTrigger value="graph"><Network className="h-3.5 w-3.5 mr-1" />Graph</TabsTrigger>
           <TabsTrigger value="plugin">Plugin</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="graph" className="mt-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Network className="h-4 w-4 text-primary" /> Neural vault graph
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Every note floats as a node. Existing <code>[[wikilinks]]</code> become edges — drag, connect, and grow the web.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VaultGraph vault={vault} notes={notes} />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="notes" className="mt-3">
           <div className="grid gap-3 md:grid-cols-[280px_1fr]">
