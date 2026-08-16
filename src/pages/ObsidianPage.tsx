@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SendToChatButton } from '@/components/SendToChatButton';
 import {
-  BookMarked, Download, FileText, Loader2, RefreshCw, Save, Search, Sparkles, Plus,
+  BookMarked, Download, FileText, Loader2, RefreshCw, Save, Search, Sparkles, Plus, Network,
 } from 'lucide-react';
+import VaultGraph from '@/components/VaultGraph';
 import { toast } from 'sonner';
 import {
   CLAUDE_OBSIDIAN_REPO, checkVault, listNotes, readNote, writeNote, searchVault,
@@ -198,8 +199,25 @@ export default function ObsidianPage() {
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
           <TabsTrigger value="capture">Capture</TabsTrigger>
+          <TabsTrigger value="graph"><Network className="h-3.5 w-3.5 mr-1" />Graph</TabsTrigger>
           <TabsTrigger value="plugin">Plugin</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="graph" className="mt-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Network className="h-4 w-4 text-primary" /> Neural vault graph
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Every note floats as a node. Existing <code>[[wikilinks]]</code> become edges — drag, connect, and grow the web.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VaultGraph vault={vault} notes={notes} />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="notes" className="mt-3">
           <div className="grid gap-3 md:grid-cols-[280px_1fr]">
