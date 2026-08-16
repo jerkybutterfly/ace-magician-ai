@@ -48,6 +48,10 @@ import FridaPage from './FridaPage';
 import ScrcpyPage from './ScrcpyPage';
 import AvdPage from './AvdPage';
 import SkillOptPage from './SkillOptPage';
+import MagenticPage from './MagenticPage';
+import LightRagPage from './LightRagPage';
+import StagehandPage from './StagehandPage';
+import OpenBBPage from './OpenBBPage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -151,6 +155,14 @@ export default function Index() {
         return <AvdPage />;
       case '/skillopt':
         return <SkillOptPage />;
+      case '/magentic':
+        return <MagenticPage />;
+      case '/lightrag':
+        return <LightRagPage />;
+      case '/stagehand':
+        return <StagehandPage />;
+      case '/openbb':
+        return <OpenBBPage />;
       case '/settings':
         return <SettingsPage />;
       default:
