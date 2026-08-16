@@ -47,6 +47,7 @@ import MobsfPage from './MobsfPage';
 import FridaPage from './FridaPage';
 import ScrcpyPage from './ScrcpyPage';
 import AvdPage from './AvdPage';
+import SkillOptPage from './SkillOptPage';
 import { getSettings } from '@/lib/settings';
 import { useConversations } from '@/hooks/useConversations';
 
@@ -148,6 +149,8 @@ export default function Index() {
         return <ScrcpyPage />;
       case '/avd':
         return <AvdPage />;
+      case '/skillopt':
+        return <SkillOptPage />;
       case '/settings':
         return <SettingsPage />;
       default:
