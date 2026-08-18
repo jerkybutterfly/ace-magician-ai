@@ -200,11 +200,25 @@ export const DEFAULT_SYSTEM_PROMPT = defaultSettings.systemPrompt;
 export function getSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...defaultSettings, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        ...defaultSettings,
+        ...parsed,
+        colibriPerf: { ...DEFAULT_COLIBRI_PERF, ...(parsed.colibriPerf ?? {}) },
+        experts: Array.isArray(parsed.experts) ? parsed.experts : [],
+      };
+    }
   } catch {}
   return defaultSettings;
 }
 
 export function saveSettings(settings: AppSettings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+export function updateSettings(patch: Partial<AppSettings>): AppSettings {
+  const next = { ...getSettings(), ...patch };
+  saveSettings(next);
+  return next;
 }
