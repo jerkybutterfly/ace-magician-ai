@@ -554,6 +554,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="router">
+              <span className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> Router (MoE auto)</span>
+            </SelectItem>
             <SelectItem value="ollama">
               <span className="flex items-center gap-1.5"><Monitor className="h-3 w-3" /> Ollama (PC)</span>
             </SelectItem>
