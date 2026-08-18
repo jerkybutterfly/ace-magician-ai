@@ -2,6 +2,36 @@ import { Capacitor } from '@capacitor/core';
 
 export type TelegramProvider = 'ollama' | 'lmstudio' | 'colibri';
 
+export type ExpertRole = 'heavy' | 'code' | 'vision' | 'fast' | 'long-context';
+export type ExpertProvider = 'colibri' | 'ollama' | 'llamacpp' | 'opencode' | 'lmstudio';
+
+export interface Expert {
+  id: string;
+  name: string;
+  provider: ExpertProvider;
+  model: string;
+  role: ExpertRole;
+  ramGb: number;
+  alwaysOn: boolean;
+  priority: number;
+}
+
+export interface ColibriPerf {
+  ctx: number;
+  pipe: boolean;
+  pilot: boolean;
+  draft: number;
+  direct: boolean;
+  repin: number;
+  modelMirror: string;
+  mmap: boolean;
+  mlock: boolean;
+  flashAttn: boolean;
+  threads: number;
+  batch: number;
+  kvQuant: 'off' | 'q8_0' | 'q4_0';
+}
+
 export interface AppSettings {
   ollamaUrl: string;
   lmStudioUrl: string;
@@ -11,6 +41,7 @@ export interface AppSettings {
   colibriModelPath: string;
   colibriRamGb: number;
   colibriGpu: 'cpu' | 'cuda' | 'metal';
+  colibriPerf: ColibriPerf;
   agentUrl: string;
   defaultModel: string;
   systemPrompt: string;
@@ -18,6 +49,44 @@ export interface AppSettings {
   telegramModel: string;
   telegramProvider: TelegramProvider;
   discordBotToken: string;
+  experts: Expert[];
+  routerEnabled: boolean;
+}
+
+export const DEFAULT_COLIBRI_PERF: ColibriPerf = {
+  ctx: 8192,
+  pipe: true,
+  pilot: true,
+  draft: 4,
+  direct: true,
+  repin: 2048,
+  modelMirror: '',
+  mmap: true,
+  mlock: true,
+  flashAttn: true,
+  threads: 0,
+  batch: 512,
+  kvQuant: 'q8_0',
+};
+
+/** Convert ColibriPerf to the env-var map colibrì reads. */
+export function colibriPerfToEnv(p: ColibriPerf): Record<string, string> {
+  const env: Record<string, string> = {
+    CTX: String(p.ctx),
+    PIPE: p.pipe ? '1' : '0',
+    PILOT: p.pilot ? '1' : '0',
+    DRAFT: String(p.draft),
+    DIRECT: p.direct ? '1' : '0',
+    REPIN: String(p.repin),
+  };
+  if (p.modelMirror.trim()) env.COLI_MODEL_MIRROR = p.modelMirror.trim();
+  if (p.threads > 0) env.THREADS = String(p.threads);
+  if (p.batch > 0) env.BATCH = String(p.batch);
+  env.MMAP = p.mmap ? '1' : '0';
+  env.MLOCK = p.mlock ? '1' : '0';
+  env.FLASH_ATTN = p.flashAttn ? '1' : '0';
+  if (p.kvQuant !== 'off') env.KV_QUANT = p.kvQuant;
+  return env;
 }
 
 const SETTINGS_KEY = 'local-ai-settings';
