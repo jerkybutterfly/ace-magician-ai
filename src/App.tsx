@@ -19,7 +19,7 @@ import NotFound from "./pages/NotFound.tsx";
 import OffensivePage from "./pages/OffensivePage.tsx";
 import VortexPage from "./pages/VortexPage.tsx";
 import FooocusPage from "./pages/FooocusPage.tsx";
-import OpenLovablePage from "./pages/OpenLovablePage
+import OpenLovablePage from "./pages/OpenLovablePage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
