@@ -669,6 +669,27 @@ REPIN=2048`}</pre>
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Firecrawl (open-lovable)</CardTitle>
+          <CardDescription>API key used by the open-lovable page to scrape websites before rebuilding them locally</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Label htmlFor="firecrawl-key">Firecrawl API Key</Label>
+          <Input
+            id="firecrawl-key"
+            type="password"
+            value={settings.firecrawlKey}
+            onChange={(e) => update('firecrawlKey', e.target.value)}
+            placeholder="fc-..."
+          />
+          <p className="text-xs text-muted-foreground">
+            Get a free key at <code className="text-xs bg-muted px-1 rounded">firecrawl.dev</code>. Stored locally in this browser only.
+          </p>
+        </CardContent>
+      </Card>
+
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Telegram Integration</CardTitle>
           <CardDescription>Control your PC remotely via Telegram</CardDescription>
         </CardHeader>

@@ -28,6 +28,7 @@ const navItems = [
   { title: 'Understand', url: '/understand', icon: BookOpen },
   { title: 'Montage', url: '/montage', icon: Clapperboard },
   { title: 'Fooocus', url: '/fooocus', icon: ImageIcon },
+  { title: 'open-lovable', url: '/open-lovable', icon: Globe },
   { title: 'Voice', url: '/voice', icon: Mic },
   { title: 'Local Voice', url: '/local-voice', icon: AudioLines },
   { title: 'Vector Store', url: '/vector-store', icon: Database },

@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound.tsx";
 import OffensivePage from "./pages/OffensivePage.tsx";
 import VortexPage from "./pages/VortexPage.tsx";
 import FooocusPage from "./pages/FooocusPage.tsx";
+import OpenLovablePage from "./pages/OpenLovablePage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -104,6 +105,7 @@ const App = () => {
               <Route path="/openbb" element={<Index />} />
               <Route path="/vortex" element={<VortexPage />} />
               <Route path="/fooocus" element={<FooocusPage />} />
+              <Route path="/open-lovable" element={<OpenLovablePage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
