@@ -63,6 +63,22 @@ async function generateImage(prompt: string): Promise<{ text: string; images: Ar
   return res.json();
 }
 
+function RouterInfoPill() {
+  const experts = getSettings().experts;
+  const roles = new Set(experts.map((e) => e.role));
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/40 border border-border/40">
+        <Sparkles className="h-3 w-3 text-primary" />
+        {experts.length === 0
+          ? 'No experts — add in Settings'
+          : `${experts.length} expert${experts.length === 1 ? '' : 's'} · ${roles.size} role${roles.size === 1 ? '' : 's'}`}
+      </span>
+      <span className="hidden md:inline">Prefix @code / @fast / @vision / @long / @heavy to force one</span>
+    </div>
+  );
+}
+
 interface Props {
   conversation: Conversation | null;
   onUpdate: (convo: Conversation) => void;
