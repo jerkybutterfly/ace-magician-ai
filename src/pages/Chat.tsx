@@ -584,7 +584,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           </SelectContent>
         </Select>
 
-        {provider === 'ollama' ? (
+        {provider === 'router' ? (
+          <RouterInfoPill />
+        ) : provider === 'ollama' ? (
           <ModelSelector value={model} onChange={onModelChange} />
         ) : provider === 'local' ? (
           <div className="flex items-center gap-2">
