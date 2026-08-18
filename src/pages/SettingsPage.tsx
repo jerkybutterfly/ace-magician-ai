@@ -191,6 +191,7 @@ export default function SettingsPage() {
       const payload: any = {
         model_path: settings.colibriModelPath.trim(),
         ram_gb: Number(settings.colibriRamGb) || 24,
+        extra_env: colibriPerfToEnv(settings.colibriPerf),
       };
       if (settings.colibriGpu && settings.colibriGpu !== 'cpu') payload.gpu = settings.colibriGpu;
       const r = await fetch(`${settings.agentUrl.replace(/\/$/, '')}/colibri/start`, {
