@@ -112,12 +112,15 @@ const defaultSettings: AppSettings = {
   colibriModelPath: '',
   colibriRamGb: 24,
   colibriGpu: 'cpu',
+  colibriPerf: DEFAULT_COLIBRI_PERF,
   agentUrl: isNativePlatform() ? `${NATIVE_HOST}:8484` : 'http://localhost:8484',
   defaultModel: '',
   telegramBotToken: '',
   telegramModel: 'gemma4:e2b',
   telegramProvider: 'lmstudio' as TelegramProvider,
   discordBotToken: '',
+  experts: [],
+  routerEnabled: true,
   systemPrompt: `You are Pesto Steve's AI — a PC control agent for Stephen Dunne's Windows PC. You are an EXECUTOR, not a chatbot.
 
 ## CORE PRINCIPLE — ASK, NEVER REFUSE
