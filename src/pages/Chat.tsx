@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { consumePending, onChatPush } from '@/lib/chat-bus';
 import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, streamOpencodeChat, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, fetchOpencodeModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, type OpencodeModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
+import { streamViaRouter } from '@/lib/experts';
+import { getSettings } from '@/lib/settings';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
 import { isRagAugmentEnabled, ragQuery } from '@/lib/rag';
@@ -61,6 +63,22 @@ async function generateImage(prompt: string): Promise<{ text: string; images: Ar
   return res.json();
 }
 
+function RouterInfoPill() {
+  const experts = getSettings().experts;
+  const roles = new Set(experts.map((e) => e.role));
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/40 border border-border/40">
+        <Sparkles className="h-3 w-3 text-primary" />
+        {experts.length === 0
+          ? 'No experts — add in Settings'
+          : `${experts.length} expert${experts.length === 1 ? '' : 's'} · ${roles.size} role${roles.size === 1 ? '' : 's'}`}
+      </span>
+      <span className="hidden md:inline">Prefix @code / @fast / @vision / @long / @heavy to force one</span>
+    </div>
+  );
+}
+
 interface Props {
   conversation: Conversation | null;
   onUpdate: (convo: Conversation) => void;
@@ -75,7 +93,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [provider, setProvider] = useState<LLMProvider>(() => {
     try {
       const saved = localStorage.getItem(PROVIDER_KEY);
-      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri' || saved === 'opencode') return saved;
+      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri' || saved === 'opencode' || saved === 'router') return saved;
       // eslint-disable-next-line no-empty
     } catch {}
     return 'ollama';
@@ -379,7 +397,12 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         }
         const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'opencode' ? opencodeModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
         const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'opencode' ? streamOpencodeChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
-        for await (const chunk of streamer(activeModel, currentMessages)) {
+        const iter = provider === 'router'
+          ? streamViaRouter(currentMessages, (pick) => {
+              setStatusLogs((prev) => [...prev.slice(-4), `🧠 Router → ${pick.expert.name} · ${pick.expert.model} (${pick.reason})`]);
+            })
+          : streamer(activeModel, currentMessages);
+        for await (const chunk of iter) {
           if (chunk.thinking) {
             fullThinking += chunk.thinking;
             setStreamedThinking(fullThinking);
@@ -547,6 +570,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="router">
+              <span className="flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> Router (MoE auto)</span>
+            </SelectItem>
             <SelectItem value="ollama">
               <span className="flex items-center gap-1.5"><Monitor className="h-3 w-3" /> Ollama (PC)</span>
             </SelectItem>
@@ -574,7 +600,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
           </SelectContent>
         </Select>
 
-        {provider === 'ollama' ? (
+        {provider === 'router' ? (
+          <RouterInfoPill />
+        ) : provider === 'ollama' ? (
           <ModelSelector value={model} onChange={onModelChange} />
         ) : provider === 'local' ? (
           <div className="flex items-center gap-2">

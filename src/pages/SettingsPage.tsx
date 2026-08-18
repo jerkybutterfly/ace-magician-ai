@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, getSystemInfo, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
 import { fetchModels, fetchColibriHealth, fetchColibriModels, fetchLlamaCppHealth, fetchLlamaCppModels } from '@/lib/ollama';
-import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, type AppSettings, type TelegramProvider } from '@/lib/settings';
+import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, colibriPerfToEnv, type AppSettings, type TelegramProvider } from '@/lib/settings';
+import { ColibriPerfPanel } from '@/components/ColibriPerfPanel';
+import { ExpertsPanel } from '@/components/ExpertsPanel';
 import { isSmartRouterEnabled, setSmartRouterEnabled } from '@/lib/smart-router';
 import { getNotificationSettings, saveNotificationSettings, requestNotificationPermission, showNotification, postNotification, type NotificationSettings } from '@/lib/notifications';
 import { Switch } from '@/components/ui/switch';
@@ -189,6 +191,7 @@ export default function SettingsPage() {
       const payload: any = {
         model_path: settings.colibriModelPath.trim(),
         ram_gb: Number(settings.colibriRamGb) || 24,
+        extra_env: colibriPerfToEnv(settings.colibriPerf),
       };
       if (settings.colibriGpu && settings.colibriGpu !== 'cpu') payload.gpu = settings.colibriGpu;
       const r = await fetch(`${settings.agentUrl.replace(/\/$/, '')}/colibri/start`, {
@@ -632,6 +635,10 @@ REPIN=2048`}</pre>
           </div>
         </CardContent>
       </Card>
+
+      <ColibriPerfPanel />
+
+      <ExpertsPanel />
 
       <Card>
         <CardHeader>
