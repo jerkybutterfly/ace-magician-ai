@@ -122,6 +122,7 @@ const defaultSettings: AppSettings = {
   discordBotToken: '',
   experts: [],
   routerEnabled: true,
+  firecrawlKey: '',
   systemPrompt: `You are Pesto Steve's AI — a PC control agent for Stephen Dunne's Windows PC. You are an EXECUTOR, not a chatbot.
 
 ## CORE PRINCIPLE — ASK, NEVER REFUSE
