@@ -12,7 +12,7 @@ import { scrapeSite, generateReactClone, type ScrapeResult } from '@/lib/open-lo
 import { useConversations } from '@/hooks/useConversations';
 
 export default function OpenLovablePage() {
-  const { conversations, currentConvoId, newConversation, selectConversation, deleteConversation } = useConversations();
+  const { conversations, currentConvoId, createConversation, selectConversation, deleteConversation } = useConversations();
   const [url, setUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [site, setSite] = useState<ScrapeResult | null>(null);
