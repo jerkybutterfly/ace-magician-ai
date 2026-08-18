@@ -636,6 +636,10 @@ REPIN=2048`}</pre>
         </CardContent>
       </Card>
 
+      <ColibriPerfPanel />
+
+      <ExpertsPanel />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Agent Configuration</CardTitle>
