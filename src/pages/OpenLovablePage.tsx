@@ -64,7 +64,7 @@ export default function OpenLovablePage() {
       <AppSidebar
         conversations={conversations}
         currentConvoId={currentConvoId}
-        onNewChat={newConversation}
+        onNewChat={createConversation}
         onSelectConvo={selectConversation}
         onDeleteConvo={deleteConversation}
       />
