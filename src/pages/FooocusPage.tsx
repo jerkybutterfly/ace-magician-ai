@@ -17,7 +17,7 @@ import {
 import { Image as ImageIcon, Download, Play, Square, Loader2, Wand2 } from 'lucide-react';
 
 export default function FooocusPage() {
-  const { conversations, currentConvoId, createNew, deleteConversation, setCurrentConvoId } = useConversations();
+  const { conversations, currentConvoId, createConversation, deleteConversation, selectConversation } = useConversations();
   const { toast } = useToast();
 
   const [url, setUrl] = useState(getFooocusUrl());
@@ -60,8 +60,8 @@ export default function FooocusPage() {
       <AppSidebar
         conversations={conversations}
         currentConvoId={currentConvoId}
-        onNewChat={createNew}
-        onSelectConvo={setCurrentConvoId}
+        onNewChat={createConversation}
+        onSelectConvo={selectConversation}
         onDeleteConvo={deleteConversation}
       />
       <SidebarInset>
