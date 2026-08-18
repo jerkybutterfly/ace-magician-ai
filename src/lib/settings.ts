@@ -51,6 +51,7 @@ export interface AppSettings {
   discordBotToken: string;
   experts: Expert[];
   routerEnabled: boolean;
+  firecrawlKey: string;
 }
 
 export const DEFAULT_COLIBRI_PERF: ColibriPerf = {
