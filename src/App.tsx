@@ -105,6 +105,7 @@ const App = () => {
               <Route path="/openbb" element={<Index />} />
               <Route path="/vortex" element={<VortexPage />} />
               <Route path="/fooocus" element={<FooocusPage />} />
+              <Route path="/open-lovable" element={<OpenLovablePage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
