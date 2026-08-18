@@ -381,7 +381,12 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
         }
         const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'opencode' ? opencodeModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
         const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'opencode' ? streamOpencodeChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
-        for await (const chunk of streamer(activeModel, currentMessages)) {
+        const iter = provider === 'router'
+          ? streamViaRouter(currentMessages, (pick) => {
+              setStatusLogs((prev) => [...prev.slice(-4), `🧠 Router → ${pick.expert.name} · ${pick.expert.model} (${pick.reason})`]);
+            })
+          : streamer(activeModel, currentMessages);
+        for await (const chunk of iter) {
           if (chunk.thinking) {
             fullThinking += chunk.thinking;
             setStreamedThinking(fullThinking);
