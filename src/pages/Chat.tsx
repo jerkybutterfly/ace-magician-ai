@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { consumePending, onChatPush } from '@/lib/chat-bus';
 import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, streamOpencodeChat, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, fetchOpencodeModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, type OpencodeModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
+import { streamViaRouter } from '@/lib/experts';
+import { getSettings } from '@/lib/settings';
 import { executeToolCommands, hasToolCommands, type PermissionDecision } from '@/lib/agent-tools';
 import { recordSequence, type SkillSuggestion } from '@/lib/skill-detector';
 import { isRagAugmentEnabled, ragQuery } from '@/lib/rag';
