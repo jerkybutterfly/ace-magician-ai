@@ -14,21 +14,54 @@ export type TaskKind = 'simple' | 'code' | 'reasoning' | 'tool' | 'live' | 'visi
 
 const CODE_HINTS = /```|\b(function|class|def |const |let |var |import |npm |pip |python|node|tsx|jsx|regex|stack ?trace|error:|exception)\b/i;
 const REASONING_HINTS = /\b(why|explain|analy[sz]e|compare|design|architect|plan|strategi[sz]e|prove|debate|trade[- ]off|step[- ]by[- ]step)\b/i;
-const TOOL_HINTS = /\b(open|launch|start|run|install|download|click|fill|type|navigate|browse|visit|go to|read|write|create|delete|move|copy|search files|list dir|screenshot|kill|notify|mqtt|wifi|ip|process)\b|[A-Za-z]:\\/i;
+const TOOL_HINTS = /\b(open|launch|start|run|install|download|click|fill|type|navigate|browse|visit|go to|read|write|create|delete|move|copy|search|find|scan|list|dir|show|check|inspect|examine|explore|analyse|analyze|audit|count|clean|organise|organize|kill|notify|mqtt|wifi|ip|process|system|drive|drives|disk|disks|folder|directory|files|path|storage)\b|\b[a-z]\s*:\b|\b[a-z]\s+drive\b|[A-Za-z]:\\/i;
 const SIMPLE_HINTS = /^(hi|hey|hello|yo|sup|thanks|thank you|ok|okay|cool|nice|lol|good morning|good night|gn|gm)\b/i;
-// Live / time-sensitive queries that REQUIRE web search (sports, news, weather, prices, "next/latest/today")
-const LIVE_HINTS = /\b(next (match|game|fixture|episode|flight|train)|latest|today|tonight|tomorrow|yesterday|this (week|weekend|month|year)|current(ly)?|right now|score|scores|fixture|fixtures|standings|news|headline|weather|forecast|price of|stock|crypto|exchange rate|when (is|does|will|are)|who (won|is winning|is playing)|what time)\b/i;
+// Live / time-sensitive queries that REQUIRE web search (sports, news, weather, prices, "next/latest/today", search online)
+const LIVE_HINTS = /\b(next (match|game|fixture|episode|flight|train)|latest|today|tonight|tomorrow|yesterday|this (week|weekend|month|year)|current(ly)?|right now|score|scores|fixture|fixtures|standings|news|headline|weather|forecast|price of|stock|crypto|exchange rate|when (is|does|will|are)|who (won|is winning|is playing)|what time|search|search online|search web|google|find online|find info|look up|online|internet|web search)\b/i;
+
+export const ACTIONABLE_REQUEST_PATTERN = /\b(open|launch|start|run|install|download|pull|go to|visit|browse|list|show|read|write|create|delete|remove|rename|move|copy|search|find|close|stop|restart|execute|check|inspect|examine|explore|scan|audit|analyse|analyze|count|clean|organise|organize|drive|disk|folder|directory|files|path|system|pc|online|google|web)\b/i;
+
+export function isActionableRequest(text: string): boolean {
+  return ACTIONABLE_REQUEST_PATTERN.test(text) || TOOL_HINTS.test(text) || /\b[A-Za-z]\s*:\b|\b[A-Za-z]\s+drive\b|[A-Za-z]:\\/i.test(text);
+}
+
+export function checkNeedsTools(task: TaskKind, model: string = '', objective: string = ''): boolean {
+  return (
+    task === 'tool' ||
+    task === 'live' ||
+    isActionableRequest(objective) ||
+    /laguna|agent|hermes|qwen.*coder|instruct/i.test(model) ||
+    objective.trim().length > 25
+  );
+}
 
 export function classifyRequest(text: string, opts: { hasImage?: boolean } = {}): TaskKind {
   if (opts.hasImage) return 'vision';
   const t = text.trim();
   if (!t) return 'simple';
   if (LIVE_HINTS.test(t)) return 'live';
-  if (t.length < 60 && SIMPLE_HINTS.test(t)) return 'simple';
   if (TOOL_HINTS.test(t)) return 'tool';
   if (CODE_HINTS.test(t)) return 'code';
   if (REASONING_HINTS.test(t) || t.length > 280) return 'reasoning';
+  if (isActionableRequest(t)) return 'tool';
   return 'simple';
+}
+
+/**
+ * Get the complexity-aware execution plan for a request.
+ * Integrates the reasoning scaler for dynamic compute depth.
+ */
+export async function getExecutionPlan(text: string, hasImage = false): Promise<{
+  task: TaskKind;
+  complexity: import('./reasoning-scaler').ComplexityProfile;
+  thinking_prompt: string;
+  timeout_ms: number;
+}> {
+  const { analyzeComplexity, buildThinkingPrompt } = await import('./reasoning-scaler');
+  const task = classifyRequest(text, { hasImage });
+  const complexity = analyzeComplexity(text, hasImage);
+  const thinking_prompt = buildThinkingPrompt(text, complexity);
+  return { task, complexity, thinking_prompt, timeout_ms: complexity.timeout_ms };
 }
 
 /** Short, punchy nudge prepended for live-data tasks so small models don't refuse. */
@@ -52,19 +85,22 @@ function scoreModel(name: string, task: TaskKind): number {
     score += billions > 0 ? Math.max(0, 10 - billions) : 5;
     if (/lite|mini|nano|flash|tiny|small|1b|2b|3b/.test(n)) score += 5;
   } else if (task === 'code') {
+    if (/laguna/.test(n)) score += 18;
     if (/code|coder|qwen.*code|deepseek|starcoder/.test(n)) score += 10;
     score += Math.min(billions, 14); // bigger is usually better, capped
   } else if (task === 'reasoning') {
+    if (/laguna/.test(n)) score += 25;
     if (/reason|think|r1|qwq|o1|pro|gpt-5(?!-)|gemini-3-pro|gemini-2\.5-pro/.test(n)) score += 10;
     score += Math.min(billions, 30);
   } else if (task === 'tool') {
     // Tool use: instruction-following matters more than raw size
+    if (/laguna/.test(n)) score += 18;
     if (/instruct|gemma|llama.*3|qwen.*2\.5|mistral/.test(n)) score += 6;
     if (/flash|mini|fast/.test(n)) score += 3; // speed helps in tool loops
     score += Math.min(billions, 8);
   } else if (task === 'live') {
     // Live data → must follow the WEB_SEARCH/WEB_FETCH instructions reliably.
-    // Prefer well-aligned instruct models, mid-size, that won't hallucinate refusals.
+    if (/laguna/.test(n)) score += 16;
     if (/instruct|gemma|llama.*3|qwen.*2\.5|mistral|gpt-5|gemini-2\.5|gemini-3/.test(n)) score += 8;
     if (/flash|mini|fast/.test(n)) score += 2;
     // Penalise tiny models that tend to refuse with "I can't access live data"
@@ -183,23 +219,23 @@ export function truncateHistory<T extends { role: string; content: string }>(
 /** Ollama `options` block tuned per task kind. Faster + sharper than defaults. */
 export function tunedOllamaOptions(task: TaskKind): Record<string, unknown> {
   const base = {
-    num_ctx: 4096,
-    num_batch: 512,
+    num_ctx: 2048,
+    num_batch: 2048,
     repeat_penalty: 1.1,
   };
   switch (task) {
     case 'simple':
-      return { ...base, num_ctx: 8192, temperature: 0.4, top_p: 0.9, num_predict: 2048 };
+      return { ...base, num_ctx: 1024, num_batch: 2048, temperature: 0.4, top_p: 0.9, num_predict: 512 };
     case 'code':
-      return { ...base, num_ctx: 16384, temperature: 0.2, top_p: 0.95, num_predict: 4096 };
+      return { ...base, num_ctx: 4096, num_batch: 1024, temperature: 0.2, top_p: 0.95, num_predict: 2048 };
     case 'reasoning':
-      return { ...base, num_ctx: 16384, temperature: 0.5, top_p: 0.95, num_predict: 6144 };
+      return { ...base, num_ctx: 4096, num_batch: 1024, temperature: 0.5, top_p: 0.95, num_predict: 2048 };
     case 'tool':
-      return { ...base, num_ctx: 8192, temperature: 0.3, top_p: 0.9, num_predict: 3072 };
+      return { ...base, num_ctx: 4096, num_batch: 1024, temperature: 0.3, top_p: 0.9, num_predict: 1536 };
     case 'live':
-      return { ...base, num_ctx: 8192, temperature: 0.2, top_p: 0.9, num_predict: 2048 };
+      return { ...base, num_ctx: 2048, num_batch: 1024, temperature: 0.2, top_p: 0.9, num_predict: 1024 };
     case 'vision':
-      return { ...base, num_ctx: 8192, temperature: 0.3, top_p: 0.9, num_predict: 2048 };
+      return { ...base, num_ctx: 2048, num_batch: 1024, temperature: 0.3, top_p: 0.9, num_predict: 1024 };
   }
 }
 
@@ -207,11 +243,11 @@ export function tunedOllamaOptions(task: TaskKind): Record<string, unknown> {
 export function tunedSamplingParams(task: TaskKind): Record<string, unknown> {
   switch (task) {
     case 'simple':
-      return { temperature: 0.4, top_p: 0.9, max_tokens: 2048 };
+      return { temperature: 0.4, top_p: 0.9, max_tokens: 1024 };
     case 'code':
       return { temperature: 0.2, top_p: 0.95, max_tokens: 4096 };
     case 'reasoning':
-      return { temperature: 0.5, top_p: 0.95, max_tokens: 6144 };
+      return { temperature: 0.5, top_p: 0.95, max_tokens: 4096 };
     case 'tool':
       return { temperature: 0.3, top_p: 0.9, max_tokens: 3072 };
     case 'live':
@@ -242,9 +278,9 @@ const ROUTER_KEY = 'smart-router-enabled';
 export function isSmartRouterEnabled(): boolean {
   try {
     const v = localStorage.getItem(ROUTER_KEY);
-    return v === null ? true : v === '1';
+    return v === '1';
   } catch {
-    return true;
+    return false;
   }
 }
 

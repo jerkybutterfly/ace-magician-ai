@@ -257,7 +257,7 @@ function predictTool(req: string): string | null {
   if (/\b(open|launch|start|run|install|execute|cmd|powershell)\b/.test(t)) return 'RUN_CMD';
   if (/\b(write|create|save).*(file|to)\b/.test(t)) return 'WRITE_FILE';
   if (/\b(read|show|cat|open).*(file)\b/.test(t)) return 'READ_FILE';
-  if (/\b(list|ls|dir|show).*(folder|directory|files)\b/.test(t)) return 'LIST_DIR';
+  if (/\b(list|ls|dir|show|analyse|analyze|check|inspect|examine|explore|scan).*(folder|directory|files|drive|disk|path)\b|\b[a-z]\s+drive\b|\b[a-z]:\b/.test(t)) return 'LIST_DIR';
   if (/\b(search|google|find online|web|news|latest|today)\b/.test(t)) return 'WEB_SEARCH';
   if (/\b(fetch|download|http|api|url|browse|visit)\b/.test(t)) return 'WEB_FETCH';
   if (/\b(click|fill|type|form|button)\b/.test(t)) return 'CLICK';
@@ -283,6 +283,17 @@ export async function buildMemoryContext(currentRequest: string): Promise<string
     predicted ? recentEpisodesForTool(predicted, 3) : Promise.resolve<Episode[]>([]),
     getProfile(),
   ]);
+
+  // GraphRAG: graph-based relationship-aware memory
+  let graphContext = '';
+  try {
+    const { graphQuery, ingestText } = await import('./graphrag');
+    // Ingest this request into the graph (passive learning)
+    ingestText(currentRequest);
+    // Query the graph for relevant relationships
+    const graphResult = graphQuery(currentRequest);
+    if (graphResult.context) graphContext = graphResult.context;
+  } catch {}
 
   const parts: string[] = [];
 
@@ -321,6 +332,35 @@ export async function buildMemoryContext(currentRequest: string): Promise<string
     }
     if (lines.length) parts.push(`--- RECENT ${predicted} USES (last ${lines.length}) ---\n${lines.join('\n')}`);
   }
+
+  // Inject GraphRAG context
+  if (graphContext) parts.push(graphContext);
+
+  // Executive Summary: compressed state for long-running tasks
+  try {
+    const { buildStateContext, shouldCompress } = await import('./state-manager');
+    if (shouldCompress(parts.length)) {
+      // Trigger compression in background
+      const { compressHistory } = await import('./state-manager');
+      compressHistory(
+        [{ role: 'user', content: currentRequest }],
+        '',
+      ).catch(() => {});
+    }
+    const stateContext = buildStateContext();
+    if (stateContext) parts.push(stateContext);
+  } catch {}
+
+  // Auto-learn: check if we need to learn a new tool
+  try {
+    const { needsAutoLearn, hasSkill } = await import('./auto-learn');
+    if (predicted && needsAutoLearn(predicted)) {
+      const skill = hasSkill(predicted);
+      if (skill) {
+        parts.push(`--- LEARNED SKILL: ${skill.name} ---\n${skill.code.slice(0, 500)}`);
+      }
+    }
+  } catch {}
 
   return parts.join('\n\n');
 }

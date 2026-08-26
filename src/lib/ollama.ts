@@ -1,7 +1,7 @@
 import { getSettings } from './settings';
-import { classifyRequest, truncateHistory, tunedOllamaOptions, tunedSamplingParams, type TaskKind } from './smart-router';
+import { classifyRequest, isActionableRequest, checkNeedsTools, truncateHistory, tunedOllamaOptions, tunedSamplingParams, type TaskKind } from './smart-router';
 
-export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'llamacpp' | 'local' | 'colibri' | 'opencode' | 'router';
+export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'llamacpp' | 'vllm' | 'local' | 'colibri' | 'opencode' | 'router';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
@@ -154,14 +154,16 @@ export const RUNTIME_EXECUTION_PROMPT = `You are operating inside Pesto Steve's 
 
 ## TOOLS (auto-executed by the runtime — just emit the tags)
 
-You have 37 tools. Use them by writing the exact tags below. The runtime will execute them and return results.
+You have 40+ tools across live web search, browser automation, terminal, files, system control, and MCP integrations. Use them by writing the exact tags below. The runtime will execute them and return results.
 
-### Tool list:
-1. [RUN_CMD:command] — Run any shell/terminal command
-2. [LIST_DIR:path] — List files in a directory
-3. [READ_FILE:path] — Read a file's contents
-4. [WRITE_FILE:path|content] — Write/create a file
-5. [OPEN_URL:url] — Open a URL in a real browser (Selenium-controlled Chrome)
+### Online & Web Searching Tools (USE THESE FOR ANY ONLINE/CURRENT INFO):
+1. [WEB_SEARCH:query] — Search the live web (DuckDuckGo / SerpAPI / Brave). Returns top 5 {title, url, snippet}. ALWAYS use this for real-time information, online searching, news, prices, documentation, and external facts.
+2. [WEB_FETCH:url] — Fetch a URL and return clean readable text (strips nav/scripts). Use this AFTER [WEB_SEARCH] to read the full page or article.
+3. [OPEN_URL:url] — Open a URL in a real browser (Selenium-controlled Chrome) for interactive web tasks.
+4. [HTTP_REQUEST:METHOD|url|optional_body] — Make an HTTP API request (GET, POST, PUT, DELETE).
+5. [DOWNLOAD:url|save_path] — Download an online file directly to local path.
+
+### Browser Automation Tools:
 6. [CLICK:css_selector] — Click an element on the current page
 7. [FILL_FORM:css_selector|value] — Clear and fill an input field
 8. [TYPE_TEXT:css_selector|text] — Type text into a field (supports {ENTER}, {TAB}, {ESCAPE})
@@ -172,7 +174,24 @@ You have 37 tools. Use them by writing the exact tags below. The runtime will ex
 13. [WAIT:seconds] — Pause for N seconds (use between steps for page loads)
 14. [WAIT_FOR:css_selector] — Wait until an element appears on the page
 
+### System & File Tools:
+15. [RUN_CMD:command] — Run any PowerShell or CMD shell command
+16. [LIST_DIR:path] — List files in a directory
+17. [READ_FILE:path] — Read a file's contents
+18. [WRITE_FILE:path|content] — Write/create a file
+19. [SEARCH_FILES:regex_pattern|path] — Search file contents by regex
+20. [DISK_USAGE] — Get disk usage for all drives
+21. [LIST_PROCESSES] — List running processes
+22. [KILL_PROCESS:pid] — Kill a process by PID
+23. [MCP_CALL:server_name|tool_name|json_args] — Execute a tool on a connected MCP server
+24. [CREATE_SKILL:name|python_code] — Save a custom Python script as a reusable skill
+25. [RUN_SKILL:name|args] — Run a custom Python skill
+
 ### Basic Examples:
+
+User: "Search online for the latest news on Laguna LLM"
+Assistant: Searching the web for the latest updates on Laguna LLM.
+[WEB_SEARCH:Laguna LLM latest release news]
 
 User: "What's my IP address?"
 Assistant: Checking your IP address.
@@ -349,6 +368,10 @@ When the user asks to "build an app", "design a system", "spec out", "plan", or 
 
 Standard flow: check → init → draft spec.md → generate plan.md from spec → generate tasks.md from plan → implement task-by-task using your other tools (WRITE_FILE, RUN_CMD, etc.). Tell the user they can also drive this visually from the **Spec Kit** page in the sidebar.`;
 
+
+/** Compact system prompt for non-tool tasks — keeps context tiny for small models. */
+export const SHORT_SYSTEM_PROMPT = `You are Pesto Steve's AI running on Stephen Dunne's Windows PC. Be concise and helpful. User home: C:\\Users\\Stephen Dunne`;
+
 function getLatestObjective(messages: ChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
@@ -404,36 +427,62 @@ export async function* streamChat(
   model: string,
   messages: ChatMessage[],
   taskHint?: TaskKind,
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamChunk> {
   const { ollamaUrl, systemPrompt } = getSettings();
-  const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
-  const memoryContext = currentObjective
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  // Only load heavy modules for tasks that need them
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
     ? await (await import('./learning')).buildMemoryContext(currentObjective)
     : '';
-  const fullSystemPrompt = [
-    systemPrompt.trim(),
-    RUNTIME_EXECUTION_PROMPT,
+  // Multi-modal context: screen/audio perception
+  let multiModalContext = '';
+  try {
+    const { buildMultiModalContext } = await import('./multimodal');
+    multiModalContext = await buildMultiModalContext();
+  } catch {}
+  // Reasoning scaler: dynamic compute depth
+  let thinkingPrompt = currentObjective;
+  try {
+    const { analyzeComplexity, buildThinkingPrompt } = await import('./reasoning-scaler');
+    const complexity = analyzeComplexity(currentObjective || '');
+    if (complexity.level === 'complex' || complexity.level === 'expert') {
+      thinkingPrompt = buildThinkingPrompt(currentObjective || '', complexity);
+    }
+  } catch {}
+  // Skip the massive RUNTIME_EXECUTION_PROMPT for simple/code/reasoning tasks
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
     memoryContext,
-    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+    multiModalContext,
+    thinkingPrompt ? `--- CURRENT OBJECTIVE ---\n${thinkingPrompt}` : '',
   ]
     .filter(Boolean)
     .join('\n\n');
-  const baseMessages: ChatMessage[] = fullSystemPrompt
-    ? [{ role: 'system', content: fullSystemPrompt }, ...messages]
+  const baseMessages: ChatMessage[] = systemParts
+    ? [{ role: 'system', content: systemParts }, ...messages]
     : messages;
-  const allMessages = truncateHistory(baseMessages, 14, 8000);
-  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const allMessages = truncateHistory(baseMessages, 5, 2000);
   const options = tunedOllamaOptions(task);
 
   const res = await fetch(`${ollamaUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: allMessages, stream: true, options, keep_alive: '30m' }),
+    signal,
   });
 
-  if (!res.ok) throw new Error(`Ollama error: ${res.statusText}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    let errMsg = res.statusText;
+    try { errMsg = JSON.parse(errBody).error || errMsg; } catch {}
+    throw new Error(`Ollama error: ${errMsg}`);
+  }
   const reader = res.body?.getReader();
   if (!reader) throw new Error('No response body');
 
@@ -471,25 +520,44 @@ export async function* streamChat(
 export async function* streamCloudChat(
   model: string,
   messages: ChatMessage[],
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamChunk> {
   const { systemPrompt } = getSettings();
-  const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
-  const memoryContext = currentObjective
+  const task = classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
     ? await (await import('./learning')).buildMemoryContext(currentObjective)
     : '';
-  const fullSystemPrompt = [
-    systemPrompt.trim(),
-    RUNTIME_EXECUTION_PROMPT,
+  // Multi-modal context
+  let multiModalContext = '';
+  try {
+    const { buildMultiModalContext } = await import('./multimodal');
+    multiModalContext = await buildMultiModalContext();
+  } catch {}
+  // Reasoning scaler
+  let thinkingPrompt = currentObjective;
+  try {
+    const { analyzeComplexity, buildThinkingPrompt } = await import('./reasoning-scaler');
+    const complexity = analyzeComplexity(currentObjective || '');
+    if (complexity.level === 'complex' || complexity.level === 'expert') {
+      thinkingPrompt = buildThinkingPrompt(currentObjective || '', complexity);
+    }
+  } catch {}
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
     memoryContext,
-    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+    multiModalContext,
+    thinkingPrompt ? `--- CURRENT OBJECTIVE ---\n${thinkingPrompt}` : '',
   ]
     .filter(Boolean)
     .join('\n\n');
 
   const allMessages: ChatMessage[] = [
-    { role: 'system', content: fullSystemPrompt },
+    { role: 'system', content: systemParts },
     ...messages,
   ];
 
@@ -502,6 +570,7 @@ export async function* streamCloudChat(
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
     body: JSON.stringify({ model, messages: allMessages }),
+    signal,
   });
 
   if (!res.ok) {
@@ -549,16 +618,19 @@ export async function* streamCloudChat(
 export async function* streamGoogleChat(
   model: string,
   messages: ChatMessage[],
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamChunk> {
   const { systemPrompt } = getSettings();
-  const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
-  const memoryContext = currentObjective
+  const task = classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
     ? await (await import('./learning')).buildMemoryContext(currentObjective)
     : '';
-  const fullSystemPrompt = [
-    systemPrompt.trim(),
-    RUNTIME_EXECUTION_PROMPT,
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
     memoryContext,
     currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
@@ -567,7 +639,7 @@ export async function* streamGoogleChat(
     .join('\n\n');
 
   const allMessages: ChatMessage[] = [
-    { role: 'system', content: fullSystemPrompt },
+    { role: 'system', content: systemParts },
     ...messages,
   ];
 
@@ -580,6 +652,7 @@ export async function* streamGoogleChat(
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
     body: JSON.stringify({ model, messages: allMessages }),
+    signal,
   });
 
   if (!res.ok) {
@@ -628,16 +701,19 @@ export async function* streamLMStudioChat(
   model: string,
   messages: ChatMessage[],
   taskHint?: TaskKind,
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamChunk> {
   const { lmStudioUrl, systemPrompt } = getSettings();
-  const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
-  const memoryContext = currentObjective
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
     ? await (await import('./learning')).buildMemoryContext(currentObjective)
     : '';
-  const fullSystemPrompt = [
-    systemPrompt.trim(),
-    RUNTIME_EXECUTION_PROMPT,
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
     memoryContext,
     currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
@@ -646,17 +722,17 @@ export async function* streamLMStudioChat(
     .join('\n\n');
 
   const baseMessages: ChatMessage[] = [
-    { role: 'system', content: fullSystemPrompt },
+    { role: 'system', content: systemParts },
     ...messages,
   ];
-  const allMessages = truncateHistory(baseMessages, 14, 8000);
-  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const allMessages = truncateHistory(baseMessages, 5, 2000);
   const sampling = tunedSamplingParams(task);
 
   const res = await fetch(`${lmStudioUrl}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: allMessages, stream: true, ...sampling }),
+    signal,
   });
 
   if (!res.ok) throw new Error(`LM Studio error: ${res.statusText}`);
@@ -705,17 +781,20 @@ export async function* streamLlamaCppChat(
   model: string,
   messages: ChatMessage[],
   taskHint?: TaskKind,
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamChunk> {
   const { systemPrompt } = getSettings();
   const base = llamaCppBase();
-  const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
-  const memoryContext = currentObjective
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
     ? await (await import('./learning')).buildMemoryContext(currentObjective)
     : '';
-  const fullSystemPrompt = [
-    systemPrompt.trim(),
-    RUNTIME_EXECUTION_PROMPT,
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
     memoryContext,
     currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
@@ -724,11 +803,10 @@ export async function* streamLlamaCppChat(
     .join('\n\n');
 
   const baseMessages: ChatMessage[] = [
-    { role: 'system', content: fullSystemPrompt },
+    { role: 'system', content: systemParts },
     ...messages,
   ];
-  const allMessages = truncateHistory(baseMessages, 14, 8000);
-  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const allMessages = truncateHistory(baseMessages, 5, 2000);
   const sampling = tunedSamplingParams(task);
 
   const res = await fetch(`${base}/v1/chat/completions`, {
@@ -736,6 +814,7 @@ export async function* streamLlamaCppChat(
     headers: { 'Content-Type': 'application/json' },
     // llama-server ignores `model`, but sending it keeps the payload OpenAI-shaped.
     body: JSON.stringify({ model: model || 'llama.cpp', messages: allMessages, stream: true, ...sampling }),
+    signal,
   });
 
   if (!res.ok) throw new Error(`llama.cpp error: ${res.status} ${res.statusText}`);
@@ -772,6 +851,114 @@ export async function* streamLlamaCppChat(
   }
 }
 
+
+// ---------- vLLM (high-throughput inference engine) ----------
+
+function vllmBase(): string {
+  return getSettings().vllmUrl.replace(/\/$/, '');
+}
+
+export interface VllmModel {
+  id: string;
+  object: string;
+}
+
+export async function fetchVllmModels(): Promise<VllmModel[]> {
+  const base = vllmBase();
+  let res: Response;
+  try {
+    res = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(5000) });
+  } catch {
+    throw new Error(
+      `Cannot reach vLLM at ${base}. Start it with: vllm serve <model> --port 8000`,
+    );
+  }
+  if (!res.ok) throw new Error(`vLLM returned an error (${res.status}).`);
+  const data = await res.json().catch(() => ({}));
+  const models: VllmModel[] = data.data ?? [];
+  if (models.length === 0) return [{ id: 'vllm', object: 'model' }];
+  return models;
+}
+
+/**
+ * vLLM uses the same OpenAI-compatible chat completions endpoint as LM Studio.
+ * vLLM advantages over Ollama/llama.cpp:
+ * - PagedAttention: 2-4x more concurrent requests
+ * - Continuous batching: multiple users share GPU
+ * - Speculative decoding: 2-3x faster token generation
+ */
+export async function* streamVllmChat(
+  model: string,
+  messages: ChatMessage[],
+  taskHint?: TaskKind,
+  signal?: AbortSignal,
+): AsyncGenerator<StreamChunk> {
+  const { systemPrompt } = getSettings();
+  const base = vllmBase();
+  const currentObjective = getLatestObjective(messages);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
+    ? await (await import('./learning')).buildMemoryContext(currentObjective)
+    : '';
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    memoryContext,
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const baseMessages: ChatMessage[] = [
+    { role: 'system', content: systemParts },
+    ...messages,
+  ];
+  const allMessages = truncateHistory(baseMessages, 5, 2000);
+  const sampling = tunedSamplingParams(task);
+
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: model || 'vllm', messages: allMessages, stream: true, ...sampling }),
+    signal,
+  });
+
+  if (!res.ok) throw new Error(`vLLM error: ${res.status} ${res.statusText}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
+      } catch {
+        buffer = line + '\n' + buffer;
+        break;
+      }
+    }
+  }
+}
 
 
 export async function generateText(prompt: string): Promise<string> {
@@ -838,16 +1025,19 @@ export async function* streamColibriChat(
   model: string,
   messages: ChatMessage[],
   taskHint?: TaskKind,
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamChunk> {
   const { colibriUrl, systemPrompt } = getSettings();
-  const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
-  const memoryContext = currentObjective
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
     ? await (await import('./learning')).buildMemoryContext(currentObjective)
     : '';
-  const fullSystemPrompt = [
-    systemPrompt.trim(),
-    RUNTIME_EXECUTION_PROMPT,
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
     memoryContext,
     currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
@@ -856,17 +1046,17 @@ export async function* streamColibriChat(
     .join('\n\n');
 
   const baseMessages: ChatMessage[] = [
-    { role: 'system', content: fullSystemPrompt },
+    { role: 'system', content: systemParts },
     ...messages,
   ];
-  const allMessages = truncateHistory(baseMessages, 14, 8000);
-  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const allMessages = truncateHistory(baseMessages, 5, 2000);
   const sampling = tunedSamplingParams(task);
 
   const res = await fetch(`${colibriUrl}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: allMessages, stream: true, ...sampling }),
+    signal,
   });
 
   if (!res.ok) throw new Error(`colibrì error: ${res.statusText}`);
@@ -925,14 +1115,30 @@ export async function fetchOpencodeModels(): Promise<OpencodeModel[]> {
   try {
     res = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(4000) });
   } catch {
-    const isHttps = window.location.protocol === 'https:';
-    throw new Error(
-      isHttps
-        ? 'Your browser blocks HTTP requests from an HTTPS page. Open this app over your LAN (e.g. http://localhost:5173) to use opencode.'
-        : `Cannot reach opencode at ${base}. Start it with: opencode serve --hostname 0.0.0.0 --port 4096`,
-    );
+    // Server unreachable — return common fallback models
+    return [
+      { id: 'anthropic/claude-sonnet-4-20250514', object: 'model' },
+      { id: 'anthropic/claude-3.5-sonnet', object: 'model' },
+      { id: 'openai/gpt-4o', object: 'model' },
+      { id: 'openai/gpt-4o-mini', object: 'model' },
+      { id: 'google/gemini-2.5-pro', object: 'model' },
+      { id: 'deepseek/deepseek-v3', object: 'model' },
+      { id: 'qwen/qwen3-235b-a22b', object: 'model' },
+    ];
   }
-  if (!res.ok) throw new Error(`opencode returned an error (${res.status}). Is \`opencode serve\` running?`);
+  // If server returns HTML (OpenCode web UI), return fallback models
+  const text = await res.text().catch(() => '');
+  if (text.includes('<!doctype') || text.includes('<html')) {
+    return [
+      { id: 'anthropic/claude-sonnet-4-20250514', object: 'model' },
+      { id: 'anthropic/claude-3.5-sonnet', object: 'model' },
+      { id: 'openai/gpt-4o', object: 'model' },
+      { id: 'openai/gpt-4o-mini', object: 'model' },
+      { id: 'google/gemini-2.5-pro', object: 'model' },
+      { id: 'deepseek/deepseek-v3', object: 'model' },
+      { id: 'qwen/qwen3-235b-a22b', object: 'model' },
+    ];
+  }
   const data = await res.json().catch(() => ({}));
   const models: OpencodeModel[] = data.data ?? data.models ?? [];
   if (models.length === 0) return [{ id: 'opencode', object: 'model' }];
@@ -948,17 +1154,20 @@ export async function* streamOpencodeChat(
   model: string,
   messages: ChatMessage[],
   taskHint?: TaskKind,
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamChunk> {
   const { systemPrompt } = getSettings();
   const base = opencodeBase();
-  const agentMemory = (await import('./memory')).getAgentMemory();
   const currentObjective = getLatestObjective(messages);
-  const memoryContext = currentObjective
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
     ? await (await import('./learning')).buildMemoryContext(currentObjective)
     : '';
-  const fullSystemPrompt = [
-    systemPrompt.trim(),
-    RUNTIME_EXECUTION_PROMPT,
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
     agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
     memoryContext,
     currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
@@ -967,17 +1176,17 @@ export async function* streamOpencodeChat(
     .join('\n\n');
 
   const baseMessages: ChatMessage[] = [
-    { role: 'system', content: fullSystemPrompt },
+    { role: 'system', content: systemParts },
     ...messages,
   ];
-  const allMessages = truncateHistory(baseMessages, 14, 8000);
-  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const allMessages = truncateHistory(baseMessages, 5, 2000);
   const sampling = tunedSamplingParams(task);
 
   const res = await fetch(`${base}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: model || 'opencode', messages: allMessages, stream: true, ...sampling }),
+    signal,
   });
 
   if (!res.ok) throw new Error(`opencode error: ${res.status} ${res.statusText}`);
@@ -1015,3 +1224,6 @@ export async function* streamOpencodeChat(
   }
 }
 
+// Alias exports for camelCase naming used by SettingsPage
+export { fetchOpencodeModels as fetchOpenCodeModels };
+export type { OpencodeModel as OpenCodeModel };
