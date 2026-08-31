@@ -26,6 +26,7 @@ const navItems = [
   { title: 'Swarm', url: '/swarm', icon: Network },
   { title: 'Knowledge Graph', url: '/knowledge-graph', icon: Brain },
   { title: 'Understand', url: '/understand', icon: BookOpen },
+  { title: 'Physical AI', url: '/physical-ai', icon: Atom },
   { title: 'Montage', url: '/montage', icon: Clapperboard },
   { title: 'Fooocus', url: '/fooocus', icon: ImageIcon },
   { title: 'open-lovable', url: '/open-lovable', icon: Globe },
