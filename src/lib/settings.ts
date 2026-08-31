@@ -37,6 +37,7 @@ export interface AppSettings {
   lmStudioUrl: string;
   llamaCppUrl: string;
   opencodeUrl: string;
+  vllmUrl: string;
   colibriUrl: string;
   colibriModelPath: string;
   colibriRamGb: number;
