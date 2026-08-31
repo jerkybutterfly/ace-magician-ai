@@ -22,6 +22,7 @@ import FooocusPage from "./pages/FooocusPage.tsx";
 import OpenLovablePage from "./pages/OpenLovablePage.tsx";
 import MontagePage from "./pages/MontagePage.tsx";
 import CognitivePage from "./pages/CognitivePage.tsx";
+import PhysicalAiPage from "./pages/PhysicalAiPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
