@@ -110,6 +110,7 @@ const App = () => {
               <Route path="/fooocus" element={<FooocusPage />} />
               <Route path="/open-lovable" element={<OpenLovablePage />} />
               <Route path="/cognitive" element={<CognitivePage />} />
+              <Route path="/physical-ai" element={<PhysicalAiPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
