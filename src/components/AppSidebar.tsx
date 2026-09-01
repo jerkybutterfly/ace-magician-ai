@@ -16,8 +16,10 @@ import { Button } from '@/components/ui/button';
 import type { Conversation } from '@/lib/conversations';
 
 const navItems = [
-  { title: 'Chat', url: '/', icon: MessageSquare },
+  { title: 'Chat', url: '/chat', icon: MessageSquare },
+  { title: 'Ultron', url: '/ultron', icon: Orbit },
   { title: 'Search', url: '/search', icon: Search },
+
   { title: 'Trading', url: '/trading', icon: TrendingUp },
   { title: 'Finance', url: '/finance', icon: LineChart },
   { title: 'colibrì Brain', url: '/colibri', icon: Bird },
