@@ -42,13 +42,14 @@ export const robin = {
       .filter(([, v]) => v)
       .map(([k, v]) => `-e ${k}=${JSON.stringify(v)}`)
       .join(' ');
-    return sh(`
-      docker rm -f ${CONTAINER} >/dev/null 2>&1;
-      docker run -d --name ${CONTAINER} \
-        --add-host=host.docker.internal:host-gateway \
-        -v ~/.aiapp/robin/investigations:/app/investigations \
-        ${envArgs} \
-        -p ${PORT}:${PORT} ${IMAGE}`),
+    return sh([
+      `docker rm -f ${CONTAINER} >/dev/null 2>&1;`,
+      `docker run -d --name ${CONTAINER}`,
+      `--add-host=host.docker.internal:host-gateway`,
+      `-v ~/.aiapp/robin/investigations:/app/investigations`,
+      envArgs,
+      `-p ${PORT}:${PORT} ${IMAGE}`,
+    ].join(' '));
   },
   stop: () => sh(`docker rm -f ${CONTAINER}`),
   status: async () => {
