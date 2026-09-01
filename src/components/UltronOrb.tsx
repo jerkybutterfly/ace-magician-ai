@@ -3,11 +3,13 @@
  * Ported from https://github.com/SAGAR-TAMANG/ultron-by-sagar-builds
  * MIT License, Copyright (c) 2026 Sagar Tamang.
  */
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createOrbScene, type OrbSceneApi } from "@/lib/orb-scene";
 import "@/styles/ultron.css";
 import { HandTracker, type TrackerStatus } from "@/lib/hand-tracker";
+import { sendToChat } from "@/lib/chat-bus";
+import { loadConversations } from "@/lib/conversations";
 
 type CameraState = "off" | "starting" | "on" | "error";
 
@@ -17,13 +19,23 @@ const MODE_LABEL: Record<TrackerStatus["mode"], string> = {
   zoom: "ZOOM",
 };
 
+const QUICK_COMMANDS: { label: string; text: string }[] = [
+  { label: "STATUS", text: "Give me a concise system status: models loaded, agent health, and any active jobs." },
+  { label: "SCAN NET", text: "[RUN_CMD:nmap -sn 192.168.1.0/24]" },
+  { label: "BRIEFING", text: "Produce my daily briefing." },
+  { label: "MEMORY", text: "Summarize what you've learned about me recently from memory." },
+];
+
 export default function UltronOrb() {
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<OrbSceneApi | null>(null);
   const trackerRef = useRef<HandTracker | null>(null);
 
+  const [command, setCommand] = useState("");
+  const [lastResponse, setLastResponse] = useState<string>("");
   const [camera, setCamera] = useState<CameraState>("off");
   const [status, setStatus] = useState<TrackerStatus>({ hands: 0, mode: "idle" });
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +52,46 @@ export default function UltronOrb() {
       sceneRef.current = null;
     };
   }, []);
+
+  // Poll conversations for the latest assistant reply so the orb echoes chat responses.
+  useEffect(() => {
+    const read = () => {
+      try {
+        const convos = loadConversations();
+        if (!convos.length) return;
+        const currentId = localStorage.getItem("local-ai-current-convo");
+        const convo =
+          convos.find((c) => c.id === currentId) ?? convos[convos.length - 1];
+        const lastAssistant = [...convo.messages]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.content?.trim());
+        if (lastAssistant) setLastResponse(lastAssistant.content);
+      } catch {
+        /* ignore */
+      }
+    };
+    read();
+    const id = window.setInterval(read, 1500);
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key.startsWith("local-ai-")) read();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  const dispatchToChat = useCallback(
+    (text: string, opts?: { stay?: boolean }) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      sendToChat({ text: trimmed, autorun: true });
+      setCommand("");
+      if (!opts?.stay) navigate("/chat");
+    },
+    [navigate],
+  );
 
   const stopGestures = useCallback(() => {
     trackerRef.current?.stop();
@@ -119,6 +171,57 @@ export default function UltronOrb() {
       <div className="overlay-scanlines" />
 
       <div className="hud hud-title">U.L.T.R.O.N.</div>
+
+      <form
+        className="hud hud-command"
+        onSubmit={(e) => {
+          e.preventDefault();
+          dispatchToChat(command);
+        }}
+      >
+        <div className="cmd-row">
+          <input
+            className="cmd-input"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            placeholder="Speak to Ultron — routed to chat…"
+            aria-label="Command"
+          />
+          <button type="submit" className="hud-btn" aria-label="Send to chat">
+            SEND →
+          </button>
+        </div>
+        <div className="cmd-quick">
+          {QUICK_COMMANDS.map((q) => (
+            <button
+              key={q.label}
+              type="button"
+              className="cmd-chip"
+              onClick={() => dispatchToChat(q.text)}
+              title={q.text}
+            >
+              {q.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="cmd-chip"
+            onClick={() => dispatchToChat(command || "Continue.", { stay: true })}
+            title="Send without leaving the orb"
+          >
+            QUEUE (STAY)
+          </button>
+        </div>
+      </form>
+
+      <div className="hud hud-response" aria-live="polite">
+        <div className="hud-response-label">LAST TRANSMISSION</div>
+        {lastResponse ? (
+          lastResponse.length > 1200 ? lastResponse.slice(-1200) : lastResponse
+        ) : (
+          <span className="hud-response-empty">Awaiting reply from chat…</span>
+        )}
+      </div>
 
       <div className="hud hud-hint">
         <div>
