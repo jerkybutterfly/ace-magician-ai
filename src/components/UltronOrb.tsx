@@ -1,8 +1,13 @@
-"use client";
-
+/*
+ * ULTRON Orb — Iron Man-inspired holographic orb.
+ * Ported from https://github.com/SAGAR-TAMANG/ultron-by-sagar-builds
+ * MIT License, Copyright (c) 2026 Sagar Tamang.
+ */
+import { Link } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createOrbScene, type OrbSceneApi } from "@/lib/orbScene";
-import { HandTracker, type TrackerStatus } from "@/lib/handTracker";
+import { createOrbScene, type OrbSceneApi } from "@/lib/orb-scene";
+import "@/styles/ultron.css";
+import { HandTracker, type TrackerStatus } from "@/lib/hand-tracker";
 
 type CameraState = "off" | "starting" | "on" | "error";
 
@@ -12,7 +17,7 @@ const MODE_LABEL: Record<TrackerStatus["mode"], string> = {
   zoom: "ZOOM",
 };
 
-export default function JarvisOrb() {
+export default function UltronOrb() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -106,7 +111,7 @@ export default function JarvisOrb() {
   const cameraOn = camera === "on";
 
   return (
-    <>
+    <div className="ultron-root">
       <div ref={containerRef} className="orb-root" />
 
       <div className="overlay-vignette" />
@@ -171,6 +176,10 @@ export default function JarvisOrb() {
           </button>
         </div>
       </div>
-    </>
+
+      <div className="hud hud-enter">
+        <Link to="/chat" className="hud-btn">ENTER SYSTEM →</Link>
+      </div>
+    </div>
   );
 }
