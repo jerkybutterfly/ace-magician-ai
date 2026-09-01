@@ -53,6 +53,46 @@ export default function UltronOrb() {
     };
   }, []);
 
+  // Poll conversations for the latest assistant reply so the orb echoes chat responses.
+  useEffect(() => {
+    const read = () => {
+      try {
+        const convos = loadConversations();
+        if (!convos.length) return;
+        const currentId = localStorage.getItem("local-ai-current-convo");
+        const convo =
+          convos.find((c) => c.id === currentId) ?? convos[convos.length - 1];
+        const lastAssistant = [...convo.messages]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.content?.trim());
+        if (lastAssistant) setLastResponse(lastAssistant.content);
+      } catch {
+        /* ignore */
+      }
+    };
+    read();
+    const id = window.setInterval(read, 1500);
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key.startsWith("local-ai-")) read();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  const dispatchToChat = useCallback(
+    (text: string, opts?: { stay?: boolean }) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      sendToChat({ text: trimmed, autorun: true });
+      setCommand("");
+      if (!opts?.stay) navigate("/chat");
+    },
+    [navigate],
+  );
+
   const stopGestures = useCallback(() => {
     trackerRef.current?.stop();
     trackerRef.current = null;
