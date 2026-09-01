@@ -4,7 +4,7 @@
  * MIT License, Copyright (c) 2026 Sagar Tamang.
  */
 import { Link, useNavigate } from "react-router-dom";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createOrbScene, type OrbSceneApi } from "@/lib/orb-scene";
 import "@/styles/ultron.css";
 import { HandTracker, type TrackerStatus } from "@/lib/hand-tracker";
