@@ -19,13 +19,23 @@ const MODE_LABEL: Record<TrackerStatus["mode"], string> = {
   zoom: "ZOOM",
 };
 
+const QUICK_COMMANDS: { label: string; text: string }[] = [
+  { label: "STATUS", text: "Give me a concise system status: models loaded, agent health, and any active jobs." },
+  { label: "SCAN NET", text: "[RUN_CMD:nmap -sn 192.168.1.0/24]" },
+  { label: "BRIEFING", text: "Produce my daily briefing." },
+  { label: "MEMORY", text: "Summarize what you've learned about me recently from memory." },
+];
+
 export default function UltronOrb() {
+  const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<OrbSceneApi | null>(null);
   const trackerRef = useRef<HandTracker | null>(null);
 
+  const [command, setCommand] = useState("");
+  const [lastResponse, setLastResponse] = useState<string>("");
   const [camera, setCamera] = useState<CameraState>("off");
   const [status, setStatus] = useState<TrackerStatus>({ hands: 0, mode: "idle" });
   const [error, setError] = useState<string | null>(null);
