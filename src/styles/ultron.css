@@ -237,3 +237,16 @@
     display: none;
   }
 }
+
+.ultron-root .hud-enter {
+  top: 24px;
+  right: 24px;
+}
+
+.ultron-root .hud-enter .hud-btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  letter-spacing: 0.18em;
+  font-size: 12px;
+}
