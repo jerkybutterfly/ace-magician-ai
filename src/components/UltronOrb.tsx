@@ -172,6 +172,57 @@ export default function UltronOrb() {
 
       <div className="hud hud-title">U.L.T.R.O.N.</div>
 
+      <form
+        className="hud hud-command"
+        onSubmit={(e) => {
+          e.preventDefault();
+          dispatchToChat(command);
+        }}
+      >
+        <div className="cmd-row">
+          <input
+            className="cmd-input"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            placeholder="Speak to Ultron — routed to chat…"
+            aria-label="Command"
+          />
+          <button type="submit" className="hud-btn" aria-label="Send to chat">
+            SEND →
+          </button>
+        </div>
+        <div className="cmd-quick">
+          {QUICK_COMMANDS.map((q) => (
+            <button
+              key={q.label}
+              type="button"
+              className="cmd-chip"
+              onClick={() => dispatchToChat(q.text)}
+              title={q.text}
+            >
+              {q.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="cmd-chip"
+            onClick={() => dispatchToChat(command || "Continue.", { stay: true })}
+            title="Send without leaving the orb"
+          >
+            QUEUE (STAY)
+          </button>
+        </div>
+      </form>
+
+      <div className="hud hud-response" aria-live="polite">
+        <div className="hud-response-label">LAST TRANSMISSION</div>
+        {lastResponse ? (
+          lastResponse.length > 1200 ? lastResponse.slice(-1200) : lastResponse
+        ) : (
+          <span className="hud-response-empty">Awaiting reply from chat…</span>
+        )}
+      </div>
+
       <div className="hud hud-hint">
         <div>
           <span className="key">DRAG</span> spin&nbsp;&nbsp;
