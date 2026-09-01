@@ -23,6 +23,7 @@ import OpenLovablePage from "./pages/OpenLovablePage.tsx";
 import MontagePage from "./pages/MontagePage.tsx";
 import CognitivePage from "./pages/CognitivePage.tsx";
 import PhysicalAiPage from "./pages/PhysicalAiPage.tsx";
+import UltronPage from "./pages/UltronPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -53,7 +54,9 @@ const App = () => {
         <BrowserRouter>
           <SidebarProvider>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<UltronPage />} />
+              <Route path="/ultron" element={<UltronPage />} />
+              <Route path="/chat" element={<Index />} />
               <Route path="/automations" element={<AutomationsPage />} />
               <Route path="/swarm" element={<SwarmPage />} />
               <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />

@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Image as ImageIcon } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -16,8 +16,10 @@ import { Button } from '@/components/ui/button';
 import type { Conversation } from '@/lib/conversations';
 
 const navItems = [
-  { title: 'Chat', url: '/', icon: MessageSquare },
+  { title: 'Chat', url: '/chat', icon: MessageSquare },
+  { title: 'Ultron', url: '/ultron', icon: Orbit },
   { title: 'Search', url: '/search', icon: Search },
+
   { title: 'Trading', url: '/trading', icon: TrendingUp },
   { title: 'Finance', url: '/finance', icon: LineChart },
   { title: 'colibrì Brain', url: '/colibri', icon: Bird },
