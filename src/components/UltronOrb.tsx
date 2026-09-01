@@ -3,11 +3,13 @@
  * Ported from https://github.com/SAGAR-TAMANG/ultron-by-sagar-builds
  * MIT License, Copyright (c) 2026 Sagar Tamang.
  */
-import { Link } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createOrbScene, type OrbSceneApi } from "@/lib/orb-scene";
 import "@/styles/ultron.css";
 import { HandTracker, type TrackerStatus } from "@/lib/hand-tracker";
+import { sendToChat } from "@/lib/chat-bus";
+import { loadConversations } from "@/lib/conversations";
 
 type CameraState = "off" | "starting" | "on" | "error";
 
