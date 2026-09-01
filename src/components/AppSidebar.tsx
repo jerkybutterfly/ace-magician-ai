@@ -58,6 +58,7 @@ const navItems = [
   { title: 'scrcpy', url: '/scrcpy', icon: Smartphone },
   { title: 'Android Emulator', url: '/avd', icon: Cpu },
   { title: 'Vortex Agent', url: '/vortex', icon: Shield },
+  { title: 'Robin OSINT', url: '/robin', icon: Radar },
   { title: 'MCP Servers', url: '/mcp', icon: Plug },
   { title: 'Computer Use', url: '/computer-use', icon: Monitor },
   { title: 'MQTT', url: '/mqtt', icon: Radio },
