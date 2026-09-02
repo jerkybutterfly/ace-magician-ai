@@ -118,6 +118,49 @@ export default function UltronOrb() {
     [navigate],
   );
 
+  const toggleMic = useCallback(() => {
+    if (recognizerRef.current) {
+      try { recognizerRef.current.stop(); } catch { /* ignore */ }
+      recognizerRef.current = null;
+      setMicState("off");
+      return;
+    }
+    const rec = createRecognizer({
+      onTranscript: (text) => {
+        // Speak-to-chat: stay on orb so the conversation feels ambient.
+        sendToChat({ text, autorun: true });
+      },
+      onStatus: (s, detail) => {
+        setMicState(s === "error" ? "error" : s === "listening" ? "listening" : "off");
+        if (s === "error") setError(`VOICE: ${detail || "error"}`);
+        // Auto-restart if it ended while user still expects listening.
+        if (s === "idle" && recognizerRef.current) {
+          try { recognizerRef.current.start(); } catch { /* ignore */ }
+        }
+      },
+    });
+    if (!rec) {
+      setError("VOICE NOT SUPPORTED IN THIS BROWSER");
+      setVoiceSupported(false);
+      return;
+    }
+    recognizerRef.current = rec;
+    try {
+      rec.start();
+      setMicState("listening");
+    } catch (e) {
+      setError("MIC START FAILED");
+    }
+  }, []);
+
+  const toggleAutoSpeak = useCallback(() => {
+    setAutoSpeak((v) => {
+      const next = !v;
+      if (!next) stopSpeaking();
+      return next;
+    });
+  }, []);
+
   const stopGestures = useCallback(() => {
     trackerRef.current?.stop();
     trackerRef.current = null;
