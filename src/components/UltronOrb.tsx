@@ -222,6 +222,14 @@ export default function UltronOrb() {
         case "G":
           toggleGestures();
           break;
+        case "v":
+        case "V":
+          toggleMic();
+          break;
+        case "m":
+        case "M":
+          toggleAutoSpeak();
+          break;
       }
     };
     window.addEventListener("keydown", onKey);
