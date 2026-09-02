@@ -25,6 +25,7 @@ import CognitivePage from "./pages/CognitivePage.tsx";
 import PhysicalAiPage from "./pages/PhysicalAiPage.tsx";
 import UltronPage from "./pages/UltronPage.tsx";
 import RobinPage from "./pages/RobinPage.tsx";
+import YtDlpPage from "./pages/YtDlpPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -116,6 +117,7 @@ const App = () => {
               <Route path="/cognitive" element={<CognitivePage />} />
               <Route path="/physical-ai" element={<PhysicalAiPage />} />
               <Route path="/robin" element={<RobinPage />} />
+              <Route path="/ytdlp" element={<YtDlpPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
