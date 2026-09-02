@@ -311,7 +311,9 @@ export default function UltronOrb() {
           </div>
         ) : (
           <div>
-            <span className="key">G</span> hand gestures&nbsp;&nbsp;
+            <span className="key">V</span> voice&nbsp;&nbsp;
+            <span className="key">M</span> mute&nbsp;&nbsp;
+            <span className="key">G</span> gestures&nbsp;&nbsp;
             <span className="key">R</span> reset&nbsp;&nbsp;
             <span className="key">+/−</span> zoom
           </div>
