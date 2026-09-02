@@ -10,6 +10,7 @@ import "@/styles/ultron.css";
 import { HandTracker, type TrackerStatus } from "@/lib/hand-tracker";
 import { sendToChat } from "@/lib/chat-bus";
 import { loadConversations } from "@/lib/conversations";
+import { createRecognizer, speak, stopSpeaking, primeVoices } from "@/lib/ultron-voice";
 
 type CameraState = "off" | "starting" | "on" | "error";
 
@@ -39,6 +40,11 @@ export default function UltronOrb() {
   const [camera, setCamera] = useState<CameraState>("off");
   const [status, setStatus] = useState<TrackerStatus>({ hands: 0, mode: "idle" });
   const [error, setError] = useState<string | null>(null);
+  const [micState, setMicState] = useState<"off" | "listening" | "error">("off");
+  const [autoSpeak, setAutoSpeak] = useState<boolean>(true);
+  const [voiceSupported, setVoiceSupported] = useState<boolean>(true);
+  const recognizerRef = useRef<any>(null);
+  const spokenRef = useRef<string>("");
 
   useEffect(() => {
     const container = containerRef.current;
@@ -82,6 +88,25 @@ export default function UltronOrb() {
     };
   }, []);
 
+  // Auto-speak new assistant replies.
+  useEffect(() => {
+    primeVoices();
+    setVoiceSupported(
+      !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition),
+    );
+    return () => {
+      recognizerRef.current?.stop?.();
+      stopSpeaking();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!autoSpeak || !lastResponse) return;
+    if (lastResponse === spokenRef.current) return;
+    spokenRef.current = lastResponse;
+    speak(lastResponse);
+  }, [lastResponse, autoSpeak]);
+
   const dispatchToChat = useCallback(
     (text: string, opts?: { stay?: boolean }) => {
       const trimmed = text.trim();
@@ -92,6 +117,49 @@ export default function UltronOrb() {
     },
     [navigate],
   );
+
+  const toggleMic = useCallback(() => {
+    if (recognizerRef.current) {
+      try { recognizerRef.current.stop(); } catch { /* ignore */ }
+      recognizerRef.current = null;
+      setMicState("off");
+      return;
+    }
+    const rec = createRecognizer({
+      onTranscript: (text) => {
+        // Speak-to-chat: stay on orb so the conversation feels ambient.
+        sendToChat({ text, autorun: true });
+      },
+      onStatus: (s, detail) => {
+        setMicState(s === "error" ? "error" : s === "listening" ? "listening" : "off");
+        if (s === "error") setError(`VOICE: ${detail || "error"}`);
+        // Auto-restart if it ended while user still expects listening.
+        if (s === "idle" && recognizerRef.current) {
+          try { recognizerRef.current.start(); } catch { /* ignore */ }
+        }
+      },
+    });
+    if (!rec) {
+      setError("VOICE NOT SUPPORTED IN THIS BROWSER");
+      setVoiceSupported(false);
+      return;
+    }
+    recognizerRef.current = rec;
+    try {
+      rec.start();
+      setMicState("listening");
+    } catch (e) {
+      setError("MIC START FAILED");
+    }
+  }, []);
+
+  const toggleAutoSpeak = useCallback(() => {
+    setAutoSpeak((v) => {
+      const next = !v;
+      if (!next) stopSpeaking();
+      return next;
+    });
+  }, []);
 
   const stopGestures = useCallback(() => {
     trackerRef.current?.stop();
@@ -154,11 +222,19 @@ export default function UltronOrb() {
         case "G":
           toggleGestures();
           break;
+        case "v":
+        case "V":
+          toggleMic();
+          break;
+        case "m":
+        case "M":
+          toggleAutoSpeak();
+          break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleGestures]);
+  }, [toggleGestures, toggleMic, toggleAutoSpeak]);
 
   const cameraOn = camera === "on";
 
@@ -235,7 +311,9 @@ export default function UltronOrb() {
           </div>
         ) : (
           <div>
-            <span className="key">G</span> hand gestures&nbsp;&nbsp;
+            <span className="key">V</span> voice&nbsp;&nbsp;
+            <span className="key">M</span> mute&nbsp;&nbsp;
+            <span className="key">G</span> gestures&nbsp;&nbsp;
             <span className="key">R</span> reset&nbsp;&nbsp;
             <span className="key">+/−</span> zoom
           </div>
@@ -256,6 +334,27 @@ export default function UltronOrb() {
 
         {error && <div className="hud-error">{error}</div>}
 
+        <div className="hud-row">
+          <button
+            type="button"
+            className="hud-btn"
+            aria-pressed={micState === "listening"}
+            onClick={toggleMic}
+            disabled={!voiceSupported}
+            title="Toggle voice input (V)"
+          >
+            {micState === "listening" ? "🎙 LISTENING" : micState === "error" ? "MIC ERROR" : "VOICE OFF"}
+          </button>
+          <button
+            type="button"
+            className="hud-btn"
+            aria-pressed={autoSpeak}
+            onClick={toggleAutoSpeak}
+            title="Toggle Ultron voice replies (M)"
+          >
+            {autoSpeak ? "🔊 SPEAK ON" : "🔇 SPEAK OFF"}
+          </button>
+        </div>
         <div className="hud-row">
           <button
             type="button"
