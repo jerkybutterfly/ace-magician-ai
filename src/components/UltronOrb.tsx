@@ -40,6 +40,11 @@ export default function UltronOrb() {
   const [camera, setCamera] = useState<CameraState>("off");
   const [status, setStatus] = useState<TrackerStatus>({ hands: 0, mode: "idle" });
   const [error, setError] = useState<string | null>(null);
+  const [micState, setMicState] = useState<"off" | "listening" | "error">("off");
+  const [autoSpeak, setAutoSpeak] = useState<boolean>(true);
+  const [voiceSupported, setVoiceSupported] = useState<boolean>(true);
+  const recognizerRef = useRef<any>(null);
+  const spokenRef = useRef<string>("");
 
   useEffect(() => {
     const container = containerRef.current;
