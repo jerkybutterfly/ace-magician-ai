@@ -10,6 +10,7 @@ import "@/styles/ultron.css";
 import { HandTracker, type TrackerStatus } from "@/lib/hand-tracker";
 import { sendToChat } from "@/lib/chat-bus";
 import { loadConversations } from "@/lib/conversations";
+import { createRecognizer, speak, stopSpeaking, primeVoices } from "@/lib/ultron-voice";
 
 type CameraState = "off" | "starting" | "on" | "error";
 
