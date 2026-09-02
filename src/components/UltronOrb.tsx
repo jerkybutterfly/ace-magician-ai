@@ -336,6 +336,27 @@ export default function UltronOrb() {
           <button
             type="button"
             className="hud-btn"
+            aria-pressed={micState === "listening"}
+            onClick={toggleMic}
+            disabled={!voiceSupported}
+            title="Toggle voice input (V)"
+          >
+            {micState === "listening" ? "🎙 LISTENING" : micState === "error" ? "MIC ERROR" : "VOICE OFF"}
+          </button>
+          <button
+            type="button"
+            className="hud-btn"
+            aria-pressed={autoSpeak}
+            onClick={toggleAutoSpeak}
+            title="Toggle Ultron voice replies (M)"
+          >
+            {autoSpeak ? "🔊 SPEAK ON" : "🔇 SPEAK OFF"}
+          </button>
+        </div>
+        <div className="hud-row">
+          <button
+            type="button"
+            className="hud-btn"
             aria-pressed={cameraOn}
             onClick={toggleGestures}
             disabled={camera === "starting"}
