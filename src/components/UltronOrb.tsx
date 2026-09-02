@@ -234,7 +234,7 @@ export default function UltronOrb() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleGestures]);
+  }, [toggleGestures, toggleMic, toggleAutoSpeak]);
 
   const cameraOn = camera === "on";
 
