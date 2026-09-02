@@ -88,6 +88,25 @@ export default function UltronOrb() {
     };
   }, []);
 
+  // Auto-speak new assistant replies.
+  useEffect(() => {
+    primeVoices();
+    setVoiceSupported(
+      !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition),
+    );
+    return () => {
+      recognizerRef.current?.stop?.();
+      stopSpeaking();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!autoSpeak || !lastResponse) return;
+    if (lastResponse === spokenRef.current) return;
+    spokenRef.current = lastResponse;
+    speak(lastResponse);
+  }, [lastResponse, autoSpeak]);
+
   const dispatchToChat = useCallback(
     (text: string, opts?: { stay?: boolean }) => {
       const trimmed = text.trim();
