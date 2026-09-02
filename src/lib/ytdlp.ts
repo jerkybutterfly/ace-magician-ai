@@ -49,5 +49,5 @@ export const ytdlp = {
   subtitles: (url: string) =>
     sh(`mkdir -p ${DIR}; cd ${DIR} && yt-dlp --skip-download --write-auto-subs --write-subs --sub-langs "en.*" --convert-subs srt ${q(url)} 2>&1 | tail -20`, 300_000),
   list: () => sh(`ls -1t ${DIR} 2>/dev/null | head -60`),
-  remove: (name: string) => sh(`rm -f ${DIR}/${q(name).slice(1, -1) ? q(name) : q(name)}`),
+  remove: (name: string) => sh(`rm -f ${DIR}/${q(name)}`),
 };

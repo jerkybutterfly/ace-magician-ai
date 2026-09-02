@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Image as ImageIcon } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -30,6 +30,7 @@ const navItems = [
   { title: 'Understand', url: '/understand', icon: BookOpen },
   { title: 'Physical AI', url: '/physical-ai', icon: Atom },
   { title: 'Montage', url: '/montage', icon: Clapperboard },
+  { title: 'yt-dlp', url: '/ytdlp', icon: Youtube },
   { title: 'Fooocus', url: '/fooocus', icon: ImageIcon },
   { title: 'open-lovable', url: '/open-lovable', icon: Globe },
   { title: 'Voice', url: '/voice', icon: Mic },
