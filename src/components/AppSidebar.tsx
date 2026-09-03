@@ -33,6 +33,7 @@ const navItems = [
   { title: 'yt-dlp', url: '/ytdlp', icon: Youtube },
   { title: 'Fooocus', url: '/fooocus', icon: ImageIcon },
   { title: 'open-lovable', url: '/open-lovable', icon: Globe },
+  { title: 'OpenWork', url: '/openwork', icon: Briefcase },
   { title: 'Voice', url: '/voice', icon: Mic },
   { title: 'Local Voice', url: '/local-voice', icon: AudioLines },
   { title: 'Vector Store', url: '/vector-store', icon: Database },
