@@ -32,9 +32,10 @@ export interface TrackerStatus {
 }
 
 export interface HandTrackerCallbacks {
-  /** Called when a single pinched hand drags: deltas in mirrored normalized coords. */
+  /** Called when a hand drags without pinching: deltas in mirrored normalized coords. */
   onRotate(deltaTheta: number, deltaPhi: number): void;
-  /** Called when both hands pinch and spread/close: multiply camera distance by factor. */
+  /** Called when a pinch opens/closes (or both pinched hands spread/close):
+   *  multiply camera distance by factor. */
   onZoom(factor: number): void;
   onStatus(status: TrackerStatus): void;
 }
