@@ -12,6 +12,7 @@ export interface OrbSceneApi {
   zoomBy(factor: number): void;
   zoomIn(): void;
   zoomOut(): void;
+  flyToPlace(query: string): Promise<boolean>;
   resetView(): void;
   dispose(): void;
 }
@@ -142,9 +143,35 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
     return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
   }
 
+  async function flyToPlace(query: string) {
+    const term = query.trim();
+    if (!term) return false;
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(term)}`,
+        { headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) return false;
+      const results = (await response.json()) as Array<{ lat: string; lon: string }>;
+      if (!results.length) return false;
+      stopSpin();
+      map.flyTo({
+        center: [Number(results[0].lon), Number(results[0].lat)],
+        zoom: 16.5,
+        pitch: 62,
+        duration: 2600,
+        essential: true,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   return {
     rotateBy,
     zoomBy,
+    flyToPlace,
     zoomIn: () => {
       stopSpin();
       map.easeTo({ zoom: clamp(map.getZoom() + 1), duration: 280 });
