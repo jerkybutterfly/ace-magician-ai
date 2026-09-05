@@ -32,9 +32,10 @@ export interface TrackerStatus {
 }
 
 export interface HandTrackerCallbacks {
-  /** Called when a single pinched hand drags: deltas in mirrored normalized coords. */
+  /** Called when a hand drags without pinching: deltas in mirrored normalized coords. */
   onRotate(deltaTheta: number, deltaPhi: number): void;
-  /** Called when both hands pinch and spread/close: multiply camera distance by factor. */
+  /** Called when a pinch opens/closes (or both pinched hands spread/close):
+   *  multiply camera distance by factor. */
   onZoom(factor: number): void;
   onStatus(status: TrackerStatus): void;
 }
@@ -142,6 +143,8 @@ export class HandTracker {
     labels: string[],
   ): void {
     const pinchedGrabs: Point[] = [];
+    const pinchedRatios: number[] = [];
+    const openGrabs: Point[] = [];
     const seen = new Set<string>();
 
     landmarks.forEach((lm, i) => {
@@ -173,7 +176,12 @@ export class HandTracker {
         y: state.grab.y + (raw.y - state.grab.y) * SMOOTHING,
       };
 
-      if (state.pinching) pinchedGrabs.push(state.grab);
+      if (state.pinching) {
+        pinchedGrabs.push(state.grab);
+        pinchedRatios.push(pinchRatio);
+      } else {
+        openGrabs.push(state.grab);
+      }
     });
 
     // Drop state for hands that left the frame
@@ -181,8 +189,9 @@ export class HandTracker {
       if (!seen.has(key)) this.handStates.delete(key);
     }
 
+    // Pinching (one or both hands) = zoom; open-hand drag = spin.
     const mode: GestureMode =
-      pinchedGrabs.length >= 2 ? "zoom" : pinchedGrabs.length === 1 ? "spin" : "idle";
+      pinchedGrabs.length >= 1 ? "zoom" : openGrabs.length >= 1 ? "spin" : "idle";
 
     // Reset reference points on any mode change to avoid jumps
     if (mode !== this.prevMode) {
@@ -191,8 +200,30 @@ export class HandTracker {
       this.prevMode = mode;
     }
 
-    if (mode === "spin") {
-      const grab = pinchedGrabs[0];
+    if (mode === "zoom") {
+      if (pinchedGrabs.length >= 2) {
+        // Both hands pinched: spread apart to zoom in, close together to zoom out
+        const d = Math.hypot(
+          pinchedGrabs[0].x - pinchedGrabs[1].x,
+          pinchedGrabs[0].y - pinchedGrabs[1].y,
+        );
+        if (this.prevZoomDist && d > 1e-4) {
+          const factor = Math.min(1.18, Math.max(0.85, this.prevZoomDist / d));
+          this.callbacks.onZoom(factor);
+        }
+        this.prevZoomDist = d;
+      } else {
+        // One hand: track thumb–index distance. Open the pinch wider to zoom
+        // in, squeeze it tighter to zoom out — like a trackpad pinch.
+        const ratio = pinchedRatios[0];
+        if (this.prevZoomDist && ratio > 1e-4) {
+          const factor = Math.min(1.18, Math.max(0.85, this.prevZoomDist / ratio));
+          this.callbacks.onZoom(factor);
+        }
+        this.prevZoomDist = ratio;
+      }
+    } else if (mode === "spin") {
+      const grab = openGrabs[0];
       if (this.prevSpinGrab) {
         const dx = grab.x - this.prevSpinGrab.x;
         const dy = grab.y - this.prevSpinGrab.y;
@@ -201,17 +232,6 @@ export class HandTracker {
         }
       }
       this.prevSpinGrab = grab;
-    } else if (mode === "zoom") {
-      const d = Math.hypot(
-        pinchedGrabs[0].x - pinchedGrabs[1].x,
-        pinchedGrabs[0].y - pinchedGrabs[1].y,
-      );
-      if (this.prevZoomDist && d > 1e-4) {
-        // Spread hands apart -> factor < 1 -> camera moves closer
-        const factor = Math.min(1.18, Math.max(0.85, this.prevZoomDist / d));
-        this.callbacks.onZoom(factor);
-      }
-      this.prevZoomDist = d;
     }
 
     this.emitStatus({ hands: landmarks.length, mode });

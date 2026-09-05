@@ -308,8 +308,9 @@ export default function UltronOrb() {
         </div>
         {cameraOn ? (
           <div>
-            <span className="key">PINCH + MOVE</span> spin&nbsp;&nbsp;
-            <span className="key">PINCH BOTH HANDS ± SPREAD</span> zoom
+            <span className="key">PINCH OPEN/CLOSE</span> zoom in/out&nbsp;&nbsp;
+            <span className="key">OPEN HAND + MOVE</span> spin&nbsp;&nbsp;
+            <span className="key">TWO HANDS ± SPREAD</span> zoom
           </div>
         ) : (
           <div>
