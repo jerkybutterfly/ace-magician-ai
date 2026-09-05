@@ -92,9 +92,7 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
     },
   });
 
-  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
   map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
-  map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "bottom-right");
 
   let spinning = true;
   let rafId = 0;
