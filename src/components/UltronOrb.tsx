@@ -36,6 +36,8 @@ export default function UltronOrb() {
   const trackerRef = useRef<HandTracker | null>(null);
 
   const [command, setCommand] = useState("");
+  const [place, setPlace] = useState("");
+  const [placeError, setPlaceError] = useState(false);
   const [lastResponse, setLastResponse] = useState<string>("");
   const [camera, setCamera] = useState<CameraState>("off");
   const [status, setStatus] = useState<TrackerStatus>({ hands: 0, mode: "idle" });
@@ -366,6 +368,26 @@ export default function UltronOrb() {
             {camera === "starting" ? "INITIALIZING…" : cameraOn ? "GESTURES ON" : "GESTURES OFF"}
           </button>
         </div>
+        <form
+          className="hud-row"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const ok = await sceneRef.current?.flyToPlace(place);
+            setPlaceError(!ok);
+          }}
+        >
+          <input
+            className="cmd-input"
+            value={place}
+            onChange={(event) => {
+              setPlace(event.target.value);
+              setPlaceError(false);
+            }}
+            placeholder={placeError ? "LOCATION NOT FOUND" : "FIND A PLACE / STREET"}
+            aria-label="Find a place on the map"
+          />
+          <button type="submit" className="hud-btn">GO</button>
+        </form>
         <div className="hud-row">
           <button type="button" className="hud-btn" onClick={() => sceneRef.current?.zoomIn()} aria-label="Zoom in">
             +
