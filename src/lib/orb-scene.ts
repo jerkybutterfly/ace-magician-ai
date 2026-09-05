@@ -4,7 +4,8 @@
  * Imagery: Esri World Imagery. Roads/labels: CARTO dark basemap (OpenStreetMap data).
  * Terrain: AWS Terrain Tiles (Terrarium).
  */
-import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
+import type { Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export interface OrbSceneApi {
