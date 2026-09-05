@@ -255,7 +255,12 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
     const b = latLonToVector3(locations[to][0], locations[to][1], EARTH_RADIUS + 0.08);
     const middle = a.clone().add(b).multiplyScalar(0.5).normalize().multiplyScalar(EARTH_RADIUS + 0.45 + a.distanceTo(b) * 0.12);
     const curve = new THREE.QuadraticBezierCurve3(a, middle, b);
-    arcGroup.add(new THREE.Line(curve.getGeometry(80), lineMaterial(CYAN, 0.38)));
+    arcGroup.add(
+      new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(curve.getPoints(80)),
+        lineMaterial(CYAN, 0.38),
+      ),
+    );
   }
   world.add(arcGroup);
 
