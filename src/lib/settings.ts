@@ -37,6 +37,8 @@ export interface AppSettings {
   lmStudioUrl: string;
   llamaCppUrl: string;
   opencodeUrl: string;
+  fccUrl: string;
+  fccToken: string;
   vllmUrl: string;
   colibriUrl: string;
   colibriModelPath: string;
@@ -110,6 +112,8 @@ const defaultSettings: AppSettings = {
   lmStudioUrl: isNativePlatform() ? `${NATIVE_HOST}:1234` : 'http://127.0.0.1:1234',
   llamaCppUrl: isNativePlatform() ? `${NATIVE_HOST}:8080` : 'http://127.0.0.1:8080',
   opencodeUrl: isNativePlatform() ? `${NATIVE_HOST}:4096` : 'http://localhost:4096',
+  fccUrl: isNativePlatform() ? `${NATIVE_HOST}:8082` : 'http://localhost:8082',
+  fccToken: '',
   vllmUrl: isNativePlatform() ? `${NATIVE_HOST}:8100` : 'http://localhost:8100',
   colibriUrl: isNativePlatform() ? `${NATIVE_HOST}:8000` : 'http://localhost:8000',
   colibriModelPath: '',

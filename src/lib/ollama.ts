@@ -1,7 +1,7 @@
 import { getSettings } from './settings';
 import { classifyRequest, isActionableRequest, checkNeedsTools, truncateHistory, tunedOllamaOptions, tunedSamplingParams, type TaskKind } from './smart-router';
 
-export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'llamacpp' | 'vllm' | 'local' | 'colibri' | 'opencode' | 'router';
+export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'llamacpp' | 'vllm' | 'local' | 'colibri' | 'opencode' | 'fcc' | 'router';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
@@ -1227,3 +1227,116 @@ export async function* streamOpencodeChat(
 // Alias exports for camelCase naming used by SettingsPage
 export { fetchOpencodeModels as fetchOpenCodeModels };
 export type { OpencodeModel as OpenCodeModel };
+
+// ---------- Free Claude Code (Alishahryar1/free-claude-code — OpenAI-compatible /v1 on :8082) ----------
+
+export interface FccModel {
+  id: string;
+  object: string;
+}
+
+function fccBase(): string {
+  return (getSettings().fccUrl || 'http://localhost:8082').replace(/\/$/, '');
+}
+
+export async function fetchFccModels(): Promise<FccModel[]> {
+  const base = fccBase();
+  const { fccToken } = getSettings();
+  try {
+    const res = await fetch(`${base}/v1/models`, {
+      signal: AbortSignal.timeout(4000),
+      headers: fccToken ? { Authorization: `Bearer ${fccToken}` } : undefined,
+    });
+    const text = await res.text().catch(() => '');
+    if (text.includes('<!doctype') || text.includes('<html')) throw new Error('html');
+    const data = JSON.parse(text || '{}');
+    const models: FccModel[] = data.data ?? data.models ?? [];
+    if (models.length > 0) return models;
+  } catch {
+    /* fall through to defaults */
+  }
+  return [
+    { id: 'anthropic/claude-sonnet-4-20250514', object: 'model' },
+    { id: 'ollama/laguna-xs:2.1', object: 'model' },
+    { id: 'lmstudio/local-model', object: 'model' },
+    { id: 'llamacpp/local-model', object: 'model' },
+  ];
+}
+
+/** Free Claude Code exposes an OpenAI-compatible endpoint that fans out to its 50 configured providers. */
+export async function* streamFccChat(
+  model: string,
+  messages: ChatMessage[],
+  taskHint?: TaskKind,
+  signal?: AbortSignal,
+): AsyncGenerator<StreamChunk> {
+  const { systemPrompt, fccToken } = getSettings();
+  const base = fccBase();
+  const currentObjective = getLatestObjective(messages);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
+    ? await (await import('./learning')).buildMemoryContext(currentObjective)
+    : '';
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    memoryContext,
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const allMessages = truncateHistory(
+    [{ role: 'system', content: systemParts } as ChatMessage, ...messages],
+    5,
+    2000,
+  );
+  const sampling = tunedSamplingParams(task);
+
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(fccToken ? { Authorization: `Bearer ${fccToken}` } : {}),
+    },
+    body: JSON.stringify({ model: model || 'anthropic/claude-sonnet-4-20250514', messages: allMessages, stream: true, ...sampling }),
+    signal,
+  });
+
+  if (!res.ok) throw new Error(`Free Claude Code error: ${res.status} ${res.statusText}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.thinking) chunk.thinking = delta.thinking;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
+      } catch {
+        buffer = line + '\n' + buffer;
+        break;
+      }
+    }
+  }
+}
