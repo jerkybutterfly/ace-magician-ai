@@ -93,7 +93,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [provider, setProvider] = useState<LLMProvider>(() => {
     try {
       const saved = localStorage.getItem(PROVIDER_KEY);
-      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri' || saved === 'opencode' || saved === 'router') return saved;
+      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri' || saved === 'opencode' || saved === 'fcc' || saved === 'router') return saved;
       // eslint-disable-next-line no-empty
     } catch {}
     return 'ollama';
@@ -124,6 +124,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [opencodeModel, setOpencodeModel] = useState('');
   const [opencodeError, setOpencodeError] = useState('');
   const [opencodeLoading, setOpencodeLoading] = useState(false);
+  const [fccModels, setFccModels] = useState<FccModel[]>([]);
+  const [fccModel, setFccModel] = useState('');
+  const [fccLoading, setFccLoading] = useState(false);
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [localModel, setLocalModel] = useState('');
   const [localError, setLocalError] = useState('');
@@ -206,6 +209,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     if (provider === 'local') loadLocalRuntimeModels();
     if (provider === 'colibri') loadColibriModels();
     if (provider === 'opencode') loadOpencodeModels();
+    if (provider === 'fcc') loadFccModels();
   }, [provider]);
 
   const [streaming, setStreaming] = useState(false);
@@ -395,8 +399,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             ...currentMessages.slice(insertAt),
           ];
         }
-        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'opencode' ? opencodeModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'opencode' ? streamOpencodeChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'opencode' ? opencodeModel : provider === 'fcc' ? fccModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'opencode' ? streamOpencodeChat : provider === 'fcc' ? streamFccChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         const iter = provider === 'router'
           ? streamViaRouter(currentMessages, (pick) => {
               setStatusLogs((prev) => [...prev.slice(-4), `🧠 Router → ${pick.expert.name} · ${pick.expert.model} (${pick.reason})`]);
@@ -538,8 +542,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'opencode' ? 'opencode' : provider === 'local' ? 'Local runtime' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'opencode' ? 'Start it with `opencode serve --hostname 0.0.0.0 --port 4096`.' : provider === 'lmstudio' ? '' : 'Please try again.';
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'opencode' ? 'opencode' : provider === 'fcc' ? 'Free Claude Code' : provider === 'local' ? 'Local runtime' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'opencode' ? 'Start it with `opencode serve --hostname 0.0.0.0 --port 4096`.' : provider === 'fcc' ? 'Start Free Claude Code (fcc) so its API is live on port 8082.' : provider === 'lmstudio' ? '' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
