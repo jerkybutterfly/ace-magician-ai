@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { consumePending, onChatPush } from '@/lib/chat-bus';
-import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, streamOpencodeChat, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, fetchOpencodeModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, type OpencodeModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, streamOpencodeChat, streamFccChat, fetchFccModels, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, fetchOpencodeModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, type OpencodeModel, type FccModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { streamViaRouter } from '@/lib/experts';
 import { getSettings } from '@/lib/settings';
@@ -188,6 +188,17 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     }).catch((e) => {
       setLocalError(e instanceof Error ? e.message : 'Cannot reach agent');
     });
+  };
+
+  const loadFccModels = () => {
+    setFccLoading(true);
+    fetchFccModels()
+      .then((models) => {
+        setFccModels(models);
+        if (models.length > 0) setFccModel((prev) => prev || models[0].id);
+      })
+      .catch(() => setFccModels([]))
+      .finally(() => setFccLoading(false));
   };
 
   const loadOpencodeModels = () => {
@@ -598,6 +609,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <SelectItem value="opencode">
               <span className="flex items-center gap-1.5"><FileCode2 className="h-3 w-3" /> opencode (coding)</span>
             </SelectItem>
+            <SelectItem value="fcc">
+              <span className="flex items-center gap-1.5"><FileCode2 className="h-3 w-3" /> Free Claude Code</span>
+            </SelectItem>
             <SelectItem value="local">
               <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> Local (built-in)</span>
             </SelectItem>
@@ -696,6 +710,22 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             {opencodeError && (
               <span className="text-[10px] text-destructive max-w-[220px] truncate" title={opencodeError}>⚠️ {opencodeError}</span>
             )}
+          </div>
+        ) : provider === 'fcc' ? (
+          <div className="flex items-center gap-2">
+            <Select value={fccModel} onValueChange={setFccModel}>
+              <SelectTrigger className="w-[240px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={fccLoading ? 'Loading...' : 'Select model'} />
+              </SelectTrigger>
+              <SelectContent>
+                {fccModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button onClick={loadFccModels} disabled={fccLoading} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${fccLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         ) : provider === 'colibri' ? (
 
