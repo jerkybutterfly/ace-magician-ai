@@ -1340,3 +1340,108 @@ export async function* streamFccChat(
     }
   }
 }
+
+// ---------- FreeLLMAPI (tashfeenahmed/freellmapi — unified OpenAI-compatible /v1 router on :3001) ----------
+
+export interface FreeLlmModel {
+  id: string;
+  object?: string;
+  owned_by?: string;
+}
+
+function freeLlmBase(): string {
+  return (getSettings().freeLlmUrl || 'http://localhost:3001').replace(/\/$/, '');
+}
+
+export async function fetchFreeLlmModels(): Promise<FreeLlmModel[]> {
+  const base = freeLlmBase();
+  const { freeLlmKey } = getSettings();
+  const res = await fetch(`${base}/v1/models`, {
+    signal: AbortSignal.timeout(6000),
+    headers: freeLlmKey ? { Authorization: `Bearer ${freeLlmKey}` } : undefined,
+  });
+  if (!res.ok) throw new Error(`FreeLLMAPI error: ${res.status} ${res.statusText}`);
+  const text = await res.text().catch(() => '');
+  if (text.includes('<!doctype') || text.includes('<html')) throw new Error('FreeLLMAPI returned HTML — check the URL');
+  const data = JSON.parse(text || '{}');
+  const models: FreeLlmModel[] = data.data ?? data.models ?? [];
+  return models;
+}
+
+/** FreeLLMAPI aggregates ~34 free provider tiers behind one OpenAI-compatible endpoint with auto failover. */
+export async function* streamFreeLlmChat(
+  model: string,
+  messages: ChatMessage[],
+  taskHint?: TaskKind,
+  signal?: AbortSignal,
+): AsyncGenerator<StreamChunk> {
+  const { systemPrompt, freeLlmKey } = getSettings();
+  const base = freeLlmBase();
+  const currentObjective = getLatestObjective(messages);
+  const task: TaskKind = taskHint ?? classifyRequest(currentObjective);
+  const needsTools = checkNeedsTools(task, model, currentObjective);
+  const agentMemory = needsTools ? (await import('./memory')).getAgentMemory() : '';
+  const memoryContext = needsTools && currentObjective
+    ? await (await import('./learning')).buildMemoryContext(currentObjective)
+    : '';
+  const systemParts = [
+    needsTools ? systemPrompt.trim() : SHORT_SYSTEM_PROMPT,
+    needsTools ? RUNTIME_EXECUTION_PROMPT : '',
+    agentMemory ? `--- AGENT MEMORY ---\n${agentMemory}` : '',
+    memoryContext,
+    currentObjective ? `--- CURRENT OBJECTIVE ---\n${currentObjective}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const allMessages = truncateHistory(
+    [{ role: 'system', content: systemParts } as ChatMessage, ...messages],
+    5,
+    2000,
+  );
+  const sampling = tunedSamplingParams(task);
+
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(freeLlmKey ? { Authorization: `Bearer ${freeLlmKey}` } : {}),
+    },
+    body: JSON.stringify({ model: model || 'auto', messages: allMessages, stream: true, ...sampling }),
+    signal,
+  });
+
+  if (!res.ok) throw new Error(`FreeLLMAPI error: ${res.status} ${res.statusText}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const delta = parsed.choices?.[0]?.delta;
+        const chunk: StreamChunk = {};
+        if (delta?.reasoning_content) chunk.thinking = delta.reasoning_content;
+        if (delta?.thinking) chunk.thinking = delta.thinking;
+        if (delta?.content) chunk.content = delta.content;
+        if (chunk.thinking || chunk.content) yield chunk;
+      } catch {
+        buffer = line + '\n' + buffer;
+        break;
+      }
+    }
+  }
+}
