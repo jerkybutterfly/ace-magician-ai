@@ -1,7 +1,7 @@
 import { getSettings } from './settings';
 import { classifyRequest, isActionableRequest, checkNeedsTools, truncateHistory, tunedOllamaOptions, tunedSamplingParams, type TaskKind } from './smart-router';
 
-export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'llamacpp' | 'vllm' | 'local' | 'colibri' | 'opencode' | 'fcc' | 'router';
+export type LLMProvider = 'ollama' | 'cloud' | 'google' | 'lmstudio' | 'llamacpp' | 'vllm' | 'local' | 'colibri' | 'opencode' | 'fcc' | 'freellm' | 'router';
 
 export const CLOUD_MODELS = [
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
