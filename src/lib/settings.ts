@@ -39,6 +39,8 @@ export interface AppSettings {
   opencodeUrl: string;
   fccUrl: string;
   fccToken: string;
+  freeLlmUrl: string;
+  freeLlmKey: string;
   vllmUrl: string;
   colibriUrl: string;
   colibriModelPath: string;
@@ -114,6 +116,8 @@ const defaultSettings: AppSettings = {
   opencodeUrl: isNativePlatform() ? `${NATIVE_HOST}:4096` : 'http://localhost:4096',
   fccUrl: isNativePlatform() ? `${NATIVE_HOST}:8082` : 'http://localhost:8082',
   fccToken: '',
+  freeLlmUrl: isNativePlatform() ? `${NATIVE_HOST}:3001` : 'http://localhost:3001',
+  freeLlmKey: '',
   vllmUrl: isNativePlatform() ? `${NATIVE_HOST}:8100` : 'http://localhost:8100',
   colibriUrl: isNativePlatform() ? `${NATIVE_HOST}:8000` : 'http://localhost:8000',
   colibriModelPath: '',

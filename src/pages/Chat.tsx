@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { consumePending, onChatPush } from '@/lib/chat-bus';
-import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, streamOpencodeChat, streamFccChat, fetchFccModels, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, fetchOpencodeModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, type OpencodeModel, type FccModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
+import { streamChat, streamCloudChat, streamGoogleChat, streamLMStudioChat, streamLlamaCppChat, streamColibriChat, streamOpencodeChat, streamFccChat, fetchFccModels, streamFreeLlmChat, fetchFreeLlmModels, fetchLMStudioModels, fetchLlamaCppModels, fetchModels, fetchColibriModels, fetchOpencodeModels, extractThinkTags, type ChatMessage, type LLMProvider, type LMStudioModel, type LlamaCppModel, type OllamaModel, type ColibriModel, type OpencodeModel, type FccModel, type FreeLlmModel, CLOUD_MODELS, GOOGLE_MODELS } from '@/lib/ollama';
 import { streamLocalChat, listLocalModels, type LocalModel } from '@/lib/local-llm';
 import { streamViaRouter } from '@/lib/experts';
 import { getSettings } from '@/lib/settings';
@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, Zap, X, RefreshCw, ShieldCheck, ShieldAlert, Bird, FileCode2 } from 'lucide-react';
+import { Send, Square, Bot, Monitor, Cloud, ArrowUp, Sparkles, Cpu, Zap, X, RefreshCw, ShieldCheck, ShieldAlert, Bird, FileCode2, Globe } from 'lucide-react';
 import type { Conversation } from '@/lib/conversations';
 
 const MAX_TOOL_ROUNDS = 10;
@@ -93,7 +93,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [provider, setProvider] = useState<LLMProvider>(() => {
     try {
       const saved = localStorage.getItem(PROVIDER_KEY);
-      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri' || saved === 'opencode' || saved === 'fcc' || saved === 'router') return saved;
+      if (saved === 'ollama' || saved === 'cloud' || saved === 'google' || saved === 'lmstudio' || saved === 'llamacpp' || saved === 'local' || saved === 'colibri' || saved === 'opencode' || saved === 'fcc' || saved === 'freellm' || saved === 'router') return saved;
       // eslint-disable-next-line no-empty
     } catch {}
     return 'ollama';
@@ -127,6 +127,10 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
   const [fccModels, setFccModels] = useState<FccModel[]>([]);
   const [fccModel, setFccModel] = useState('');
   const [fccLoading, setFccLoading] = useState(false);
+  const [freeLlmModels, setFreeLlmModels] = useState<FreeLlmModel[]>([]);
+  const [freeLlmModel, setFreeLlmModel] = useState('');
+  const [freeLlmError, setFreeLlmError] = useState('');
+  const [freeLlmLoading, setFreeLlmLoading] = useState(false);
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [localModel, setLocalModel] = useState('');
   const [localError, setLocalError] = useState('');
@@ -201,6 +205,22 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       .finally(() => setFccLoading(false));
   };
 
+  const loadFreeLlmModels = () => {
+    setFreeLlmLoading(true);
+    setFreeLlmError('');
+    fetchFreeLlmModels()
+      .then((models) => {
+        setFreeLlmModels(models);
+        setFreeLlmError('');
+        if (models.length > 0) setFreeLlmModel((prev) => prev || models[0].id);
+      })
+      .catch((err) => {
+        setFreeLlmModels([]);
+        setFreeLlmError(err instanceof Error ? err.message : 'Cannot reach FreeLLMAPI');
+      })
+      .finally(() => setFreeLlmLoading(false));
+  };
+
   const loadOpencodeModels = () => {
     setOpencodeLoading(true);
     setOpencodeError('');
@@ -221,6 +241,7 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
     if (provider === 'colibri') loadColibriModels();
     if (provider === 'opencode') loadOpencodeModels();
     if (provider === 'fcc') loadFccModels();
+    if (provider === 'freellm') loadFreeLlmModels();
   }, [provider]);
 
   const [streaming, setStreaming] = useState(false);
@@ -410,8 +431,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             ...currentMessages.slice(insertAt),
           ];
         }
-        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'opencode' ? opencodeModel : provider === 'fcc' ? fccModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
-        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'opencode' ? streamOpencodeChat : provider === 'fcc' ? streamFccChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
+        const activeModel = provider === 'google' ? googleModel : provider === 'lmstudio' ? routedLmStudio : provider === 'llamacpp' ? llamaCppModel : provider === 'opencode' ? opencodeModel : provider === 'fcc' ? fccModel : provider === 'freellm' ? freeLlmModel : provider === 'colibri' ? routedColibri : provider === 'cloud' ? routedCloud : provider === 'local' ? localModel : routedOllama;
+        const streamer = provider === 'google' ? streamGoogleChat : provider === 'lmstudio' ? streamLMStudioChat : provider === 'llamacpp' ? streamLlamaCppChat : provider === 'opencode' ? streamOpencodeChat : provider === 'fcc' ? streamFccChat : provider === 'freellm' ? streamFreeLlmChat : provider === 'colibri' ? streamColibriChat : provider === 'cloud' ? streamCloudChat : provider === 'local' ? streamLocalChat : streamChat;
         const iter = provider === 'router'
           ? streamViaRouter(currentMessages, (pick) => {
               setStatusLogs((prev) => [...prev.slice(-4), `🧠 Router → ${pick.expert.name} · ${pick.expert.model} (${pick.reason})`]);
@@ -553,8 +574,8 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
       }
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : 'Unknown error';
-      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'opencode' ? 'opencode' : provider === 'fcc' ? 'Free Claude Code' : provider === 'local' ? 'Local runtime' : 'Ollama';
-      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'opencode' ? 'Start it with `opencode serve --hostname 0.0.0.0 --port 4096`.' : provider === 'fcc' ? 'Start Free Claude Code (fcc) so its API is live on port 8082.' : provider === 'lmstudio' ? '' : 'Please try again.';
+      const providerLabel = provider === 'cloud' ? 'Cloud AI' : provider === 'google' ? 'AI Studio' : provider === 'lmstudio' ? 'LM Studio' : provider === 'llamacpp' ? 'llama.cpp' : provider === 'opencode' ? 'opencode' : provider === 'fcc' ? 'Free Claude Code' : provider === 'freellm' ? 'FreeLLMAPI' : provider === 'local' ? 'Local runtime' : 'Ollama';
+      const hint = provider === 'ollama' ? 'Make sure Ollama is running.' : provider === 'local' ? 'Open Local Models page to load a model.' : provider === 'llamacpp' ? 'Make sure llama-server is running on the configured port.' : provider === 'opencode' ? 'Start it with `opencode serve --hostname 0.0.0.0 --port 4096`.' : provider === 'fcc' ? 'Start Free Claude Code (fcc) so its API is live on port 8082.' : provider === 'freellm' ? 'Start FreeLLMAPI (docker) so its router is live on port 3001, and add your unified key in Settings.' : provider === 'lmstudio' ? '' : 'Please try again.';
       const errorMsg: ChatMessage = { role: 'assistant', content: `⚠️ ${providerLabel} error: ${errorDetail}. ${hint}` };
       onUpdate({ ...updated, messages: [...updated.messages, errorMsg], updatedAt: Date.now() });
     } finally {
@@ -611,6 +632,9 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             </SelectItem>
             <SelectItem value="fcc">
               <span className="flex items-center gap-1.5"><FileCode2 className="h-3 w-3" /> Free Claude Code</span>
+            </SelectItem>
+            <SelectItem value="freellm">
+              <span className="flex items-center gap-1.5"><Globe className="h-3 w-3" /> FreeLLMAPI (34 free tiers)</span>
             </SelectItem>
             <SelectItem value="local">
               <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> Local (built-in)</span>
@@ -726,6 +750,25 @@ export default function Chat({ conversation, onUpdate, model, onModelChange }: P
             <button onClick={loadFccModels} disabled={fccLoading} className="p-1 rounded hover:bg-muted transition-colors">
               <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${fccLoading ? 'animate-spin' : ''}`} />
             </button>
+          </div>
+        ) : provider === 'freellm' ? (
+          <div className="flex items-center gap-2">
+            <Select value={freeLlmModel} onValueChange={setFreeLlmModel}>
+              <SelectTrigger className="w-[260px] h-8 text-xs bg-secondary/50 border-border/50">
+                <SelectValue placeholder={freeLlmLoading ? 'Loading...' : freeLlmError ? 'FreeLLMAPI unreachable' : 'Select model'} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[320px]">
+                {freeLlmModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">{m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button onClick={loadFreeLlmModels} disabled={freeLlmLoading} className="p-1 rounded hover:bg-muted transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${freeLlmLoading ? 'animate-spin' : ''}`} />
+            </button>
+            {freeLlmError && (
+              <span className="text-[10px] text-destructive max-w-[220px] truncate" title={freeLlmError}>⚠️ {freeLlmError}</span>
+            )}
           </div>
         ) : provider === 'colibri' ? (
 
