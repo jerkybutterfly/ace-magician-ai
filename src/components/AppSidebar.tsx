@@ -22,6 +22,7 @@ const navItems = [
 
   { title: 'Trading', url: '/trading', icon: TrendingUp },
   { title: 'Finance', url: '/finance', icon: LineChart },
+  { title: 'Agent Economy', url: '/penniless', icon: Coins },
   { title: 'colibrì Brain', url: '/colibri', icon: Bird },
   { title: 'Automations', url: '/automations', icon: Zap },
   { title: 'n8n', url: '/n8n', icon: Workflow },
