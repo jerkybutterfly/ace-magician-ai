@@ -120,6 +120,7 @@ const App = () => {
               <Route path="/physical-ai" element={<PhysicalAiPage />} />
               <Route path="/robin" element={<RobinPage />} />
               <Route path="/ytdlp" element={<YtDlpPage />} />
+              <Route path="/penniless" element={<PennilessPage />} />
               <Route path="/openwork" element={<OpenWorkPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
