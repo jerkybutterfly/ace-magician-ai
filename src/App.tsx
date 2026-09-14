@@ -26,6 +26,7 @@ import PhysicalAiPage from "./pages/PhysicalAiPage.tsx";
 import UltronPage from "./pages/UltronPage.tsx";
 import RobinPage from "./pages/RobinPage.tsx";
 import YtDlpPage from "./pages/YtDlpPage.tsx";
+import PennilessPage from "./pages/PennilessPage.tsx";
 import OpenWorkPage from "./pages/OpenWorkPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
@@ -119,6 +120,7 @@ const App = () => {
               <Route path="/physical-ai" element={<PhysicalAiPage />} />
               <Route path="/robin" element={<RobinPage />} />
               <Route path="/ytdlp" element={<YtDlpPage />} />
+              <Route path="/penniless" element={<PennilessPage />} />
               <Route path="/openwork" element={<OpenWorkPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
