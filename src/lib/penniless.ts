@@ -89,14 +89,25 @@ export interface ConformanceCheck {
   detail: string;
 }
 
+import { supabase } from '@/integrations/supabase/client';
+
 /**
- * x402 discoverability conformance recipe from the repo:
- * bare probe must answer 402 (not 400), carry the x402 document in the body,
- * expose /openapi.json (or /.well-known/x402), and declare x-payment-info.
+ * x402 discoverability conformance recipe from the repo.
+ * Routed through the x402-probe backend function so browser CORS never blocks it.
  */
 export async function probeService(url: string): Promise<ConformanceCheck[]> {
-  const base = url.trim().replace(/\/$/, '');
-  if (!base) throw new Error('Enter a service URL');
+  if (!url.trim()) throw new Error('Enter a service URL');
+  const { data, error } = await supabase.functions.invoke('x402-probe', {
+    body: { url: url.trim() },
+  });
+  if (error) throw new Error(error.message || 'Probe failed');
+  if (data?.error) throw new Error(data.error);
+  return data.checks as ConformanceCheck[];
+}
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
+async function _unusedLegacy(_url: string): Promise<ConformanceCheck[]> {
+  const base = _url.trim().replace(/\/$/, '');
   const checks: ConformanceCheck[] = [];
 
   try {
