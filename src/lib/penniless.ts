@@ -89,79 +89,22 @@ export interface ConformanceCheck {
   detail: string;
 }
 
+import { supabase } from '@/integrations/supabase/client';
+
 /**
- * x402 discoverability conformance recipe from the repo:
- * bare probe must answer 402 (not 400), carry the x402 document in the body,
- * expose /openapi.json (or /.well-known/x402), and declare x-payment-info.
+ * x402 discoverability conformance recipe from the repo.
+ * Routed through the x402-probe backend function so browser CORS never blocks it.
  */
 export async function probeService(url: string): Promise<ConformanceCheck[]> {
-  const base = url.trim().replace(/\/$/, '');
-  if (!base) throw new Error('Enter a service URL');
-  const checks: ConformanceCheck[] = [];
-
-  try {
-    const res = await fetch(base, { method: 'GET' });
-    const text = await res.text();
-    let body: any = null;
-    try { body = JSON.parse(text); } catch {}
-    checks.push({
-      label: 'Bare probe answers 402 (never 400)',
-      ok: res.status === 402,
-      detail: `HTTP ${res.status}`,
-    });
-    checks.push({
-      label: 'PAYMENT-REQUIRED header present',
-      ok: !!res.headers.get('payment-required'),
-      detail: res.headers.get('payment-required') ? 'present' : 'missing',
-    });
-    checks.push({
-      label: 'x402 document in the 402 body',
-      ok: !!(body && (body.accepts || body.x402Version)),
-      detail: body ? Object.keys(body).slice(0, 6).join(', ') || 'empty' : 'not JSON',
-    });
-    const ext = body?.accepts?.[0]?.extensions ?? body?.extensions;
-    checks.push({
-      label: 'bazaar input/output schema in extensions',
-      ok: !!ext?.bazaar?.schema?.properties,
-      detail: ext?.bazaar ? 'declared' : 'missing',
-    });
-    checks.push({
-      label: 'sign-in-with-x challenge (SIWX)',
-      ok: !!ext?.['sign-in-with-x'],
-      detail: ext?.['sign-in-with-x'] ? 'challenge offered' : 'none',
-    });
-  } catch (e: any) {
-    checks.push({ label: 'Service reachable from browser', ok: false, detail: String(e?.message || e) });
-  }
-
-  try {
-    const res = await fetch(`${base}/openapi.json`);
-    const spec = res.ok ? await res.json() : null;
-    checks.push({ label: '/openapi.json served', ok: !!spec, detail: res.ok ? spec?.info?.title || 'ok' : `HTTP ${res.status}` });
-    const pay = spec?.info?.['x-payment-info'] ?? spec?.['x-payment-info'];
-    checks.push({
-      label: 'x-payment-info declared (flat shape)',
-      ok: !!pay?.protocols,
-      detail: pay ? `${pay.pricingMode ?? '?'} ${pay.price ?? '?'} ${pay.currency ?? ''}`.trim() : 'missing',
-    });
-    checks.push({
-      label: 'info.contact + info.x-guidance',
-      ok: !!(spec?.info?.contact && spec?.info?.['x-guidance']),
-      detail: spec?.info?.contact ? 'contact set' : 'missing',
-    });
-  } catch (e: any) {
-    checks.push({ label: '/openapi.json served', ok: false, detail: String(e?.message || e) });
-  }
-
-  try {
-    const res = await fetch(`${base}/.well-known/x402`);
-    checks.push({ label: '/.well-known/x402 fallback', ok: res.ok, detail: `HTTP ${res.status}` });
-  } catch {
-    checks.push({ label: '/.well-known/x402 fallback', ok: false, detail: 'unreachable' });
-  }
-
-  return checks;
+  if (!url.trim()) throw new Error('Enter a service URL');
+  const { data, error } = await supabase.functions.invoke('x402-probe', {
+    body: { url: url.trim() },
+  });
+  if (error) throw new Error(error.message || 'Probe failed');
+  if (data?.error) throw new Error(data.error);
+  return data.checks as ConformanceCheck[];
 }
+
 
 export interface RailLink {
   name: string;
