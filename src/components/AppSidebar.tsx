@@ -19,6 +19,7 @@ const navItems = [
   { title: 'Chat', url: '/chat', icon: MessageSquare },
   { title: 'Ultron', url: '/ultron', icon: Orbit },
   { title: 'Search', url: '/search', icon: Search },
+  { title: 'Hermes Agent', url: '/hermes', icon: GraduationCap },
 
   { title: 'Trading', url: '/trading', icon: TrendingUp },
   { title: 'Finance', url: '/finance', icon: LineChart },
