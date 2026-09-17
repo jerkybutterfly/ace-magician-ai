@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AppSidebar } from '@/components/AppSidebar';
+import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { useConversations } from '@/hooks/useConversations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
