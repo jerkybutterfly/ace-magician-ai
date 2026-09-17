@@ -26,6 +26,8 @@ const KIND_STYLE: Record<HermesStep['kind'], string> = {
 };
 
 export default function HermesPage() {
+  const navigate = useNavigate();
+  const { conversations, currentConvoId, createConversation, selectConversation, deleteConversation } = useConversations();
   const [goal, setGoal] = useState('');
   const [maxSteps, setMaxSteps] = useState(12);
   const [autoApprove, setAutoApprove] = useState(false);
@@ -91,12 +93,23 @@ export default function HermesPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4 overflow-y-auto h-full pb-10">
-      <div className="flex items-center gap-2">
-        <GraduationCap className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-semibold">Hermes Agent</h1>
-        <Badge variant="outline" className="ml-auto">self-learning loop</Badge>
-      </div>
+    <div className="flex min-h-screen w-full">
+      <AppSidebar
+        conversations={conversations}
+        currentConvoId={currentConvoId}
+        onNewChat={() => { createConversation(); navigate('/chat'); }}
+        onSelectConvo={(id) => { selectConversation(id); navigate('/chat'); }}
+        onDeleteConvo={deleteConversation}
+      />
+      <SidebarInset>
+        <header className="h-12 border-b border-border/50 flex items-center px-4 gap-3">
+          <SidebarTrigger />
+          <GraduationCap className="h-4 w-4 text-primary" />
+          <h1 className="text-sm font-semibold tracking-tight">Hermes Agent</h1>
+          <Badge variant="outline" className="ml-auto text-[10px]">self-learning loop</Badge>
+        </header>
+        <div className="p-4 md:p-6 max-w-5xl mx-auto w-full space-y-4">
+
 
       <Card>
         <CardHeader className="pb-2">
@@ -236,6 +249,8 @@ export default function HermesPage() {
           )}
         </CardContent>
       </Card>
+        </div>
+      </SidebarInset>
     </div>
   );
 }
