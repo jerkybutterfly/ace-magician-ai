@@ -95,11 +95,11 @@ function proseOnly(text: string): string {
     .trim();
 }
 
-async function generate(messages: ChatMessage[], signal?: AbortSignal): Promise<string> {
-  const { defaultModel } = getSettings();
-  if (!defaultModel) throw new Error('No model selected. Pick a default model in Settings first.');
+async function generate(messages: ChatMessage[], signal?: AbortSignal, modelOverride?: string): Promise<string> {
+  const model = modelOverride || getSettings().defaultModel;
+  if (!model) throw new Error('No model selected. Pick a model above or set a default in Settings.');
   let out = '';
-  for await (const chunk of streamChat(defaultModel, messages, undefined, signal)) {
+  for await (const chunk of streamChat(model, messages, undefined, signal)) {
     if (chunk.content) out += chunk.content;
   }
   return out.trim();
