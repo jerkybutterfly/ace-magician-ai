@@ -107,7 +107,7 @@ export default function IptvPage() {
             <Card>
               <CardContent className="p-0 aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center">
                 {current ? (
-                  <video ref={videoRef} controls autoPlay muted className="w-full h-full" />
+                  <video ref={videoRef} controls autoPlay={autoplay} muted={startMuted} className="w-full h-full" />
                 ) : (
                   <div className="text-center text-muted-foreground text-sm">
                     <Radio className="h-10 w-10 mx-auto mb-2 opacity-40" />
@@ -154,6 +154,39 @@ export default function IptvPage() {
                   <Button variant="outline" size="sm" onClick={() => copy(m3uByCategory(category))}>{category} playlist</Button>
                 )}
                 <span className="text-muted-foreground self-center">Paste into VLC / Kodi / any IPTV player.</span>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Player Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span>Autoplay on select</span>
+                  <input
+                    type="checkbox"
+                    checked={autoplay}
+                    onChange={(e) => { setAutoplay(e.target.checked); localStorage.setItem('iptv.autoplay', e.target.checked ? '1' : '0'); }}
+                  />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span>Start muted</span>
+                  <input
+                    type="checkbox"
+                    checked={startMuted}
+                    onChange={(e) => { setStartMuted(e.target.checked); localStorage.setItem('iptv.muted', e.target.checked ? '1' : '0'); }}
+                  />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span>Low-latency HLS mode</span>
+                  <input
+                    type="checkbox"
+                    checked={lowLatency}
+                    onChange={(e) => { setLowLatency(e.target.checked); localStorage.setItem('iptv.lowLatency', e.target.checked ? '1' : '0'); }}
+                  />
+                </label>
+                <p className="text-muted-foreground">Applies to the next channel you select.</p>
               </CardContent>
             </Card>
           </div>
