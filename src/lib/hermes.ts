@@ -37,6 +37,7 @@ export interface HermesOptions {
   requestPermission?: PermissionPrompt;
   onStep?: (step: HermesStep) => void;
   signal?: AbortSignal;
+  model?: string;
 }
 
 const RUNS_KEY = 'hermes-runs';
@@ -94,18 +95,18 @@ function proseOnly(text: string): string {
     .trim();
 }
 
-async function generate(messages: ChatMessage[], signal?: AbortSignal): Promise<string> {
-  const { defaultModel } = getSettings();
-  if (!defaultModel) throw new Error('No model selected. Pick a default model in Settings first.');
+async function generate(messages: ChatMessage[], signal?: AbortSignal, modelOverride?: string): Promise<string> {
+  const model = modelOverride || getSettings().defaultModel;
+  if (!model) throw new Error('No model selected. Pick a model above or set a default in Settings.');
   let out = '';
-  for await (const chunk of streamChat(defaultModel, messages, undefined, signal)) {
+  for await (const chunk of streamChat(model, messages, undefined, signal)) {
     if (chunk.content) out += chunk.content;
   }
   return out.trim();
 }
 
 /** Self-critique the finished run and persist one generalized lesson. */
-async function reflectOnRun(run: HermesRun, signal?: AbortSignal): Promise<string> {
+async function reflectOnRun(run: HermesRun, signal?: AbortSignal, model?: string): Promise<string> {
   const transcript = run.steps
     .map(s => `${s.kind.toUpperCase()}: ${s.text.slice(0, 400)}`)
     .join('\n')
@@ -122,7 +123,7 @@ ${transcript}
 Write ONE short generalized rule (start with "Always", "Never" or "When") that would make the next similar run faster or more reliable. If nothing useful can be generalized, reply exactly: NONE`;
 
   try {
-    const out = (await generate([{ role: 'user', content: prompt }], signal))
+    const out = (await generate([{ role: 'user', content: prompt }], signal, model))
       .split('\n')[0]
       .replace(/^["']|["']$/g, '')
       .trim();
@@ -173,7 +174,7 @@ export async function runHermes(goal: string, opts: HermesOptions = {}): Promise
         break;
       }
 
-      const reply = await generate(messages, opts.signal);
+      const reply = await generate(messages, opts.signal, opts.model);
       if (!reply) {
         push('error', 'Model returned an empty response.');
         run.status = 'failed';
@@ -239,7 +240,7 @@ export async function runHermes(goal: string, opts: HermesOptions = {}): Promise
     summary: `${run.status} after ${run.steps.length} steps`,
   }).catch(() => {});
 
-  const lesson = await reflectOnRun(run);
+  const lesson = await reflectOnRun(run, undefined, opts.model);
   if (lesson) {
     run.lesson = lesson;
     push('reflection', lesson);

@@ -15,6 +15,8 @@ import { Play, Square, Trash2, GraduationCap, RefreshCw } from 'lucide-react';
 import { runHermes, getRuns, clearRuns, type HermesRun, type HermesStep } from '@/lib/hermes';
 import { getLessons, overwriteLessons, clearLessons } from '@/lib/learning';
 import type { PermissionDecision } from '@/lib/agent-tools';
+import { ModelSelector } from '@/components/ModelSelector';
+import { getSettings } from '@/lib/settings';
 
 const KIND_STYLE: Record<HermesStep['kind'], string> = {
   plan: 'border-primary/40',
@@ -31,6 +33,7 @@ export default function HermesPage() {
   const [goal, setGoal] = useState('');
   const [maxSteps, setMaxSteps] = useState(12);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [model, setModel] = useState(() => getSettings().defaultModel || '');
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<HermesStep[]>([]);
   const [runs, setRuns] = useState<HermesRun[]>([]);
@@ -71,6 +74,7 @@ export default function HermesPage() {
       const run = await runHermes(goal.trim(), {
         maxSteps,
         autoApprove,
+        model: model || undefined,
         requestPermission: askPermission,
         signal: ctrl.signal,
         onStep: (s) => setSteps((prev) => [...prev, s]),
@@ -123,6 +127,10 @@ export default function HermesPage() {
             onChange={(e) => setGoal(e.target.value)}
           />
           <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Model</Label>
+              <ModelSelector value={model} onChange={setModel} />
+            </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="steps" className="text-xs">Max steps</Label>
               <Input
