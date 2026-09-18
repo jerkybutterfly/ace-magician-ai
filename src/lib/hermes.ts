@@ -37,6 +37,7 @@ export interface HermesOptions {
   requestPermission?: PermissionPrompt;
   onStep?: (step: HermesStep) => void;
   signal?: AbortSignal;
+  model?: string;
 }
 
 const RUNS_KEY = 'hermes-runs';
