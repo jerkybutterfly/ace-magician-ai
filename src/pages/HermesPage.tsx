@@ -128,6 +128,10 @@ export default function HermesPage() {
           />
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
+              <Label className="text-xs">Model</Label>
+              <ModelSelector value={model} onChange={setModel} />
+            </div>
+            <div className="flex items-center gap-2">
               <Label htmlFor="steps" className="text-xs">Max steps</Label>
               <Input
                 id="steps"
