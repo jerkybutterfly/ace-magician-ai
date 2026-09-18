@@ -17,7 +17,7 @@ import {
 } from '@/lib/iptv';
 
 export default function IptvPage() {
-  const { conversations, currentConvoId, newConversation, selectConversation, deleteConversation } = useConversations();
+  const { conversations, currentConvoId, createConversation, selectConversation, deleteConversation } = useConversations();
   const [channels, setChannels] = useState<IptvPlayable[]>([]);
   const [countries, setCountries] = useState<IptvCountry[]>([]);
   const [categories, setCategories] = useState<IptvCategory[]>([]);
@@ -84,7 +84,7 @@ export default function IptvPage() {
       <AppSidebar
         conversations={conversations}
         currentConvoId={currentConvoId}
-        onNewChat={newConversation}
+        onNewChat={createConversation}
         onSelectConvo={selectConversation}
         onDeleteConvo={deleteConversation}
       />
