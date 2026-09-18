@@ -106,7 +106,7 @@ async function generate(messages: ChatMessage[], signal?: AbortSignal, modelOver
 }
 
 /** Self-critique the finished run and persist one generalized lesson. */
-async function reflectOnRun(run: HermesRun, signal?: AbortSignal): Promise<string> {
+async function reflectOnRun(run: HermesRun, signal?: AbortSignal, model?: string): Promise<string> {
   const transcript = run.steps
     .map(s => `${s.kind.toUpperCase()}: ${s.text.slice(0, 400)}`)
     .join('\n')
