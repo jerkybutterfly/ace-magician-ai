@@ -174,7 +174,7 @@ export async function runHermes(goal: string, opts: HermesOptions = {}): Promise
         break;
       }
 
-      const reply = await generate(messages, opts.signal);
+      const reply = await generate(messages, opts.signal, opts.model);
       if (!reply) {
         push('error', 'Model returned an empty response.');
         run.status = 'failed';
