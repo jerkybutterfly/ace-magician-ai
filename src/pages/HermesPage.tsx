@@ -74,6 +74,7 @@ export default function HermesPage() {
       const run = await runHermes(goal.trim(), {
         maxSteps,
         autoApprove,
+        model: model || undefined,
         requestPermission: askPermission,
         signal: ctrl.signal,
         onStep: (s) => setSteps((prev) => [...prev, s]),
