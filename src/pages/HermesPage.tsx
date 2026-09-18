@@ -15,6 +15,8 @@ import { Play, Square, Trash2, GraduationCap, RefreshCw } from 'lucide-react';
 import { runHermes, getRuns, clearRuns, type HermesRun, type HermesStep } from '@/lib/hermes';
 import { getLessons, overwriteLessons, clearLessons } from '@/lib/learning';
 import type { PermissionDecision } from '@/lib/agent-tools';
+import { ModelSelector } from '@/components/ModelSelector';
+import { getSettings } from '@/lib/settings';
 
 const KIND_STYLE: Record<HermesStep['kind'], string> = {
   plan: 'border-primary/40',
