@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, getSystemInfo, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
-import { fetchModels, fetchColibriHealth, fetchColibriModels, fetchLlamaCppHealth, fetchLlamaCppModels } from '@/lib/ollama';
+import { fetchModels, fetchColibriHealth, fetchColibriModels, fetchLlamaCppHealth, fetchLlamaCppModels, fetchFreeLlmModels } from '@/lib/ollama';
 import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, colibriPerfToEnv, type AppSettings, type TelegramProvider } from '@/lib/settings';
 import { ColibriPerfPanel } from '@/components/ColibriPerfPanel';
 import { ExpertsPanel } from '@/components/ExpertsPanel';
@@ -57,6 +57,7 @@ export default function SettingsPage() {
   const [testingAgent, setTestingAgent] = useState(false);
   const [testingLlamaCpp, setTestingLlamaCpp] = useState(false);
   const [testingColibri, setTestingColibri] = useState(false);
+  const [testingFreeLlm, setTestingFreeLlm] = useState(false);
   const [colibriServerLoading, setColibriServerLoading] = useState(false);
   const [colibriServerStatus, setColibriServerStatus] = useState<{ running: boolean; pid: number | null; health: any; models: any[] } | null>(null);
 
@@ -141,6 +142,21 @@ export default function SettingsPage() {
       toast({ title: 'llama.cpp unreachable', description: message, variant: 'destructive' });
     } finally {
       setTestingLlamaCpp(false);
+    }
+  };
+
+  const handleTestFreeLlm = async () => {
+    saveSettings(settings);
+    setTestingFreeLlm(true);
+    try {
+      const models = await fetchFreeLlmModels();
+      const modelInfo = models.length > 0 ? ` — ${models.length} model${models.length === 1 ? '' : 's'} available (e.g. ${models[0].id})` : ' — no models loaded yet';
+      toast({ title: 'FreeLLMAPI reachable', description: `Connected to ${settings.freeLlmUrl || 'http://localhost:3001'}${modelInfo}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cannot reach FreeLLMAPI';
+      toast({ title: 'FreeLLMAPI unreachable', description: `${message} — start it with: npm run dev`, variant: 'destructive' });
+    } finally {
+      setTestingFreeLlm(false);
     }
   };
 
