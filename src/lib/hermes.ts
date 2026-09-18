@@ -240,7 +240,7 @@ export async function runHermes(goal: string, opts: HermesOptions = {}): Promise
     summary: `${run.status} after ${run.steps.length} steps`,
   }).catch(() => {});
 
-  const lesson = await reflectOnRun(run);
+  const lesson = await reflectOnRun(run, undefined, opts.model);
   if (lesson) {
     run.lesson = lesson;
     push('reflection', lesson);
