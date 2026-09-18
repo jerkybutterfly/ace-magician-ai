@@ -29,6 +29,7 @@ import YtDlpPage from "./pages/YtDlpPage.tsx";
 import PennilessPage from "./pages/PennilessPage.tsx";
 import OpenWorkPage from "./pages/OpenWorkPage.tsx";
 import HermesPage from "./pages/HermesPage.tsx";
+import IptvPage from "./pages/IptvPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -124,6 +125,7 @@ const App = () => {
               <Route path="/penniless" element={<PennilessPage />} />
               <Route path="/openwork" element={<OpenWorkPage />} />
               <Route path="/hermes" element={<HermesPage />} />
+              <Route path="/iptv" element={<IptvPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
