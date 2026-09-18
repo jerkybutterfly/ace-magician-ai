@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { connectTelegram, disconnectTelegram, getTelegramStatus, getDiscordStatus, connectDiscord, disconnectDiscord, getSystemInfo, type TelegramStatus, type DiscordStatus } from '@/lib/agent';
-import { fetchModels, fetchColibriHealth, fetchColibriModels, fetchLlamaCppHealth, fetchLlamaCppModels } from '@/lib/ollama';
+import { fetchModels, fetchColibriHealth, fetchColibriModels, fetchLlamaCppHealth, fetchLlamaCppModels, fetchFreeLlmModels } from '@/lib/ollama';
 import { getSettings, saveSettings, DEFAULT_SYSTEM_PROMPT, isNativePlatform, colibriPerfToEnv, type AppSettings, type TelegramProvider } from '@/lib/settings';
 import { ColibriPerfPanel } from '@/components/ColibriPerfPanel';
 import { ExpertsPanel } from '@/components/ExpertsPanel';
@@ -57,6 +57,7 @@ export default function SettingsPage() {
   const [testingAgent, setTestingAgent] = useState(false);
   const [testingLlamaCpp, setTestingLlamaCpp] = useState(false);
   const [testingColibri, setTestingColibri] = useState(false);
+  const [testingFreeLlm, setTestingFreeLlm] = useState(false);
   const [colibriServerLoading, setColibriServerLoading] = useState(false);
   const [colibriServerStatus, setColibriServerStatus] = useState<{ running: boolean; pid: number | null; health: any; models: any[] } | null>(null);
 
@@ -141,6 +142,21 @@ export default function SettingsPage() {
       toast({ title: 'llama.cpp unreachable', description: message, variant: 'destructive' });
     } finally {
       setTestingLlamaCpp(false);
+    }
+  };
+
+  const handleTestFreeLlm = async () => {
+    saveSettings(settings);
+    setTestingFreeLlm(true);
+    try {
+      const models = await fetchFreeLlmModels();
+      const modelInfo = models.length > 0 ? ` — ${models.length} model${models.length === 1 ? '' : 's'} available (e.g. ${models[0].id})` : ' — no models loaded yet';
+      toast({ title: 'FreeLLMAPI reachable', description: `Connected to ${settings.freeLlmUrl || 'http://localhost:3001'}${modelInfo}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cannot reach FreeLLMAPI';
+      toast({ title: 'FreeLLMAPI unreachable', description: `${message} — start it with: npm run dev`, variant: 'destructive' });
+    } finally {
+      setTestingFreeLlm(false);
     }
   };
 
@@ -462,6 +478,34 @@ OLLAMA_FLASH_ATTENTION=1`}</pre>
             <p className="text-xs text-muted-foreground">
               LM Studio only works when this app is opened from the same PC or local network (e.g. <code className="text-xs bg-muted px-1 rounded">http://localhost:5173</code>). The hosted cloud preview cannot reach local HTTP services due to browser security restrictions.
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">FreeLLMAPI</CardTitle>
+          <CardDescription>Unified OpenAI-compatible router for free LLM providers (tashfeenahmed/freellmapi)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="freellm-url">FreeLLMAPI URL</Label>
+            <Input id="freellm-url" value={settings.freeLlmUrl} onChange={(e) => update('freeLlmUrl', e.target.value)} placeholder="http://localhost:3001" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="freellm-key">API Key (optional)</Label>
+            <Input id="freellm-key" type="password" value={settings.freeLlmKey} onChange={(e) => update('freeLlmKey', e.target.value)} placeholder="Leave empty if no key configured" />
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={handleTestFreeLlm} disabled={testingFreeLlm} className="w-fit">
+            {testingFreeLlm && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+            Test FreeLLMAPI connection
+          </Button>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Start it on your PC, then pick &quot;FreeLLMAPI&quot; as the provider in Chat.</p>
+            <pre className="text-xs bg-muted/60 rounded p-3 overflow-x-auto leading-relaxed">{`git clone https://github.com/tashfeenahmed/freellmapi.git
+cd freellmapi
+npm install
+npm run dev   # serves on http://localhost:3001`}</pre>
           </div>
         </CardContent>
       </Card>
