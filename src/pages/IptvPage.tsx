@@ -63,7 +63,10 @@ export default function IptvPage() {
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
     const url = current.stream.url;
     if (Hls.isSupported() && url.endsWith('.m3u8')) {
-      const hls = new Hls({ enableWorker: true });
+      const hls = new Hls({
+        enableWorker: true,
+        ...(lowLatency ? { lowLatencyMode: true, backBufferLength: 30 } : {}),
+      });
       hlsRef.current = hls;
       hls.loadSource(url);
       hls.attachMedia(video);
@@ -73,9 +76,9 @@ export default function IptvPage() {
     } else {
       video.src = url;
     }
-    video.play().catch(() => {/* autoplay blocked */});
+    if (autoplay) video.play().catch(() => {/* autoplay blocked */});
     return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
-  }, [current]);
+  }, [current, autoplay, lowLatency]);
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
