@@ -33,6 +33,7 @@ export default function HermesPage() {
   const [goal, setGoal] = useState('');
   const [maxSteps, setMaxSteps] = useState(12);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [model, setModel] = useState(() => getSettings().defaultModel || '');
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<HermesStep[]>([]);
   const [runs, setRuns] = useState<HermesRun[]>([]);
