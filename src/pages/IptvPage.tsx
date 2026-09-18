@@ -27,6 +27,9 @@ export default function IptvPage() {
   const [country, setCountry] = useState('all');
   const [category, setCategory] = useState('all');
   const [current, setCurrent] = useState<IptvPlayable | null>(null);
+  const [autoplay, setAutoplay] = useState(() => localStorage.getItem('iptv.autoplay') !== '0');
+  const [startMuted, setStartMuted] = useState(() => localStorage.getItem('iptv.muted') !== '0');
+  const [lowLatency, setLowLatency] = useState(() => localStorage.getItem('iptv.lowLatency') === '1');
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
