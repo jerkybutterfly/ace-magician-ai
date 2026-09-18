@@ -123,7 +123,7 @@ ${transcript}
 Write ONE short generalized rule (start with "Always", "Never" or "When") that would make the next similar run faster or more reliable. If nothing useful can be generalized, reply exactly: NONE`;
 
   try {
-    const out = (await generate([{ role: 'user', content: prompt }], signal))
+    const out = (await generate([{ role: 'user', content: prompt }], signal, model))
       .split('\n')[0]
       .replace(/^["']|["']$/g, '')
       .trim();
