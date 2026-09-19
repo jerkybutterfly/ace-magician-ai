@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { useConversations } from '@/hooks/useConversations';
 import {
   loadPlayable, loadCountries, loadCategories, M3U_INDEX, m3uByCountry, m3uByCategory,
+  m3uByLanguage, M3U_ENGLISH, ENGLISH_REGIONS, isEnglishChannel,
   type IptvPlayable, type IptvCountry, type IptvCategory,
 } from '@/lib/iptv';
 
@@ -26,6 +27,7 @@ export default function IptvPage() {
   const [query, setQuery] = useState('');
   const [country, setCountry] = useState('all');
   const [category, setCategory] = useState('all');
+  const [englishOnly, setEnglishOnly] = useState(() => localStorage.getItem('iptv.englishOnly') !== '0');
   const [current, setCurrent] = useState<IptvPlayable | null>(null);
   const [autoplay, setAutoplay] = useState(() => localStorage.getItem('iptv.autoplay') !== '0');
   const [startMuted, setStartMuted] = useState(() => localStorage.getItem('iptv.muted') !== '0');
