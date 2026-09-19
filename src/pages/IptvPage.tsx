@@ -51,12 +51,13 @@ export default function IptvPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return channels.filter((c) => {
+      if (englishOnly && !isEnglishChannel(c)) return false;
       if (country !== 'all' && c.country !== country) return false;
       if (category !== 'all' && !c.categories.includes(category)) return false;
       if (q && !c.name.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
       return true;
     }).slice(0, 500);
-  }, [channels, query, country, category]);
+  }, [channels, query, country, category, englishOnly]);
 
   useEffect(() => {
     const video = videoRef.current;
