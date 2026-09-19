@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { useConversations } from '@/hooks/useConversations';
 import {
   loadPlayable, loadCountries, loadCategories, M3U_INDEX, m3uByCountry, m3uByCategory,
+  m3uByLanguage, M3U_ENGLISH, ENGLISH_REGIONS, isEnglishChannel,
   type IptvPlayable, type IptvCountry, type IptvCategory,
 } from '@/lib/iptv';
 
@@ -26,6 +27,7 @@ export default function IptvPage() {
   const [query, setQuery] = useState('');
   const [country, setCountry] = useState('all');
   const [category, setCategory] = useState('all');
+  const [englishOnly, setEnglishOnly] = useState(() => localStorage.getItem('iptv.englishOnly') !== '0');
   const [current, setCurrent] = useState<IptvPlayable | null>(null);
   const [autoplay, setAutoplay] = useState(() => localStorage.getItem('iptv.autoplay') !== '0');
   const [startMuted, setStartMuted] = useState(() => localStorage.getItem('iptv.muted') !== '0');
@@ -49,12 +51,13 @@ export default function IptvPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return channels.filter((c) => {
+      if (englishOnly && !isEnglishChannel(c)) return false;
       if (country !== 'all' && c.country !== country) return false;
       if (category !== 'all' && !c.categories.includes(category)) return false;
       if (q && !c.name.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
       return true;
     }).slice(0, 500);
-  }, [channels, query, country, category]);
+  }, [channels, query, country, category, englishOnly]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -147,12 +150,19 @@ export default function IptvPage() {
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2 text-xs">
                 <Button variant="outline" size="sm" onClick={() => copy(M3U_INDEX)}>Global index</Button>
-                {country !== 'all' && (
+                <Button variant="outline" size="sm" onClick={() => copy(M3U_ENGLISH)}>🇬🇧 English playlist</Button>
+                {ENGLISH_REGIONS.map((r) => (
+                  <Button key={r.code} variant="outline" size="sm" onClick={() => copy(m3uByCountry(r.code))}>
+                    {r.flag} {r.code}
+                  </Button>
+                ))}
+                {country !== 'all' && !ENGLISH_REGIONS.some((r) => r.code === country) && (
                   <Button variant="outline" size="sm" onClick={() => copy(m3uByCountry(country))}>{country} playlist</Button>
                 )}
                 {category !== 'all' && (
                   <Button variant="outline" size="sm" onClick={() => copy(m3uByCategory(category))}>{category} playlist</Button>
                 )}
+                <Button variant="outline" size="sm" onClick={() => copy(m3uByLanguage('eng'))}>eng by language</Button>
                 <span className="text-muted-foreground self-center">Paste into VLC / Kodi / any IPTV player.</span>
               </CardContent>
             </Card>
@@ -195,6 +205,27 @@ export default function IptvPage() {
             <CardHeader className="pb-2 space-y-2">
               <CardTitle className="text-sm">Channels</CardTitle>
               <Input placeholder="Search…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={englishOnly}
+                  onChange={(e) => { setEnglishOnly(e.target.checked); localStorage.setItem('iptv.englishOnly', e.target.checked ? '1' : '0'); }}
+                />
+                English channels only
+              </label>
+              <div className="flex flex-wrap gap-1">
+                {ENGLISH_REGIONS.map((r) => (
+                  <Button
+                    key={r.code}
+                    variant={country === r.code ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => setCountry(country === r.code ? 'all' : r.code)}
+                  >
+                    {r.flag} {r.code}
+                  </Button>
+                ))}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Select value={country} onValueChange={setCountry}>
                   <SelectTrigger><SelectValue placeholder="Country" /></SelectTrigger>
