@@ -150,12 +150,19 @@ export default function IptvPage() {
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2 text-xs">
                 <Button variant="outline" size="sm" onClick={() => copy(M3U_INDEX)}>Global index</Button>
-                {country !== 'all' && (
+                <Button variant="outline" size="sm" onClick={() => copy(M3U_ENGLISH)}>🇬🇧 English playlist</Button>
+                {ENGLISH_REGIONS.map((r) => (
+                  <Button key={r.code} variant="outline" size="sm" onClick={() => copy(m3uByCountry(r.code))}>
+                    {r.flag} {r.code}
+                  </Button>
+                ))}
+                {country !== 'all' && !ENGLISH_REGIONS.some((r) => r.code === country) && (
                   <Button variant="outline" size="sm" onClick={() => copy(m3uByCountry(country))}>{country} playlist</Button>
                 )}
                 {category !== 'all' && (
                   <Button variant="outline" size="sm" onClick={() => copy(m3uByCategory(category))}>{category} playlist</Button>
                 )}
+                <Button variant="outline" size="sm" onClick={() => copy(m3uByLanguage('eng'))}>eng by language</Button>
                 <span className="text-muted-foreground self-center">Paste into VLC / Kodi / any IPTV player.</span>
               </CardContent>
             </Card>
@@ -198,6 +205,27 @@ export default function IptvPage() {
             <CardHeader className="pb-2 space-y-2">
               <CardTitle className="text-sm">Channels</CardTitle>
               <Input placeholder="Search…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={englishOnly}
+                  onChange={(e) => { setEnglishOnly(e.target.checked); localStorage.setItem('iptv.englishOnly', e.target.checked ? '1' : '0'); }}
+                />
+                English channels only
+              </label>
+              <div className="flex flex-wrap gap-1">
+                {ENGLISH_REGIONS.map((r) => (
+                  <Button
+                    key={r.code}
+                    variant={country === r.code ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => setCountry(country === r.code ? 'all' : r.code)}
+                  >
+                    {r.flag} {r.code}
+                  </Button>
+                ))}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Select value={country} onValueChange={setCountry}>
                   <SelectTrigger><SelectValue placeholder="Country" /></SelectTrigger>
