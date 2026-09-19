@@ -9,6 +9,7 @@ export interface IptvChannel {
   network?: string | null;
   owners?: string[];
   country: string;
+  languages?: string[];
   subdivision?: string | null;
   city?: string | null;
   categories: string[];
@@ -83,3 +84,23 @@ export const m3uByCountry = (code: string) =>
   `https://iptv-org.github.io/iptv/countries/${code.toLowerCase()}.m3u`;
 export const m3uByCategory = (id: string) =>
   `https://iptv-org.github.io/iptv/categories/${id.toLowerCase()}.m3u`;
+export const m3uByLanguage = (code: string) =>
+  `https://iptv-org.github.io/iptv/languages/${code.toLowerCase()}.m3u`;
+
+// Full English-language playlist from iptv-org.
+export const M3U_ENGLISH = m3uByLanguage('eng');
+
+// English-speaking regions for quick filtering.
+export const ENGLISH_REGIONS: { code: string; name: string; flag: string }[] = [
+  { code: 'US', name: 'United States', flag: '🇺🇸' },
+  { code: 'UK', name: 'United Kingdom', flag: '🇬🇧' },
+  { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+  { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+  { code: 'IE', name: 'Ireland', flag: '🇮🇪' },
+  { code: 'NZ', name: 'New Zealand', flag: '🇳🇿' },
+];
+
+export const isEnglishChannel = (c: IptvChannel): boolean => {
+  if (c.languages && c.languages.length > 0) return c.languages.includes('eng');
+  return ENGLISH_REGIONS.some((r) => r.code === c.country);
+};
