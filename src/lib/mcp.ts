@@ -128,6 +128,13 @@ export const PRESETS: Array<Omit<McpServer, 'id' | 'enabled'>> = [
     command: 'npx',
     args: ['-y', '@modelcontextprotocol/server-sqlite', '--db-path', '/tmp/mcp.db'],
   },
+  {
+    name: 'Codebase Memory (DeusData)',
+    transport: 'stdio',
+    command: 'uvx',
+    args: ['--from', 'git+https://github.com/DeusData/codebase-memory-mcp.git', 'codebase-memory-mcp'],
+    env: { CODEBASE_ROOT: '' },
+  },
 ];
 
 export function newId() {
