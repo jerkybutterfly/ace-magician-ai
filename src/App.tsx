@@ -31,6 +31,7 @@ import OpenWorkPage from "./pages/OpenWorkPage.tsx";
 import HermesPage from "./pages/HermesPage.tsx";
 import IptvPage from "./pages/IptvPage.tsx";
 import OdysseusPage from "./pages/OdysseusPage.tsx";
+import WebsiteDownloaderPage from "./pages/WebsiteDownloaderPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
