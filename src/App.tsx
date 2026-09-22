@@ -129,6 +129,7 @@ const App = () => {
               <Route path="/hermes" element={<HermesPage />} />
               <Route path="/iptv" element={<IptvPage />} />
               <Route path="/odysseus" element={<OdysseusPage />} />
+              <Route path="/website-downloader" element={<WebsiteDownloaderPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
