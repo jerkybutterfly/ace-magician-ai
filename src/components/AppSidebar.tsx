@@ -35,6 +35,7 @@ const navItems = [
   { title: 'yt-dlp', url: '/ytdlp', icon: Youtube },
   { title: 'IPTV', url: '/iptv', icon: Tv },
   { title: 'Odysseus', url: '/odysseus', icon: Ship },
+  { title: 'Website Downloader', url: '/website-downloader', icon: Globe },
   { title: 'Fooocus', url: '/fooocus', icon: ImageIcon },
   { title: 'open-lovable', url: '/open-lovable', icon: Globe },
   { title: 'OpenWork', url: '/openwork', icon: Briefcase },
