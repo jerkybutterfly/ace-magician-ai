@@ -147,6 +147,24 @@ export default function IptvPage() {
 
             <Card>
               <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Satellite className="h-4 w-4 text-primary" /> Sky direct feeds
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2 text-xs">
+                {SKY_PRESETS.map((p) => (
+                  <Button key={p.id} variant="outline" size="sm" onClick={() => playPreset(p)} title={p.note || p.url}>
+                    {p.name} · {p.country}
+                  </Button>
+                ))}
+                <Button variant="ghost" size="sm" onClick={() => { setSkyOnly(true); setQuery('sky'); }}>
+                  Browse all Sky channels
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Playlists (M3U)</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2 text-xs">
