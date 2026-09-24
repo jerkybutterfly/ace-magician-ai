@@ -29,6 +29,7 @@ export default function IptvPage() {
   const [country, setCountry] = useState('all');
   const [category, setCategory] = useState('all');
   const [englishOnly, setEnglishOnly] = useState(() => localStorage.getItem('iptv.englishOnly') !== '0');
+  const [skyOnly, setSkyOnly] = useState(() => localStorage.getItem('iptv.skyOnly') === '1');
   const [current, setCurrent] = useState<IptvPlayable | null>(null);
   const [autoplay, setAutoplay] = useState(() => localStorage.getItem('iptv.autoplay') !== '0');
   const [startMuted, setStartMuted] = useState(() => localStorage.getItem('iptv.muted') !== '0');
