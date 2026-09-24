@@ -8,12 +8,13 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Tv, ExternalLink, Copy, Radio } from 'lucide-react';
+import { Loader2, Tv, ExternalLink, Copy, Radio, Satellite } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useConversations } from '@/hooks/useConversations';
 import {
   loadPlayable, loadCountries, loadCategories, M3U_INDEX, m3uByCountry, m3uByCategory,
   m3uByLanguage, M3U_ENGLISH, ENGLISH_REGIONS, isEnglishChannel,
+  isSkyChannel, SKY_PRESETS, skyPresetFor,
   type IptvPlayable, type IptvCountry, type IptvCategory,
 } from '@/lib/iptv';
 
