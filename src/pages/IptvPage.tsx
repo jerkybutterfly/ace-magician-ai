@@ -52,13 +52,26 @@ export default function IptvPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return channels.filter((c) => {
+      if (skyOnly && !isSkyChannel(c)) return false;
       if (englishOnly && !isEnglishChannel(c)) return false;
       if (country !== 'all' && c.country !== country) return false;
       if (category !== 'all' && !c.categories.includes(category)) return false;
       if (q && !c.name.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
       return true;
     }).slice(0, 500);
-  }, [channels, query, country, category, englishOnly]);
+  }, [channels, query, country, category, englishOnly, skyOnly]);
+
+  const playPreset = (p: typeof SKY_PRESETS[number]) => {
+    setCurrent({
+      id: p.id,
+      name: p.name,
+      country: p.country,
+      categories: ['news'],
+      website: null,
+      logo: null,
+      stream: { channel: p.id, url: p.url, quality: null },
+    } as IptvPlayable);
+  };
 
   useEffect(() => {
     const video = videoRef.current;
