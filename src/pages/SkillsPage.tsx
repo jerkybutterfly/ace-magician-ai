@@ -14,6 +14,13 @@ interface Skill {
   path: string;
 }
 
+interface MoneySkill {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+}
+
 export default function SkillsPage() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
