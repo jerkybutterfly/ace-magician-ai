@@ -175,7 +175,35 @@ export default function SkillsPage() {
             <Sparkles className="h-3 w-3" /> Suggestions
             {suggestions.length > 0 && <span className="ml-1 text-[10px] bg-primary text-primary-foreground rounded-full px-1.5">{suggestions.length}</span>}
           </TabsTrigger>
+          <TabsTrigger value="money" className="gap-1.5">
+            <Banknote className="h-3 w-3" /> Monetization
+            {money.length > 0 && <span className="ml-1 text-[10px] bg-primary text-primary-foreground rounded-full px-1.5">{money.length}</span>}
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="money" className="space-y-3 mt-4">
+          <Input placeholder="Search playbooks…" value={moneyQuery} onChange={(e) => setMoneyQuery(e.target.value)} />
+          {filteredMoney.length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No playbooks found.</CardContent></Card>
+          ) : filteredMoney.map((m) => (
+            <Card key={m.id}>
+              <CardHeader className="pb-2 cursor-pointer" onClick={() => openMoney(m)}>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-primary" />/{m.name}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground line-clamp-2">{m.description}</p>
+              </CardHeader>
+              {moneyOpen === m.id && (
+                <CardContent className="space-y-2">
+                  <pre className="text-[11px] bg-muted/50 p-3 rounded-lg overflow-auto max-h-96 whitespace-pre-wrap">{moneyBody}</pre>
+                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(moneyBody); toast({ title: 'Copied', description: `${m.name} prompt copied.` }); }}>
+                    Copy prompt
+                  </Button>
+                </CardContent>
+              )}
+            </Card>
+          ))}
+        </TabsContent>
 
         <TabsContent value="skills" className="space-y-4 mt-4">
           <div className="flex gap-2">
