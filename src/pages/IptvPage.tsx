@@ -75,7 +75,15 @@ export default function IptvPage() {
       hls.loadSource(url);
       hls.attachMedia(video);
       hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) toast({ title: 'Stream error', description: data.details, variant: 'destructive' });
+        if (!data.fatal) return;
+        const preset = skyPresetFor(current.id);
+        if (preset && preset.url !== url) {
+          toast({ title: 'Switching to Sky direct feed', description: preset.name });
+          hls.loadSource(preset.url);
+          hls.startLoad();
+          return;
+        }
+        toast({ title: 'Stream error', description: data.details, variant: 'destructive' });
       });
     } else {
       video.src = url;
