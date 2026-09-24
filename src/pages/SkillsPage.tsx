@@ -24,6 +24,10 @@ export default function SkillsPage() {
   const [runOutput, setRunOutput] = useState('');
   const [suggestions, setSuggestions] = useState<SkillSuggestion[]>([]);
   const [suggestionNames, setSuggestionNames] = useState<Record<string, string>>({});
+  const [money, setMoney] = useState<MoneySkill[]>([]);
+  const [moneyQuery, setMoneyQuery] = useState('');
+  const [moneyOpen, setMoneyOpen] = useState<string | null>(null);
+  const [moneyBody, setMoneyBody] = useState('');
 
   const refresh = async () => {
     setLoading(true);
