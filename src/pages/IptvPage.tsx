@@ -214,6 +214,14 @@ export default function IptvPage() {
                 />
                 English channels only
               </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={skyOnly}
+                  onChange={(e) => { setSkyOnly(e.target.checked); localStorage.setItem('iptv.skyOnly', e.target.checked ? '1' : '0'); }}
+                />
+                <Satellite className="h-3 w-3 text-primary" /> Sky channels only
+              </label>
               <div className="flex flex-wrap gap-1">
                 {ENGLISH_REGIONS.map((r) => (
                   <Button
