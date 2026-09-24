@@ -104,3 +104,72 @@ export const isEnglishChannel = (c: IptvChannel): boolean => {
   if (c.languages && c.languages.length > 0) return c.languages.includes('eng');
   return ENGLISH_REGIONS.some((r) => r.code === c.country);
 };
+
+// ── Sky ──────────────────────────────────────────────────────────────────────
+// Matches Sky-branded channels in the iptv-org catalog (name, network or owner).
+export const isSkyChannel = (c: IptvChannel): boolean => {
+  const hay = [c.name, c.network || '', ...(c.alt_names || []), ...(c.owners || [])]
+    .join(' ')
+    .toLowerCase();
+  return /\bsky\b/.test(hay);
+};
+
+// Curated direct HLS fallbacks for free-to-air Sky feeds. Community stream URLs
+// rotate often, so these official CDN endpoints are tried when a channel fails.
+export interface SkyPreset {
+  id: string;
+  name: string;
+  country: string;
+  url: string;
+  note?: string;
+}
+
+export const SKY_PRESETS: SkyPreset[] = [
+  {
+    id: 'SkyNews.uk',
+    name: 'Sky News',
+    country: 'UK',
+    url: 'https://linear417-gb-hls1-prd-ak.cdn.skycdp.com/100e/Content/HLS_001_1080_30/Live/channel(skynews)/index.m3u8',
+    note: 'Official Sky CDN · 1080p',
+  },
+  {
+    id: 'SkyNews.uk.alt',
+    name: 'Sky News (backup)',
+    country: 'UK',
+    url: 'https://siloh-fa.akamaized.net/hls/live/2029484/skynewsuk/master.m3u8',
+    note: 'Akamai mirror',
+  },
+  {
+    id: 'SkyNewsWeather.au',
+    name: 'Sky News Weather',
+    country: 'AU',
+    url: 'https://skynewsau-live.akamaized.net/hls/live/2002689/skynewsweather/master.m3u8',
+  },
+  {
+    id: 'SkyNewsExtra1.au',
+    name: 'Sky News Extra 1',
+    country: 'AU',
+    url: 'https://skynewsau-live.akamaized.net/hls/live/2002691/skynewsextra1/master.m3u8',
+  },
+  {
+    id: 'SkyNewsExtra2.au',
+    name: 'Sky News Extra 2',
+    country: 'AU',
+    url: 'https://skynewsau-live.akamaized.net/hls/live/2002692/skynewsextra2/master.m3u8',
+  },
+  {
+    id: 'SkyNewsExtra3.au',
+    name: 'Sky News Extra 3',
+    country: 'AU',
+    url: 'https://skynewsau-live.akamaized.net/hls/live/2002693/skynewsextra3/master.m3u8',
+  },
+];
+
+export const skyPresetFor = (channelId: string): SkyPreset | undefined =>
+  SKY_PRESETS.find((p) => p.id.toLowerCase().startsWith(channelId.toLowerCase()));
+
+// Sky-branded channels joined with a playable stream, presets merged in first.
+export async function loadSkyChannels(): Promise<IptvPlayable[]> {
+  const playable = await loadPlayable();
+  return playable.filter(isSkyChannel);
+}

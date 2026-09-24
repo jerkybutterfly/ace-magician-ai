@@ -6,11 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Play, Trash2, RefreshCw, FileCode, Sparkles } from 'lucide-react';
+import { Plus, Play, Trash2, RefreshCw, FileCode, Sparkles, Banknote } from 'lucide-react';
 import { getSuggestions, dismissSuggestion, markSaved, generateSkillCode, type SkillSuggestion } from '@/lib/skill-detector';
 
 interface Skill {
   name: string;
+  path: string;
+}
+
+interface MoneySkill {
+  id: string;
+  name: string;
+  description: string;
   path: string;
 }
 
@@ -24,6 +31,10 @@ export default function SkillsPage() {
   const [runOutput, setRunOutput] = useState('');
   const [suggestions, setSuggestions] = useState<SkillSuggestion[]>([]);
   const [suggestionNames, setSuggestionNames] = useState<Record<string, string>>({});
+  const [money, setMoney] = useState<MoneySkill[]>([]);
+  const [moneyQuery, setMoneyQuery] = useState('');
+  const [moneyOpen, setMoneyOpen] = useState<string | null>(null);
+  const [moneyBody, setMoneyBody] = useState('');
 
   const refresh = async () => {
     setLoading(true);
@@ -51,7 +62,27 @@ export default function SkillsPage() {
   useEffect(() => {
     refresh();
     refreshSuggestions();
+    fetch('/money-skills/index.json')
+      .then((r) => r.json())
+      .then((d) => setMoney(d.skills || []))
+      .catch(() => {/* pack not installed */});
   }, []);
+
+  const openMoney = async (m: MoneySkill) => {
+    if (moneyOpen === m.id) { setMoneyOpen(null); setMoneyBody(''); return; }
+    try {
+      const text = await (await fetch(m.path)).text();
+      setMoneyOpen(m.id);
+      setMoneyBody(text);
+    } catch {
+      toast({ title: 'Error', description: 'Could not open that playbook.' });
+    }
+  };
+
+  const filteredMoney = money.filter((m) => {
+    const q = moneyQuery.trim().toLowerCase();
+    return !q || m.name.toLowerCase().includes(q) || m.description.toLowerCase().includes(q);
+  });
 
   const loadSkill = async (skill: Skill) => {
     try {
@@ -144,7 +175,35 @@ export default function SkillsPage() {
             <Sparkles className="h-3 w-3" /> Suggestions
             {suggestions.length > 0 && <span className="ml-1 text-[10px] bg-primary text-primary-foreground rounded-full px-1.5">{suggestions.length}</span>}
           </TabsTrigger>
+          <TabsTrigger value="money" className="gap-1.5">
+            <Banknote className="h-3 w-3" /> Monetization
+            {money.length > 0 && <span className="ml-1 text-[10px] bg-primary text-primary-foreground rounded-full px-1.5">{money.length}</span>}
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="money" className="space-y-3 mt-4">
+          <Input placeholder="Search playbooks…" value={moneyQuery} onChange={(e) => setMoneyQuery(e.target.value)} />
+          {filteredMoney.length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No playbooks found.</CardContent></Card>
+          ) : filteredMoney.map((m) => (
+            <Card key={m.id}>
+              <CardHeader className="pb-2 cursor-pointer" onClick={() => openMoney(m)}>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-primary" />/{m.name}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground line-clamp-2">{m.description}</p>
+              </CardHeader>
+              {moneyOpen === m.id && (
+                <CardContent className="space-y-2">
+                  <pre className="text-[11px] bg-muted/50 p-3 rounded-lg overflow-auto max-h-96 whitespace-pre-wrap">{moneyBody}</pre>
+                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(moneyBody); toast({ title: 'Copied', description: `${m.name} prompt copied.` }); }}>
+                    Copy prompt
+                  </Button>
+                </CardContent>
+              )}
+            </Card>
+          ))}
+        </TabsContent>
 
         <TabsContent value="skills" className="space-y-4 mt-4">
           <div className="flex gap-2">

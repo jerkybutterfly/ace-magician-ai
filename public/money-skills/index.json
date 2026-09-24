@@ -1,0 +1,181 @@
+{
+  "source": "https://github.com/iamzifei/show-me-the-money",
+  "count": 25,
+  "skills": [
+    {
+      "id": "money",
+      "name": "money",
+      "description": "Main entry point for the Show Me The Money business automation suite. Dual mode: pre-task routing (which skill fits your problem) + post-task navigation (a skill just finished \u2014 what's next). Use when the user wants to start a business, automate operations, generate revenue, find product ideas, set up marketing, or run any business function autonomously. Also use when the user says 'show me the money', '\u6765\u8d22' (the suite's Chinese name), 'make money', 'start a business', 'automate my business', 'build a company', 'what's next', or '\u4e0b\u4e00\u6b65\u600e\u4e48\u8d70'. Includes a beginner tutorial mode triggered by '/money onboarding', '/money tutorial', '/money \u65b0\u624b', '/money \u6559\u7a0b', 'how do I use this', or '\u8fd9\u4e2a\u600e\u4e48\u7528' \u2014 a zero-input guided walkthrough that produces a demo business brief.",
+      "path": "/money-skills/money/SKILL.md",
+      "bytes": 43989
+    },
+    {
+      "id": "money-ads",
+      "name": "money-ads",
+      "description": "Paid advertising automation for Google Ads, Meta Ads, and other ad platforms. Creates campaigns, optimizes budgets, manages keywords, writes ad copy, and tracks ROAS. Leverages third-party ad management skills when available. Use when the user needs ad campaigns, PPC, SEM, paid traffic, or says 'run ads', 'Google Ads', 'Meta Ads', 'Facebook Ads', 'ad campaign', 'PPC', 'ROAS', or 'paid traffic'.",
+      "path": "/money-skills/money-ads/SKILL.md",
+      "bytes": 9767
+    },
+    {
+      "id": "money-content",
+      "name": "money-content",
+      "description": "Automated content creation pipeline for business growth. Creates blog posts, landing pages, email sequences, social media content, and video scripts with a supply-demand topic gate, 5-dimensional quality diagnosis, one-core resonance check, per-sentence information density scoring, 12-signal authenticity audit, headline impact matrix, content substance scoring, and a cheap-format MVP testing ladder. Use when the user needs content marketing, blog posts, email sequences, copywriting, video scripts, or says 'write content', 'blog post', 'email sequence', 'content calendar', 'marketing copy', 'video script', or 'hook'.",
+      "path": "/money-skills/money-content/SKILL.md",
+      "bytes": 38394
+    },
+    {
+      "id": "money-diagnose",
+      "name": "money-diagnose",
+      "description": "Deep business diagnosis for when things aren't working. Uses Socratic questioning, first-principles reasoning, and constraint analysis to find WHY a business is stuck \u2014 not just prescribe solutions. Use when the user says 'my business isn't working', 'I'm stuck', 'what's wrong', 'diagnose my business', 'why am I not growing', 'help me figure out the problem', or describes a specific business challenge.",
+      "path": "/money-skills/money-diagnose/SKILL.md",
+      "bytes": 21722
+    },
+    {
+      "id": "money-discover",
+      "name": "money-discover",
+      "description": "Discover profitable business ideas from scratch. Analyzes market gaps, trending niches, user skills, and competitive landscapes with a competitive intelligence protocol including 4-filter benchmark stress test and Blue Ocean differentiation grid. Use when the user has no idea what to build, wants to explore opportunities, needs market research, competitive benchmarking, or says 'find me a business idea', 'what should I build', 'market research', 'find opportunities', or 'competitive analysis'.",
+      "path": "/money-skills/money-discover/SKILL.md",
+      "bytes": 14206
+    },
+    {
+      "id": "money-finance",
+      "name": "money-finance",
+      "description": "Financial tracking, revenue analytics, expense management, and pricing optimization. Integrates with Stripe for revenue data, tracks unit economics, and generates financial reports. Use when the user needs revenue tracking, financial reports, pricing optimization, expense management, or says 'revenue', 'MRR', 'ARR', 'finances', 'pricing', 'expenses', 'profit', 'ROAS', or 'unit economics'.",
+      "path": "/money-skills/money-finance/SKILL.md",
+      "bytes": 8870
+    },
+    {
+      "id": "money-learn",
+      "name": "money-learn",
+      "description": "Manage project learnings \u2014 small, atomic, validated patterns that the agent should remember across all skills and sessions. Different from /money-save (which captures full session state); learnings are individual insights that get auto-loaded into every other money-* skill's context. Use when the user has just discovered something worth remembering \u2014 a customer pattern, a pricing insight, a channel that works, a failure mode. Triggered by: 'remember this', 'log a learning', 'this is a pattern', 'show learnings', 'what have we learned', '\u8bb0\u4f4f\u8fd9\u4e2a', '\u5b58\u5165\u7ecf\u9a8c', '\u67e5\u770b\u7ecf\u9a8c\u5e93'.",
+      "path": "/money-skills/money-learn/SKILL.md",
+      "bytes": 14135
+    },
+    {
+      "id": "money-ops",
+      "name": "money-ops",
+      "description": "24/7 autonomous business operations orchestrator with business health scoring, canary monitoring, and safety guardrails. Schedules and runs all business functions automatically \u2014 content publishing, social media posting, outreach sequences, ad monitoring, financial reporting, health checks, and post-deploy verification. Use when the user wants to automate operations, schedule tasks, set up autonomous workflows, or says 'automate this', '24/7', 'run automatically', 'schedule', 'cron', 'autonomous', or 'set and forget'.",
+      "path": "/money-skills/money-ops/SKILL.md",
+      "bytes": 15031
+    },
+    {
+      "id": "money-outreach",
+      "name": "money-outreach",
+      "description": "Automated outreach and sales pipeline \u2014 cold email sequences, partnership outreach, lead generation, and prospect management. Use when the user needs cold email campaigns, sales sequences, lead generation, partnership outreach, B2B sales, or says 'cold email', 'outreach', 'lead gen', 'find prospects', 'sales sequence', or 'partnerships'.",
+      "path": "/money-skills/money-outreach/SKILL.md",
+      "bytes": 11861
+    },
+    {
+      "id": "money-panel",
+      "name": "money-panel",
+      "description": "Run all four review skills (investor, customer, operator, skeptic) on a business plan in sequence, then auto-decide where verdicts agree and surface only disagreements + taste decisions to the user. One command = full review gauntlet, intelligently filtered. Use when a plan is ready to be stress-tested before commit. Triggered by: 'panel review', 'review panel', 'run all reviews', 'review gauntlet', '\u5ba1\u8bae\u4f1a', '\u56db\u65b9\u8bc4\u5ba1'.",
+      "path": "/money-skills/money-panel/SKILL.md",
+      "bytes": 12230
+    },
+    {
+      "id": "money-product",
+      "name": "money-product",
+      "description": "Build the actual product \u2014 from landing page to deployed MVP with payment integration, QA testing, and post-deploy canary monitoring. Handles code generation, deployment, database setup, authentication, Stripe/payment integration, systematic QA protocol, and production health scoring. Use when the user needs to build something, deploy a product, set up payments, create a landing page, or says 'build this', 'deploy', 'create MVP', 'set up payments', or 'ship it'.",
+      "path": "/money-skills/money-product/SKILL.md",
+      "bytes": 24930
+    },
+    {
+      "id": "money-quality",
+      "name": "money-quality",
+      "description": "Code and product quality gates for shipping with confidence. Runs code review, QA testing, performance checks, and security audits. Use when the user says 'review my code', 'is this ready to ship', 'check quality', 'run QA', 'test this', 'security check', 'pre-launch review', or wants a quality assessment before deploying.",
+      "path": "/money-skills/money-quality/SKILL.md",
+      "bytes": 22915
+    },
+    {
+      "id": "money-report",
+      "name": "money-report",
+      "description": "Generate a deliverable markdown report by merging all /money-save snapshots for a project. Produces a shareable, dated document at ~/.smtm/reports/{project}/. Useful for sharing progress with co-founders, advisors, investors, or for personal review weeks/months later. Use when the user wants to package up accumulated state into a readable artifact. Triggered by: 'package this up', 'make me a report', 'export for partner', 'give me the deliverable', '\u51fa\u62a5\u544a', '\u6253\u5305', '\u6574\u7406\u4e00\u4efd', '\u7ed9\u5408\u4f19\u4eba\u770b\u7684'.",
+      "path": "/money-skills/money-report/SKILL.md",
+      "bytes": 8913
+    },
+    {
+      "id": "money-restore",
+      "name": "money-restore",
+      "description": "Restore a prior business-state snapshot saved by /money-save, so you can continue from exactly where the last session left off. Loads the most recent snapshot for the current project (auto-detected from the working directory), or a specific one by index. Use when starting a new Claude Code conversation and the user wants to continue prior work. Triggered by: 'continue from last time', 'where did we leave off', 'pick up from before', 'resume', '\u63a5\u7740\u4e0a\u6b21', '\u7eed\u4e0a', '\u4e4b\u524d\u7684\u7ed3\u8bba', '\u4e0a\u6b21\u8bca\u65ad\u5230\u54ea\u4e86'.",
+      "path": "/money-skills/money-restore/SKILL.md",
+      "bytes": 7117
+    },
+    {
+      "id": "money-retro",
+      "name": "money-retro",
+      "description": "Weekly business retrospective. Reads all snapshots, learnings, skill-usage telemetry, and (if provided) revenue data from the past week. Outputs: what got decided, what shipped, what's stalled, skill activity, suggested next focus. Surfaces unused skills as activation prompts. Use at end of week or end of sprint. Triggered by: 'weekly retro', 'business retro', 'what did we ship', 'how's the week going', '\u5468\u590d\u76d8', '\u4e1a\u52a1\u56de\u987e', '\u672c\u5468\u590d\u76d8'.",
+      "path": "/money-skills/money-retro/SKILL.md",
+      "bytes": 9208
+    },
+    {
+      "id": "money-review-customer",
+      "name": "money-review-customer",
+      "description": "Review a business plan from the perspective of the named target customer. Asks: would they actually pay this price for this solution today? Outputs a verdict with one of four modes \u2014 PAY NOW / PAY WITH FRICTION / WOULDN'T PAY / WRONG ICP. Use when the user has a defined ICP and pricing and wants to stress-test whether the value prop survives contact with reality. Triggered by: 'customer review', 'would they pay', 'pricing reality check', '\u5ba2\u6237\u89c6\u89d2', '\u4f1a\u4ed8\u8d39\u5417'.",
+      "path": "/money-skills/money-review-customer/SKILL.md",
+      "bytes": 8316
+    },
+    {
+      "id": "money-review-investor",
+      "name": "money-review-investor",
+      "description": "Review a business plan or product strategy through the eyes of a smart-money seed/Series-A investor. Asks the brutal questions: Is this fundable? What's the moat? What's the exit story? Outputs a verdict with one of four modes \u2014 SEED VIABLE / LATER ROUND ONLY / BOOTSTRAP-ONLY / UNFUNDABLE. Use when the user has a business plan and wants to know if it would survive an investor pitch. Triggered by: 'investor review', 'is this fundable', 'VC perspective', '\u6295\u8d44\u4eba\u89c6\u89d2'.",
+      "path": "/money-skills/money-review-investor/SKILL.md",
+      "bytes": 8761
+    },
+    {
+      "id": "money-review-operator",
+      "name": "money-review-operator",
+      "description": "Review a business plan from the perspective of the solo founder who has to actually execute it. Asks the brutal operational questions: Can I build this with my time budget? Can I keep it running? Will my cashflow survive? Outputs a verdict \u2014 SHIPPABLE NOW / SHIPPABLE WITH DESCOPE / NEEDS HIRE / WRONG STACK. Use when a plan looks great on paper and you want to know whether a solo operator can actually execute it. Triggered by: 'operator review', 'can I actually do this solo', 'execution reality check', '\u64cd\u76d8\u89c6\u89d2', '\u6211\u80fd\u4e0d\u80fd\u5e72\u5f97\u52a8'.",
+      "path": "/money-skills/money-review-operator/SKILL.md",
+      "bytes": 11394
+    },
+    {
+      "id": "money-review-skeptic",
+      "name": "money-review-skeptic",
+      "description": "Review a business plan from the perspective of a hostile devil's advocate. Asks: what kills this in month 6? What's everyone politely not mentioning? Outputs a verdict \u2014 EXISTENTIAL RISK / SOLVABLE RISKS / LOW-RISK / WRONG QUESTION. Use after the investor/customer/operator reviews are done, as the final gauntlet before committing real time and money. Triggered by: 'skeptic review', 'devil's advocate', 'what would kill this', 'red team this', '\u6cfc\u51b7\u6c34', '\u6740\u624b\u5728\u54ea'.",
+      "path": "/money-skills/money-review-skeptic/SKILL.md",
+      "bytes": 9674
+    },
+    {
+      "id": "money-save",
+      "name": "money-save",
+      "description": "Save the current business state to disk so future Claude Code sessions can pick up where you left off. Captures confirmed conclusions, ruled-out directions, open hypotheses, and the next recommended skill. Use when the user has just reached a conclusion in /money-discover, /money-strategy, /money-diagnose, or any pipeline phase, and wants to lock the state in. Also triggered by: 'save this', 'checkpoint', 'remember this', 'lock it in', '\u4fdd\u5b58', '\u5b58\u6863', '\u8bb0\u4e0b\u6765', '\u8fd9\u4e2a\u7ed3\u8bba\u7559\u7740'.",
+      "path": "/money-skills/money-save/SKILL.md",
+      "bytes": 9015
+    },
+    {
+      "id": "money-seo",
+      "name": "money-seo",
+      "description": "SEO and GEO (Generative Engine Optimization) for organic traffic and AI search visibility. Covers technical SEO, content SEO, keyword strategy, schema markup, and optimization for AI search engines (ChatGPT, Perplexity, Gemini). Use when the user needs SEO audit, keyword research, GEO optimization, schema markup, or says 'SEO', 'search optimization', 'keywords', 'organic traffic', 'AI search', 'GEO', or 'rank higher'.",
+      "path": "/money-skills/money-seo/SKILL.md",
+      "bytes": 17448
+    },
+    {
+      "id": "money-skillify",
+      "name": "money-skillify",
+      "description": "Codify a successful workflow from the current conversation into a permanent project-local skill. After you discover (e.g.) a cold-email sequence that converts, an ad-creative format that beats baseline, or a content-pipeline cadence that compounds \u2014 /money-skillify writes it as a SKILL.md under the project's local skills directory so future sessions can re-invoke it without re-discovery. Use when the user says: 'this worked, save it', 'codify this', 'turn this into a skill', '\u628a\u8fd9\u4e2a\u56fa\u5316\u4e0b\u6765', '\u5b58\u6210 skill'.",
+      "path": "/money-skills/money-skillify/SKILL.md",
+      "bytes": 8641
+    },
+    {
+      "id": "money-social",
+      "name": "money-social",
+      "description": "Social media management and community building automation. Creates content calendars, drafts posts, manages engagement, and builds audience across X/Twitter, LinkedIn, Reddit, Product Hunt, and other platforms. Use when the user needs social media strategy, content scheduling, community building, or says 'social media', 'tweet', 'LinkedIn post', 'Reddit', 'Product Hunt launch', or 'build audience'.",
+      "path": "/money-skills/money-social/SKILL.md",
+      "bytes": 7966
+    },
+    {
+      "id": "money-strategy",
+      "name": "money-strategy",
+      "description": "Create comprehensive business strategy with premise deconstruction, business model stress test, pricing, go-to-market plan, and competitive positioning. Runs a 4-layer premise audit before strategy, then generates a full market research report with SWOT, 4P, 10-point business model validation, and constraint analysis. Use when the user has an idea and needs a strategic plan, competitive analysis, pricing strategy, GTM plan, or says 'business plan', 'strategy', 'pricing', 'go-to-market', or 'competitive analysis'.",
+      "path": "/money-skills/money-strategy/SKILL.md",
+      "bytes": 27990
+    },
+    {
+      "id": "money-upgrade",
+      "name": "money-upgrade",
+      "description": "Auto-update the show-me-the-money skill suite to the latest version. One command checks npm for a new version, downloads it, replaces the installed skills, and shows what changed. Use when the user wants to update skills, check for new versions, or says 'upgrade money', 'update skills', 'latest version', 'auto-update', or 'check for updates'.\"\ndisable-model-invocation: true",
+      "path": "/money-skills/money-upgrade/SKILL.md",
+      "bytes": 6770
+    }
+  ]
+}

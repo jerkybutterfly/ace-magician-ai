@@ -8,12 +8,13 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Tv, ExternalLink, Copy, Radio } from 'lucide-react';
+import { Loader2, Tv, ExternalLink, Copy, Radio, Satellite } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useConversations } from '@/hooks/useConversations';
 import {
   loadPlayable, loadCountries, loadCategories, M3U_INDEX, m3uByCountry, m3uByCategory,
   m3uByLanguage, M3U_ENGLISH, ENGLISH_REGIONS, isEnglishChannel,
+  isSkyChannel, SKY_PRESETS, skyPresetFor,
   type IptvPlayable, type IptvCountry, type IptvCategory,
 } from '@/lib/iptv';
 
@@ -28,6 +29,7 @@ export default function IptvPage() {
   const [country, setCountry] = useState('all');
   const [category, setCategory] = useState('all');
   const [englishOnly, setEnglishOnly] = useState(() => localStorage.getItem('iptv.englishOnly') !== '0');
+  const [skyOnly, setSkyOnly] = useState(() => localStorage.getItem('iptv.skyOnly') === '1');
   const [current, setCurrent] = useState<IptvPlayable | null>(null);
   const [autoplay, setAutoplay] = useState(() => localStorage.getItem('iptv.autoplay') !== '0');
   const [startMuted, setStartMuted] = useState(() => localStorage.getItem('iptv.muted') !== '0');
@@ -51,13 +53,26 @@ export default function IptvPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return channels.filter((c) => {
+      if (skyOnly && !isSkyChannel(c)) return false;
       if (englishOnly && !isEnglishChannel(c)) return false;
       if (country !== 'all' && c.country !== country) return false;
       if (category !== 'all' && !c.categories.includes(category)) return false;
       if (q && !c.name.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
       return true;
     }).slice(0, 500);
-  }, [channels, query, country, category, englishOnly]);
+  }, [channels, query, country, category, englishOnly, skyOnly]);
+
+  const playPreset = (p: typeof SKY_PRESETS[number]) => {
+    setCurrent({
+      id: p.id,
+      name: p.name,
+      country: p.country,
+      categories: ['news'],
+      website: null,
+      logo: null,
+      stream: { channel: p.id, url: p.url, quality: null },
+    } as IptvPlayable);
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -74,7 +89,15 @@ export default function IptvPage() {
       hls.loadSource(url);
       hls.attachMedia(video);
       hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) toast({ title: 'Stream error', description: data.details, variant: 'destructive' });
+        if (!data.fatal) return;
+        const preset = skyPresetFor(current.id);
+        if (preset && preset.url !== url) {
+          toast({ title: 'Switching to Sky direct feed', description: preset.name });
+          hls.loadSource(preset.url);
+          hls.startLoad();
+          return;
+        }
+        toast({ title: 'Stream error', description: data.details, variant: 'destructive' });
       });
     } else {
       video.src = url;
@@ -146,6 +169,24 @@ export default function IptvPage() {
 
             <Card>
               <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Satellite className="h-4 w-4 text-primary" /> Sky direct feeds
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2 text-xs">
+                {SKY_PRESETS.map((p) => (
+                  <Button key={p.id} variant="outline" size="sm" onClick={() => playPreset(p)} title={p.note || p.url}>
+                    {p.name} · {p.country}
+                  </Button>
+                ))}
+                <Button variant="ghost" size="sm" onClick={() => { setSkyOnly(true); setQuery('sky'); }}>
+                  Browse all Sky channels
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Playlists (M3U)</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2 text-xs">
@@ -212,6 +253,14 @@ export default function IptvPage() {
                   onChange={(e) => { setEnglishOnly(e.target.checked); localStorage.setItem('iptv.englishOnly', e.target.checked ? '1' : '0'); }}
                 />
                 English channels only
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={skyOnly}
+                  onChange={(e) => { setSkyOnly(e.target.checked); localStorage.setItem('iptv.skyOnly', e.target.checked ? '1' : '0'); }}
+                />
+                <Satellite className="h-3 w-3 text-primary" /> Sky channels only
               </label>
               <div className="flex flex-wrap gap-1">
                 {ENGLISH_REGIONS.map((r) => (
