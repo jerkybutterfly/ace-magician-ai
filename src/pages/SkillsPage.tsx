@@ -62,7 +62,27 @@ export default function SkillsPage() {
   useEffect(() => {
     refresh();
     refreshSuggestions();
+    fetch('/money-skills/index.json')
+      .then((r) => r.json())
+      .then((d) => setMoney(d.skills || []))
+      .catch(() => {/* pack not installed */});
   }, []);
+
+  const openMoney = async (m: MoneySkill) => {
+    if (moneyOpen === m.id) { setMoneyOpen(null); setMoneyBody(''); return; }
+    try {
+      const text = await (await fetch(m.path)).text();
+      setMoneyOpen(m.id);
+      setMoneyBody(text);
+    } catch {
+      toast({ title: 'Error', description: 'Could not open that playbook.' });
+    }
+  };
+
+  const filteredMoney = money.filter((m) => {
+    const q = moneyQuery.trim().toLowerCase();
+    return !q || m.name.toLowerCase().includes(q) || m.description.toLowerCase().includes(q);
+  });
 
   const loadSkill = async (skill: Skill) => {
     try {
