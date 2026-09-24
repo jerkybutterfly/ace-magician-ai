@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Play, Trash2, RefreshCw, FileCode, Sparkles } from 'lucide-react';
+import { Plus, Play, Trash2, RefreshCw, FileCode, Sparkles, Banknote } from 'lucide-react';
 import { getSuggestions, dismissSuggestion, markSaved, generateSkillCode, type SkillSuggestion } from '@/lib/skill-detector';
 
 interface Skill {
