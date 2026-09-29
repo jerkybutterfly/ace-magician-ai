@@ -14,7 +14,7 @@ import { fetchAwesomeApps, groupByCategory, type AwesomeApp } from '@/lib/awesom
 const REPO_URL = 'https://github.com/Shubhamsaboo/awesome-llm-apps';
 
 export default function AwesomeLlmAppsPage() {
-  const convos = useConversations();
+  const { conversations, currentConvoId, createConversation, selectConversation, deleteConversation } = useConversations();
   const [apps, setApps] = useState<AwesomeApp[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +51,8 @@ export default function AwesomeLlmAppsPage() {
 
   return (
     <div className="flex h-screen w-full">
-      <AppSidebar {...convos} />
+      <AppSidebar conversations={conversations} currentConvoId={currentConvoId}
+        onNewChat={createConversation} onSelectConvo={selectConversation} onDeleteConvo={deleteConversation} />
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
           <SidebarTrigger />
