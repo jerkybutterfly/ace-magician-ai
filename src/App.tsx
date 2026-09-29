@@ -33,6 +33,7 @@ import IptvPage from "./pages/IptvPage.tsx";
 import OdysseusPage from "./pages/OdysseusPage.tsx";
 import WebsiteDownloaderPage from "./pages/WebsiteDownloaderPage.tsx";
 import AtlasPage from "./pages/AtlasPage.tsx";
+import AwesomeLlmAppsPage from "./pages/AwesomeLlmAppsPage.tsx";
 import BeebotsPage from "./pages/BeebotsPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
@@ -133,6 +134,7 @@ const App = () => {
               <Route path="/odysseus" element={<OdysseusPage />} />
               <Route path="/website-downloader" element={<WebsiteDownloaderPage />} />
               <Route path="/atlas" element={<AtlasPage />} />
+              <Route path="/awesome-llm-apps" element={<AwesomeLlmAppsPage />} />
               <Route path="/beebots" element={<BeebotsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
