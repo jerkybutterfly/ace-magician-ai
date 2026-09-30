@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Briefcase, Coins, Image as ImageIcon, Tv, Ship, Map as MapIcon, Hexagon, Library } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Briefcase, Coins, Image as ImageIcon, Tv, Ship, Map as MapIcon, Hexagon, Library, CandlestickChart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -43,6 +43,7 @@ const navItems = [
   { title: 'Install on Phone', url: '/install', icon: Download },
   { title: 'IPTV', url: '/iptv', icon: Tv },
   { title: 'Knowledge Graph', url: '/knowledge-graph', icon: Brain },
+  { title: 'Kronos', url: '/kronos', icon: CandlestickChart },
   { title: 'Lab Mode', url: '/labmode', icon: FlaskConical },
   { title: 'LightRAG', url: '/lightrag', icon: Database },
   { title: 'Local Models', url: '/local-models', icon: Cpu },
