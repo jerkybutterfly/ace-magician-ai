@@ -84,6 +84,7 @@ const navItems = [
   { title: 'Vector Store', url: '/vector-store', icon: Database },
   { title: 'Voice', url: '/voice', icon: Mic },
   { title: 'Vortex Agent', url: '/vortex', icon: Shield },
+  { title: 'Wan2GP Video', url: '/wan2gp', icon: Film },
   { title: 'Website Downloader', url: '/website-downloader', icon: Globe },
   { title: 'yt-dlp', url: '/ytdlp', icon: Youtube },
 ];
