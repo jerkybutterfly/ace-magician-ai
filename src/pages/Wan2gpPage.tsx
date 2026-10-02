@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Film, Play, Square, Download, RefreshCw, ExternalLink } from 'lucide-react';
 import { wan2gp, WAN2GP_PROFILES, type Wan2gpOptions, type Wan2gpProfile } from '@/lib/wan2gp';
+import { getSettings } from '@/lib/settings';
 import { useNavigate } from 'react-router-dom';
 
 const CFG_KEY = 'wan2gp.cfg';
@@ -88,6 +89,19 @@ export default function Wan2gpPage() {
         </header>
 
         <main className="p-4 space-y-4 max-w-6xl mx-auto w-full">
+          {!reachable && (
+            <Card className="p-4 space-y-2 border-destructive/50">
+              <div className="text-sm font-semibold text-destructive">Can't reach your mini PC</div>
+              <p className="text-sm text-muted-foreground">
+                Nothing on this page can install, start or open until the app can talk to your mini PC.
+                It's currently trying <code className="text-xs">{getSettings().agentUrl}</code>.
+                If you're on your phone, that address points at the phone itself — change it in Settings to your
+                mini PC's address on your home network, for example <code className="text-xs">http://192.168.1.50:8484</code>,
+                and make sure the helper program is running there.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => navigate('/settings')}>Open Settings</Button>
+            </Card>
+          )}
           <Card className="p-4 space-y-3">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">Setup</div>
             <p className="text-sm text-muted-foreground">
