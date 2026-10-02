@@ -20,6 +20,7 @@ export default function Wan2gpPage() {
   const navigate = useNavigate();
   const { conversations, currentConvoId, createConversation, selectConversation, deleteConversation } = useConversations();
   const [running, setRunning] = useState(false);
+  const [reachable, setReachable] = useState(true);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [logs, setLogs] = useState('');
@@ -36,8 +37,12 @@ export default function Wan2gpPage() {
   useEffect(() => { localStorage.setItem(CFG_KEY, JSON.stringify(opts)); }, [opts]);
 
   const check = async () => {
-    const s = await wan2gp.status().catch(() => ({ running: false, status: '' }));
-    setRunning(s.running); setStatus(s.status);
+    try {
+      const s = await wan2gp.status();
+      setRunning(s.running); setStatus(s.status); setReachable(true);
+    } catch {
+      setRunning(false); setStatus(''); setReachable(false);
+    }
   };
   useEffect(() => { check(); const id = setInterval(check, 8000); return () => clearInterval(id); }, []);
 
