@@ -68,7 +68,7 @@ export const atlas = {
 
   status: (os: HostOs, project: string) => os === 'windows'
     ? sh(ps(`if (Test-Path ${sq(project + '\\.atlas')}) { 'atlas: yes' } else { 'atlas: no' }; (sqlite3 -version) 2>&1 | Select-Object -First 1`))
-    : sh(`[ -d ${bq(project + '/.atlas')} ] && echo 'atlas: yes' || echo 'atlas: no'; sqlite3 -version 2>&1 | head -1`),
+    : sh(`[ -d ${bq(project + '/.atlas')} ] && echo 'atlas: yes' || echo 'atlas: no'; sqlite3 -version 2>&1`),
 
   sessions: async (os: HostOs, project: string): Promise<AtlasSession[]> => {
     const r = await db(os, project, `SELECT s.id, COALESCE(s.agent,s.source) agent, COALESCE(s.model,'') model,

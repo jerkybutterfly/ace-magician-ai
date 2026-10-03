@@ -39,15 +39,15 @@ export const ytdlp = {
     which ffmpeg >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y ffmpeg) || brew install ffmpeg || true;
     mkdir -p ${DIR};
     yt-dlp --version`),
-  version: () => sh(`yt-dlp --version 2>&1; ffmpeg -version 2>/dev/null | head -1`),
+  version: () => sh(`yt-dlp --version 2>&1; ffmpeg -version 2>&1`),
   update: () => sh(`yt-dlp -U 2>&1 | tail -5 || python3 -m pip install -U --break-system-packages yt-dlp 2>&1 | tail -3`),
   info: (url: string) =>
-    sh(`yt-dlp --no-warnings -J --flat-playlist ${q(url)} 2>&1 | head -c 400000`, 180_000),
+    sh(`yt-dlp --no-warnings -J --flat-playlist ${q(url)} 2>&1`, 180_000),
   listFormats: (url: string) => sh(`yt-dlp --no-warnings -F ${q(url)} 2>&1 | tail -60`, 180_000),
   download: (url: string, format: YtFormat = 'best', extra = '') =>
     sh(`mkdir -p ${DIR}; cd ${DIR} && yt-dlp --newline --no-warnings ${formatArgs(format)} ${extra} -o "%(title).150s [%(id)s].%(ext)s" ${q(url)} 2>&1 | tail -40`),
   subtitles: (url: string) =>
     sh(`mkdir -p ${DIR}; cd ${DIR} && yt-dlp --skip-download --write-auto-subs --write-subs --sub-langs "en.*" --convert-subs srt ${q(url)} 2>&1 | tail -20`, 300_000),
-  list: () => sh(`ls -1t ${DIR} 2>/dev/null | head -60`),
+  list: () => sh(`ls -1t ${DIR} 2>/dev/null || dir /b /o-d "${DIR}"`),
   remove: (name: string) => sh(`rm -f ${DIR}/${q(name)}`),
 };

@@ -46,7 +46,7 @@ export const beebots = {
     return { running: lines.some((l) => /Up|running/i.test(l)), status: r.stdout.trim() };
   },
   logs: () => sh(`cd ${DIR} && docker compose logs --tail 200 engine 2>&1 | tail -200`),
-  checkTools: () => sh(`docker --version; docker compose version; git --version; curl --version | head -1`, 60_000),
+  checkTools: () => sh(`docker --version; docker compose version; git --version; curl --version`, 60_000),
   installDockerWindows: () => sh(
     `winget install -e --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements && winget install -e --id Git.Git --accept-source-agreements --accept-package-agreements && echo "Docker Desktop installed - start it once, then press Install / Build"`,
     3600_000),
