@@ -45,9 +45,9 @@ export const websiteDownloader = {
     mkdir -p ${DIR};
     (which httrack >/dev/null 2>&1 || sudo apt-get update && sudo apt-get install -y httrack) 2>&1 | tail -5;
     (which wget >/dev/null 2>&1 || sudo apt-get install -y wget) 2>&1 | tail -3;
-    httrack --version 2>&1 | head -1;
-    wget --version 2>&1 | head -1`, 600_000),
-  version: () => sh(`httrack --version 2>&1 | head -1; echo ---; wget --version 2>&1 | head -1`),
+    httrack --version 2>&1;
+    wget --version 2>&1`, 600_000),
+  version: () => sh(`httrack --version 2>&1; echo ---; wget --version 2>&1`),
   download: (o: DownloadOpts) => {
     const name = slug(o.url);
     const depth = o.depth ?? 3;
@@ -63,7 +63,7 @@ export const websiteDownloader = {
     ].filter(Boolean).join(' ');
     return sh(`mkdir -p ${DIR}/${q(name)} && cd ${DIR}/${q(name)} && wget ${wOpts} ${q(o.url)} 2>&1 | tail -60`);
   },
-  list: () => sh(`ls -1t ${DIR} 2>/dev/null | head -60`),
+  list: () => sh(`ls -1t ${DIR} 2>/dev/null || dir /b /o-d "${DIR}"`),
   size: (name: string) => sh(`du -sh ${DIR}/${q(name)} 2>/dev/null`),
   archive: (name: string) => sh(`cd ${DIR} && tar czf ${q(name + '.tar.gz')} ${q(name)} && ls -lh ${q(name + '.tar.gz')}`),
   remove: (name: string) => sh(`rm -rf ${DIR}/${q(name)} ${DIR}/${q(name + '.tar.gz')}`),

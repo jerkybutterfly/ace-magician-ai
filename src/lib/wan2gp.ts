@@ -85,7 +85,7 @@ export const wan2gp = {
   logs: () => sh(`tail -200 ${DIR}/wan2gp.log 2>/dev/null`),
 
   outputs: async () => {
-    const r = await sh(`ls -1t ${DIR}/outputs 2>/dev/null | head -30`);
+    const r = await sh(`ls -1t ${DIR}/outputs 2>/dev/null || dir /b /o-d "${DIR}\\outputs"`);
     return r.stdout.split('\n').filter(Boolean);
   },
 };
