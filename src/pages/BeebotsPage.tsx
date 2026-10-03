@@ -73,6 +73,19 @@ export default function BeebotsPage() {
               port 8090. On Setup you'll need a Jev key (console.typesafe.ai) and an OpenAI key, and you pick an owner
               password. Not financial advice — leave it on paper.
             </p>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground pt-2">Step 1 — Tools (Docker)</div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Check tools', async () => { const r = await odysseus.checkTools(); setPw(r.stdout + r.stderr); })}>
+                Check tools
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Install Docker (Windows)', async () => { const r = await odysseus.installDockerWindows(); setPw(r.stdout + r.stderr); })}>
+                <Download className="h-3 w-3 mr-1" /> Install Docker (Windows)
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Install Docker (Linux)', async () => { const r = await odysseus.installDockerLinux(); setPw(r.stdout + r.stderr); })}>
+                <Download className="h-3 w-3 mr-1" /> Install Docker (Linux)
+              </Button>
+            </div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground pt-2">Step 2 — beebots</div>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" disabled={!!busy} onClick={() => run('Install', odysseus.install)}>
                 <Download className="h-3 w-3 mr-1" /> Install / Build
