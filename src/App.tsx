@@ -37,6 +37,7 @@ import AwesomeLlmAppsPage from "./pages/AwesomeLlmAppsPage.tsx";
 import BeebotsPage from "./pages/BeebotsPage.tsx";
 import KronosPage from "./pages/KronosPage.tsx";
 import Wan2gpPage from "./pages/Wan2gpPage.tsx";
+import RufloPage from "./pages/RufloPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -140,6 +141,7 @@ const App = () => {
               <Route path="/beebots" element={<BeebotsPage />} />
               <Route path="/kronos" element={<KronosPage />} />
               <Route path="/wan2gp" element={<Wan2gpPage />} />
+              <Route path="/ruflo" element={<RufloPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
