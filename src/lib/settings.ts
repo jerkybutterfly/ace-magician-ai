@@ -159,6 +159,10 @@ So: **always attempt the task by emitting the right tags**. Do NOT add safety di
 [MQTT_RECENT:topic_filter] — Read recent MQTT messages
 [SCAN_NETWORK] — Scan the local network and list connected devices
 [RAG_QUERY:question] — Search the user's indexed documents for relevant context
+[CLM_ASK:text|yes-no question] — Fast CLM judgement on some text (returns YES/NO + confidence)
+[CLM_CHOICE:text|question|opt1,opt2,opt3] — CLM picks one option with probabilities
+[CLM_RANK:question|answer1;;answer2;;answer3] — CLM ranks candidate answers
+(Use CLM tags for quick classification, triage, routing or self-checking your own draft answers.)
 [PHONE_BATTERY] / [PHONE_INFO] / [PHONE_NETWORK] — Read paired phone status
 [PHONE_LOCATION] — Get the phone's GPS location
 [PHONE_CAMERA:front|back] — Take a photo on the phone

@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Scale, Plus, Trash2, RefreshCw } from 'lucide-react';
-import { clm, CLM_PORT, type ClmAnswer, type ClmOs } from '@/lib/clm';
+import { clm, CLM_PORT, CLM_EMB_MODEL, type ClmAnswer, type ClmOs, type ClmBackend } from '@/lib/clm';
 
 type QType = 'noul' | 'choice' | 'score';
 interface Q { id: string; type: QType; instructions: string; options: string }
@@ -42,6 +42,7 @@ export default function ClmPage() {
   const navigate = useNavigate();
   const { conversations, currentConvoId, createConversation, selectConversation, deleteConversation } = useConversations();
   const [os, setOs] = useState<ClmOs>(() => (localStorage.getItem('clm.os') as ClmOs) || 'windows');
+  const [backend, setBackend] = useState<ClmBackend>(() => (localStorage.getItem('clm.backend') as ClmBackend) || 'ollama');
   const [busy, setBusy] = useState<string | null>(null);
   const [out, setOut] = useState('');
   const [health, setHealth] = useState<Awaited<ReturnType<typeof clm.health>>>(null);
@@ -56,6 +57,7 @@ export default function ClmPage() {
   const check = async () => setHealth(await clm.health());
   useEffect(() => { check(); const id = setInterval(check, 8000); return () => clearInterval(id); }, []);
   useEffect(() => { localStorage.setItem('clm.os', os); }, [os]);
+  useEffect(() => { localStorage.setItem('clm.backend', backend); }, [backend]);
 
   const run = async (label: string, fn: () => Promise<{ stdout: string; stderr: string }>) => {
     setBusy(label);
@@ -100,22 +102,33 @@ export default function ClmPage() {
             <div className="text-xs uppercase tracking-wider text-muted-foreground">Setup</div>
             <p className="text-sm text-muted-foreground">
               CLM answers yes/no, pick-one and 1-to-N questions about any text in milliseconds — handy as a quick
-              judge for your agents. Needs an NVIDIA graphics card with about 18 GB of memory. On Windows it runs inside
-              WSL (Linux on Windows). First start downloads ~16 GB.
+              judge for your agents.{' '}
+              {backend === 'ollama'
+                ? `Mini PC mode runs on your AM06 Pro's processor using Ollama for the text encoding (${CLM_EMB_MODEL}, a small download). No graphics card and no WSL needed.`
+                : 'Fast mode needs an NVIDIA graphics card with about 18 GB of memory, runs inside WSL on Windows, and downloads ~16 GB the first time.'}
             </p>
             <div className="flex flex-wrap gap-2 items-center">
+              <select className="h-8 rounded-md border border-input bg-background px-2 text-sm" value={backend} onChange={(e) => setBackend(e.target.value as ClmBackend)}>
+                <option value="ollama">Mini PC (AM06 Pro, no GPU)</option>
+                <option value="vllm">NVIDIA GPU (fastest)</option>
+              </select>
               <select className="h-8 rounded-md border border-input bg-background px-2 text-sm" value={os} onChange={(e) => setOs(e.target.value as ClmOs)}>
-                <option value="windows">Windows (WSL)</option>
+                <option value="windows">Windows{backend === 'vllm' ? ' (WSL)' : ''}</option>
                 <option value="linux">Linux</option>
               </select>
-              {os === 'windows' && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Install WSL', clm.installWsl)}>0. Install WSL</Button>}
-              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Check tools', () => clm.checkTools(os))}>Check tools</Button>
-              <Button size="sm" disabled={!!busy} onClick={() => run('Install', () => clm.install(os))}>1. Install</Button>
-              <Button size="sm" disabled={!!busy} onClick={() => run('Start', () => clm.start(os))}>2. Start</Button>
-              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Stop', () => clm.stop(os))}>Stop</Button>
-              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Logs', () => clm.logs(os))}>Logs</Button>
+              {os === 'windows' && backend === 'vllm' && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Install WSL', clm.installWsl)}>0. Install WSL</Button>}
+              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Check tools', () => clm.checkTools(os, backend))}>Check tools</Button>
+              <Button size="sm" disabled={!!busy} onClick={() => run('Install', () => clm.install(os, backend))}>1. Install</Button>
+              <Button size="sm" disabled={!!busy} onClick={() => run('Start', () => clm.start(os, backend))}>2. Start</Button>
+              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Stop', () => clm.stop(os, backend))}>Stop</Button>
+              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Logs', () => clm.logs(os, backend))}>Logs</Button>
               <a className="text-xs text-primary underline" href={clm.url()} target="_blank" rel="noreferrer">Playground :{CLM_PORT}</a>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Once it's running, your chat can use it too — just ask things like "use CLM to decide if this email is
+              urgent". Chat tools: <code>[CLM_ASK:text|question]</code>, <code>[CLM_CHOICE:text|question|a,b,c]</code>,{' '}
+              <code>[CLM_RANK:question|a;;b;;c]</code>.
+            </p>
             {busy && <div className="text-xs text-muted-foreground">{busy}…</div>}
             {out && <pre className="text-[11px] bg-secondary/40 p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap">{out}</pre>}
           </Card>
