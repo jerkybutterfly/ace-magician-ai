@@ -42,6 +42,7 @@ export default function ClmPage() {
   const navigate = useNavigate();
   const { conversations, currentConvoId, createConversation, selectConversation, deleteConversation } = useConversations();
   const [os, setOs] = useState<ClmOs>(() => (localStorage.getItem('clm.os') as ClmOs) || 'windows');
+  const [backend, setBackend] = useState<ClmBackend>(() => (localStorage.getItem('clm.backend') as ClmBackend) || 'ollama');
   const [busy, setBusy] = useState<string | null>(null);
   const [out, setOut] = useState('');
   const [health, setHealth] = useState<Awaited<ReturnType<typeof clm.health>>>(null);
