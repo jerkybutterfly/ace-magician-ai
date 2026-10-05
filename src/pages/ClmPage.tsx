@@ -124,6 +124,11 @@ export default function ClmPage() {
               <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('Logs', () => clm.logs(os, backend))}>Logs</Button>
               <a className="text-xs text-primary underline" href={clm.url()} target="_blank" rel="noreferrer">Playground :{CLM_PORT}</a>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Once it's running, your chat can use it too — just ask things like "use CLM to decide if this email is
+              urgent". Chat tools: <code>[CLM_ASK:text|question]</code>, <code>[CLM_CHOICE:text|question|a,b,c]</code>,{' '}
+              <code>[CLM_RANK:question|a;;b;;c]</code>.
+            </p>
             {busy && <div className="text-xs text-muted-foreground">{busy}…</div>}
             {out && <pre className="text-[11px] bg-secondary/40 p-2 rounded max-h-60 overflow-auto whitespace-pre-wrap">{out}</pre>}
           </Card>
