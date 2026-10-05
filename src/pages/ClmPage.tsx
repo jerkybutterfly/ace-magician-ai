@@ -57,6 +57,7 @@ export default function ClmPage() {
   const check = async () => setHealth(await clm.health());
   useEffect(() => { check(); const id = setInterval(check, 8000); return () => clearInterval(id); }, []);
   useEffect(() => { localStorage.setItem('clm.os', os); }, [os]);
+  useEffect(() => { localStorage.setItem('clm.backend', backend); }, [backend]);
 
   const run = async (label: string, fn: () => Promise<{ stdout: string; stderr: string }>) => {
     setBusy(label);
