@@ -38,6 +38,7 @@ import BeebotsPage from "./pages/BeebotsPage.tsx";
 import KronosPage from "./pages/KronosPage.tsx";
 import Wan2gpPage from "./pages/Wan2gpPage.tsx";
 import RufloPage from "./pages/RufloPage.tsx";
+import ClmPage from "./pages/ClmPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -142,6 +143,7 @@ const App = () => {
               <Route path="/kronos" element={<KronosPage />} />
               <Route path="/wan2gp" element={<Wan2gpPage />} />
               <Route path="/ruflo" element={<RufloPage />} />
+              <Route path="/clm" element={<ClmPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>
