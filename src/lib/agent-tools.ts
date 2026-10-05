@@ -67,7 +67,59 @@ const TOOL_PATTERNS = [
   { regex: /\[ADB_CMD:(.*?)\]/g, handler: handleAdbCmd },
   { regex: /\[ADB_SCREENSHOT:?(.*?)\]/g, handler: handleAdbScreenshot },
   { regex: /\[ADB_LIST:(.*?)\]/g, handler: handleAdbList },
+  { regex: /\[CLM_ASK:([\s\S]*?)\|([\s\S]*?)\]/g, handler: handleClmAsk },
+  { regex: /\[CLM_CHOICE:([\s\S]*?)\|([\s\S]*?)\|([\s\S]*?)\]/g, handler: handleClmChoice },
+  { regex: /\[CLM_RANK:([\s\S]*?)\|([\s\S]*?)\]/g, handler: handleClmRank },
 ];
+
+const pct = (p: number) => `${(p * 100).toFixed(1)}%`;
+
+/** [CLM_ASK:text|yes-no question] — fast yes/no judgement with a confidence score. */
+async function handleClmAsk(match: RegExpMatchArray): Promise<ToolResult> {
+  const state = match[1].trim();
+  const question = match[2].trim();
+  try {
+    const { clm } = await import('./clm');
+    const { answers } = await clm.ask(state, { q: { type: 'noul', instructions: question } });
+    const p = answers.q?.noul ?? 0;
+    return { tag: match[0], result: `\n⚖️ **CLM** "${question}" → **${p >= 0.5 ? 'YES' : 'NO'}** (${pct(p)} yes)` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ CLM not reachable: ${e instanceof Error ? e.message : 'unknown'}. Start it on the CLM Decisions page.` };
+  }
+}
+
+/** [CLM_CHOICE:text|question|option1,option2,...] — pick one option with probabilities. */
+async function handleClmChoice(match: RegExpMatchArray): Promise<ToolResult> {
+  const state = match[1].trim();
+  const question = match[2].trim();
+  const opts = match[3].split(',').map((s) => s.trim()).filter(Boolean);
+  if (opts.length < 2) return { tag: match[0], result: '\n⚠️ CLM_CHOICE needs at least two comma-separated options.' };
+  try {
+    const { clm } = await import('./clm');
+    const criteria = Object.fromEntries(opts.map((o) => [o, o]));
+    const { answers } = await clm.ask(state, { q: { type: 'choice', instructions: question, criteria } });
+    const a = answers.q;
+    const bars = Object.entries(a?.probabilities ?? {}).sort((x, y) => y[1] - x[1]).map(([k, p]) => `- ${k}: ${pct(p)}`).join('\n');
+    return { tag: match[0], result: `\n⚖️ **CLM** "${question}" → **${a?.choice ?? '?'}**\n${bars}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ CLM not reachable: ${e instanceof Error ? e.message : 'unknown'}. Start it on the CLM Decisions page.` };
+  }
+}
+
+/** [CLM_RANK:question|candidate1;;candidate2;;...] — rank candidate answers. */
+async function handleClmRank(match: RegExpMatchArray): Promise<ToolResult> {
+  const question = match[1].trim();
+  const cands = match[2].split(/;;|\n/).map((s) => s.trim()).filter(Boolean);
+  if (!cands.length) return { tag: match[0], result: '\n⚠️ CLM_RANK needs candidate answers separated by ";;".' };
+  try {
+    const { clm } = await import('./clm');
+    const ranked = await clm.rank('', question, cands);
+    const list = ranked.map((r) => `${r.rank}. ${r.candidate} — ${pct(r.prob)}`).join('\n');
+    return { tag: match[0], result: `\n⚖️ **CLM ranking** for "${question}":\n${list}` };
+  } catch (e) {
+    return { tag: match[0], result: `\n⚠️ CLM not reachable: ${e instanceof Error ? e.message : 'unknown'}. Start it on the CLM Decisions page.` };
+  }
+}
 
 async function handlePhoneTag(match: RegExpMatchArray): Promise<ToolResult> {
   const tag = match[0];
