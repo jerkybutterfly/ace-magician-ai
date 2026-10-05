@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Scale, Plus, Trash2, RefreshCw } from 'lucide-react';
-import { clm, CLM_PORT, type ClmAnswer, type ClmOs } from '@/lib/clm';
+import { clm, CLM_PORT, CLM_EMB_MODEL, type ClmAnswer, type ClmOs, type ClmBackend } from '@/lib/clm';
 
 type QType = 'noul' | 'choice' | 'score';
 interface Q { id: string; type: QType; instructions: string; options: string }
