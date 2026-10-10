@@ -41,6 +41,7 @@ import RufloPage from "./pages/RufloPage.tsx";
 import ClmPage from "./pages/ClmPage.tsx";
 import HoloHandPage from "./pages/HoloHandPage.tsx";
 import ChangeDetectionPage from "./pages/ChangeDetectionPage.tsx";
+import MaxunPage from "./pages/MaxunPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -148,6 +149,7 @@ const App = () => {
               <Route path="/clm" element={<ClmPage />} />
               <Route path="/holohand" element={<HoloHandPage />} />
               <Route path="/changedetection" element={<ChangeDetectionPage />} />
+              <Route path="/maxun" element={<MaxunPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>

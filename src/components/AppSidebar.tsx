@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Briefcase, Coins, Image as ImageIcon, Tv, Ship, Map as MapIcon, Hexagon, Library, CandlestickChart, Film, Waves, Scale, Hand, History } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Briefcase, Coins, Image as ImageIcon, Tv, Ship, Map as MapIcon, Hexagon, Library, CandlestickChart, Film, Waves, Scale, Hand, History, MousePointerClick } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -52,6 +52,7 @@ const navItems = [
   { title: 'Local Models', url: '/local-models', icon: Cpu },
   { title: 'Local Voice', url: '/local-voice', icon: AudioLines },
   { title: 'Magentic-One', url: '/magentic', icon: Network },
+  { title: 'Maxun', url: '/maxun', icon: MousePointerClick },
   { title: 'MCP Servers', url: '/mcp', icon: Plug },
   { title: 'mem0', url: '/mem0', icon: Layers },
   { title: 'Memory', url: '/memory', icon: Brain },
