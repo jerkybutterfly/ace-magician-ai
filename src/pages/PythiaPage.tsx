@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Eye, RefreshCw, Play, Square, Download, ExternalLink, ScrollText, Globe2, Map as MapIcon, Send, Sparkles } from 'lucide-react';
 import WorldEventsMap from '@/components/WorldEventsMap';
+import PolymarketScanner from '@/components/PolymarketScanner';
 import { pythia, osirisUrl, fetchFallbackFeeds, viewToPoints, type MapPoint, type Prediction } from '@/lib/pythia';
 
 export default function PythiaPage() {
@@ -204,6 +205,8 @@ export default function PythiaPage() {
                 <ScrollArea className="h-64"><pre className="p-3 text-[11px] font-mono whitespace-pre-wrap">{output}</pre></ScrollArea>
               </Card>
             )}
+
+            <PolymarketScanner engineUp={engineUp} />
           </main>
         )}
       </SidebarInset>
