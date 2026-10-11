@@ -73,6 +73,7 @@ const navItems = [
   { title: 'Phone', url: '/phone', icon: Smartphone },
   { title: 'Physical AI', url: '/physical-ai', icon: Atom },
   { title: 'PYTHIA', url: '/pythia', icon: Eye },
+  { title: 'PYTHIA', url: '/pythia', icon: Eye },
   { title: 'Recon', url: '/recon', icon: Radar },
   { title: 'Robin OSINT', url: '/robin', icon: Radar },
   { title: 'Ruflo Swarms', url: '/ruflo', icon: Waves },
