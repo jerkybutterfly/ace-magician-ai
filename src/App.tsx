@@ -42,6 +42,7 @@ import ClmPage from "./pages/ClmPage.tsx";
 import HoloHandPage from "./pages/HoloHandPage.tsx";
 import ChangeDetectionPage from "./pages/ChangeDetectionPage.tsx";
 import MaxunPage from "./pages/MaxunPage.tsx";
+import PythiaPage from "./pages/PythiaPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -150,6 +151,8 @@ const App = () => {
               <Route path="/holohand" element={<HoloHandPage />} />
               <Route path="/changedetection" element={<ChangeDetectionPage />} />
               <Route path="/maxun" element={<MaxunPage />} />
+              <Route path="/pythia" element={<PythiaPage />} />
+              <Route path="/world-map" element={<PythiaPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarProvider>

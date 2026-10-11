@@ -1,4 +1,4 @@
-import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Briefcase, Coins, Image as ImageIcon, Tv, Ship, Map as MapIcon, Hexagon, Library, CandlestickChart, Film, Waves, Scale, Hand, History, MousePointerClick } from 'lucide-react';
+import { MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Briefcase, Coins, Image as ImageIcon, Tv, Ship, Map as MapIcon, Hexagon, Library, CandlestickChart, Film, Waves, Scale, Hand, History, MousePointerClick, Globe2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -72,6 +72,7 @@ const navItems = [
   { title: 'Permissions', url: '/permissions', icon: ShieldCheck },
   { title: 'Phone', url: '/phone', icon: Smartphone },
   { title: 'Physical AI', url: '/physical-ai', icon: Atom },
+  { title: 'PYTHIA', url: '/pythia', icon: Eye },
   { title: 'Recon', url: '/recon', icon: Radar },
   { title: 'Robin OSINT', url: '/robin', icon: Radar },
   { title: 'Ruflo Swarms', url: '/ruflo', icon: Waves },
@@ -91,6 +92,7 @@ const navItems = [
   { title: 'Vortex Agent', url: '/vortex', icon: Shield },
   { title: 'Wan2GP Video', url: '/wan2gp', icon: Film },
   { title: 'Website Downloader', url: '/website-downloader', icon: Globe },
+  { title: 'World Map', url: '/world-map', icon: Globe2 },
   { title: 'yt-dlp', url: '/ytdlp', icon: Youtube },
 ];
 
