@@ -72,6 +72,7 @@ const navItems = [
   { title: 'Permissions', url: '/permissions', icon: ShieldCheck },
   { title: 'Phone', url: '/phone', icon: Smartphone },
   { title: 'Physical AI', url: '/physical-ai', icon: Atom },
+  { title: 'Polymarket Speed Bot', url: '/polybot', icon: Zap },
   { title: 'PYTHIA', url: '/pythia', icon: Eye },
   { title: 'REA', url: '/rea', icon: SearchCode },
   { title: 'Recon', url: '/recon', icon: Radar },
