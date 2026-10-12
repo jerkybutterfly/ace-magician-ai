@@ -44,6 +44,7 @@ import ChangeDetectionPage from "./pages/ChangeDetectionPage.tsx";
 import MaxunPage from "./pages/MaxunPage.tsx";
 import PythiaPage from "./pages/PythiaPage.tsx";
 import ReaPage from "./pages/ReaPage.tsx";
+import PolybotPage from "./pages/PolybotPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -102,6 +103,7 @@ const App = () => {
               <Route path="/documents" element={<Index />} />
               <Route path="/recon" element={<Index />} />
               <Route path="/rea" element={<ReaPage />} />
+              <Route path="/polybot" element={<PolybotPage />} />
               <Route path="/audit" element={<Index />} />
               <Route path="/forensics" element={<Index />} />
               <Route path="/labmode" element={<Index />} />
