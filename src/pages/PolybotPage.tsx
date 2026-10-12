@@ -41,7 +41,7 @@ export default function PolybotPage() {
   const f = (n: any, d = 3) => (n == null ? '—' : Number(n).toFixed(d));
 
   return (
-    <>
+    <div className="flex min-h-screen w-full">
       <AppSidebar conversations={conversations} currentConvoId={currentConvoId} onNewChat={createConversation} onSelectConvo={selectConversation} onDeleteConvo={deleteConversation} />
       <SidebarInset>
         <header className="flex items-center gap-2 border-b border-border p-3">
@@ -113,7 +113,7 @@ export default function PolybotPage() {
           {output && <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-xs">{output}</pre>}
         </div>
       </SidebarInset>
-    </>
+    </div>
   );
 }
 
