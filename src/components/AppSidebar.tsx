@@ -79,7 +79,6 @@ const navItems = [
   { title: 'Robin OSINT', url: '/robin', icon: Radar },
   { title: 'Ruflo Swarms', url: '/ruflo', icon: Waves },
   { title: 'scrcpy', url: '/scrcpy', icon: Smartphone },
-  { title: 'Screaming Frog SEO', url: '/screaming-frog', icon: Bug },
   { title: 'Search', url: '/search', icon: Search },
   { title: 'Settings', url: '/settings', icon: Settings },
   { title: 'SkillOpt', url: '/skillopt', icon: GraduationCap },
