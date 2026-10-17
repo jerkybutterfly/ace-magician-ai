@@ -12,9 +12,10 @@ export const CLOUD_MODELS = [
 ];
 
 export const GOOGLE_MODELS = [
-  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  { value: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (fast)' },
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (deep)' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (legacy)' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (legacy)' },
 ];
 
 export interface LMStudioModel {
