@@ -18,13 +18,19 @@ serve(async (req) => {
       throw new Error("GOOGLE_AI_STUDIO_KEY is not configured");
     }
 
-    // Map model id to Gemini model name
+    // Map model id to Gemini model name.
+    // Google retired the 2.5 models for new API keys; map old ids to current ones.
     const modelMap: Record<string, string> = {
-      "gemini-2.5-pro": "gemini-2.5-pro-preview-06-05",
-      "gemini-2.5-flash": "gemini-2.5-flash-preview-05-20",
-      "gemini-2.0-flash": "gemini-2.0-flash",
+      "gemini-3.8-flash": "gemini-3.8-flash",
+      "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+      "gemini-2.5-pro": "gemini-3.1-pro-preview",
+      "gemini-2.5-flash": "gemini-3.8-flash",
+      "gemini-2.0-flash": "gemini-3.8-flash",
+      "gemini-2.5-pro-preview-06-05": "gemini-3.1-pro-preview",
+      "gemini-2.5-flash-preview-05-20": "gemini-3.8-flash",
     };
-    const geminiModel = modelMap[model] || "gemini-2.5-pro-preview-06-05";
+    const normalized = (model || "").replace(/^google\//, "");
+    const geminiModel = modelMap[normalized] || normalized || "gemini-3.8-flash";
 
     const url = `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`;
 
