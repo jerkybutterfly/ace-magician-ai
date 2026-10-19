@@ -13,7 +13,7 @@ try {
         Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
     }
     if (-not (Test-Path $uv)) { throw 'uv installation failed.' }
-    if (-not (Test-Path (Join-Path $root 'pyproject.toml'))) {
+    if (-not (Test-Path (Join-Path $root 'repo\pyproject.toml'))) {
         & git clone https://github.com/google/artemis.git (Join-Path $root 'repo')
         if ($LASTEXITCODE -ne 0) { throw 'Could not clone Artemis. Check the install log.' }
     }
