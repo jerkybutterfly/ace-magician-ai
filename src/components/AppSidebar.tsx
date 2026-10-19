@@ -18,6 +18,7 @@ import type { Conversation } from '@/lib/conversations';
 const navItems = [
   { title: 'Agent Economy', url: '/penniless', icon: Coins },
   { title: 'Android Emulator', url: '/avd', icon: Cpu },
+  { title: 'Artemis', url: '/artemis', icon: Smartphone },
   { title: 'Audit', url: '/audit', icon: ShieldCheck },
   { title: 'Audit Log', url: '/audit-log', icon: ScrollText },
   { title: 'Awesome LLM Apps', url: '/awesome-llm-apps', icon: Library },
