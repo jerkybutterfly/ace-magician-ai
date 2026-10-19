@@ -20,7 +20,7 @@ export default function ArtemisPage() {
   const refresh = useCallback(async () => {
     try {
       const [installed, up] = await Promise.all([artemis.installation(), artemis.status()]);
-      setInstallation(installed); setRunning(up); setUnreachable(false);
+      setInstallation((previous) => installed === 'not-verified' && previous === 'installing' ? previous : installed); setRunning(up); setUnreachable(false);
     } catch { setUnreachable(true); setInstallation('unknown'); setRunning(false); }
   }, []);
   useEffect(() => {

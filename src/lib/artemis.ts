@@ -6,13 +6,17 @@ const UV = '"%USERPROFILE%\\.local\\bin\\uv.exe"';
 
 async function sh(command: string) {
   const { agentUrl } = getSettings();
-  const response = await fetch(`${agentUrl.replace(/\/$/, '')}/terminal`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command }), signal: AbortSignal.timeout(35_000),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.detail || 'Mini PC helper is unreachable');
-  return { stdout: String(data.stdout || ''), stderr: String(data.stderr || ''), returncode: Number(data.returncode ?? -1) };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 35_000);
+  try {
+    const response = await fetch(`${agentUrl.replace(/\/$/, '')}/terminal`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }), signal: controller.signal,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || 'Mini PC helper is unreachable');
+    return { stdout: String(data.stdout || ''), stderr: String(data.stderr || ''), returncode: Number(data.returncode ?? -1) };
+  } finally { clearTimeout(timer); }
 }
 
 export function artemisConsoleUrl(agentUrl = getSettings().agentUrl) {
