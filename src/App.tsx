@@ -46,6 +46,7 @@ import PythiaPage from "./pages/PythiaPage.tsx";
 import ReaPage from "./pages/ReaPage.tsx";
 import PolybotPage from "./pages/PolybotPage.tsx";
 import ArtemisPage from "./pages/ArtemisPage.tsx";
+import BitNetPage from "./pages/BitNetPage.tsx";
 import { startNotificationPoller } from "@/lib/notifications";
 import { startPhoneRunner } from "@/lib/phone-runner";
 import { startBriefingScheduler } from "@/lib/briefing";
@@ -148,6 +149,7 @@ const App = () => {
               <Route path="/website-downloader" element={<WebsiteDownloaderPage />} />
               <Route path="/atlas" element={<AtlasPage />} />
               <Route path="/artemis" element={<ArtemisPage />} />
+              <Route path="/bitnet" element={<BitNetPage />} />
               <Route path="/awesome-llm-apps" element={<AwesomeLlmAppsPage />} />
               <Route path="/beebots" element={<BeebotsPage />} />
               <Route path="/kronos" element={<KronosPage />} />
