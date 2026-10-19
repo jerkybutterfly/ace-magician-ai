@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# System & runtime scratch
+*.pid
+__pycache__/
+$HOME/
+.freebuff/
+.aiapp/
+AhMyth-Android-RAT/
+freellmapi/
