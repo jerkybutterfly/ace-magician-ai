@@ -18,6 +18,16 @@ import time
 from typing import Any, Dict, List, Optional
 import requests
 
+try:
+    from py_clob_client.client import ClobClient
+    from py_clob_client.clob_types import MarketOrderArgs, OrderType
+    from py_clob_client.order_builder.constants import BUY
+except Exception:
+    ClobClient = None
+    MarketOrderArgs = None
+    OrderType = None
+    BUY = "BUY"
+
 TARGET_WALLET = "0xc53375ff94e96100f2b30a4b5775db35218d69a9"
 TARGET_NAME = "dangerously-skip-permissions"
 DATA_API = "https://data-api.polymarket.com"
@@ -78,12 +88,15 @@ def init_clob(pk: str, funder: str = None):
     from py_clob_client.client import ClobClient
     from py_clob_client.clob_types import MarketOrderArgs, OrderType
     from py_clob_client.order_builder.constants import BUY
+    pk = (pk or "").strip()
+    if len(pk) == 64 and not pk.startswith("0x"):
+        pk = "0x" + pk
     clob_client = ClobClient(
         CLOB_API,
         key=pk,
         chain_id=137,
         signature_type=1 if funder else 0,
-        funder=funder if funder else None
+        funder=funder.strip() if funder and funder.strip() else None
     )
     clob_client.set_api_creds(clob_client.create_or_derive_api_creds())
     log_msg("[INIT] Polymarket CLOB client initialized")
@@ -233,6 +246,8 @@ def execute_copy_trade(target_trade: Dict[str, Any]):
 
     if mode == "LIVE" and clob_client:
         try:
+            from py_clob_client.clob_types import MarketOrderArgs, OrderType
+            from py_clob_client.order_builder.constants import BUY
             log_msg(f"EXECUTING LIVE ORDER: {side} {shares} shares of {outcome} in {title} at ${my_price:.2f}")
             order = clob_client.create_market_order(
                 MarketOrderArgs(
