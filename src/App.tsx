@@ -46,6 +46,7 @@ import MaxunPage from "./pages/MaxunPage.tsx";
 import PythiaPage from "./pages/PythiaPage.tsx";
 import ReaPage from "./pages/ReaPage.tsx";
 import PolybotPage from "./pages/PolybotPage.tsx";
+import BotDashboardPage from "./pages/BotDashboardPage.tsx";
 import CopyTraderPage from "./pages/CopyTraderPage.tsx";
 import ArtemisPage from "./pages/ArtemisPage.tsx";
 import BitNetPage from "./pages/BitNetPage.tsx";
@@ -108,6 +109,7 @@ const App = () => {
               <Route path="/recon" element={<Index />} />
               <Route path="/rea" element={<ReaPage />} />
               <Route path="/polybot" element={<PolybotPage />} />
+              <Route path="/bot-dashboard" element={<BotDashboardPage />} />
               <Route path="/copy-trader" element={<CopyTraderPage />} />
               <Route path="/audit" element={<Index />} />
               <Route path="/forensics" element={<Index />} />

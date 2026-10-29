@@ -228,8 +228,17 @@ async def http(reader, writer):
             S["running"] = False; log("kill switch pressed")
         elif line.startswith("POST /resume"):
             S["running"] = True; log("resumed")
-        body = json.dumps({**S, "log": list(S["log"]), "trades": S["trades"][-30:], "ts": time.time(),
-                           "settings": vars(args)})
+        if line.startswith("GET /history"):
+            # every settled trade ever (from the sqlite db), oldest first
+            c = db()
+            rows = c.execute("SELECT ts, mode, slug, side, price, stake, fair, result, pnl FROM trades ORDER BY ts").fetchall()
+            c.close()
+            body = json.dumps({"trades": [
+                {"ts": r[0], "mode": r[1], "slug": r[2], "side": r[3], "price": r[4],
+                 "stake": r[5], "fair": r[6], "result": r[7], "pnl": r[8]} for r in rows]})
+        else:
+            body = json.dumps({**S, "log": list(S["log"]), "trades": S["trades"][-30:], "ts": time.time(),
+                               "settings": vars(args)})
         hdr = ("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n"
                "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\n"
                f"Content-Length: {len(body.encode())}\r\nConnection: close\r\n\r\n")
