@@ -26,6 +26,7 @@ const navItems = [
   { title: 'beebots', url: '/beebots', icon: Hexagon },
   { title: 'Automations', url: '/automations', icon: Zap },
   { title: 'BitNet', url: '/bitnet', icon: Binary },
+  { title: 'Bot Dashboard', url: '/bot-dashboard', icon: LineChart },
   { title: 'Briefing', url: '/briefing', icon: Sun },
   { title: 'Browser Use', url: '/browser-use', icon: Globe },
   { title: 'Change Detection', url: '/changedetection', icon: History },
