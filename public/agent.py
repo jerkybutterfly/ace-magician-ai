@@ -241,30 +241,142 @@ async def telegram_status():
 #  Telegram Bot — PC Control via Chat
 # ═══════════════════════════════════════════════════════
 
-TELEGRAM_SYSTEM_PROMPT = """You are an AI agent with FULL CONTROL of this PC. You execute actions DIRECTLY using command tags. The system automatically executes your tags — you NEVER give the user commands to run manually.
+# ═══════════════════════════════════════════════════════
+#  LangChain core — the agent's LLM brain (tool calling)
+# ═══════════════════════════════════════════════════════
+
+LANGCHAIN_SYSTEM_PROMPT = """You are an AI agent with FULL CONTROL of this Windows PC. You act DIRECTLY using the provided tools — the system executes them for you.
 
 CRITICAL RULES:
-- You MUST use the tags below. They are auto-executed. NEVER tell the user to run commands themselves.
-- NEVER say \"I can't access files\" or \"for security reasons\" — you HAVE full access.
-- NEVER provide PowerShell/bash commands for the user to copy. YOU execute everything.
-- If you don't use tags, you are BROKEN. Every action MUST use tags.
+- ALWAYS use your tools to perform actions. NEVER tell the user to run commands themselves.
+- NEVER say "I can't access files" or "for security reasons" — you HAVE full access via your tools.
+- This is a Windows PC: use Windows commands (dir, type, ipconfig), never Linux ones (ls, cat, head).
+- After each tool runs, check its output before deciding the next step. If the same step fails 3 times, stop and report what went wrong.
+- Keep responses concise — they may be read on a phone."""
 
-AVAILABLE TAGS (auto-executed):
-[LIST_DIR:path] — List directory contents
-[READ_FILE:path] — Read file contents  
-[WRITE_FILE:path|content] — Create/overwrite a file
-[RUN_CMD:command] — Run ANY terminal command (PowerShell, cmd, start programs)
 
-EXAMPLES:
-User: \"Open Chrome and go to google.com\"
-Assistant: Opening Chrome now.
-[RUN_CMD:start chrome https://google.com]
+class LangChainNotInstalled(Exception):
+    pass
 
-User: \"What's on my desktop?\"
-Assistant: Let me check.
-[LIST_DIR:C:\\Users\\Stephen Dunne\\Desktop]
 
-Keep responses concise — Telegram has message length limits."""
+def _lc_imports():
+    try:
+        from langchain_ollama import ChatOllama
+        from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+        from langchain_core.messages import AIMessage, HumanMessage
+        from langchain_core.tools import tool
+        from langchain.agents import AgentExecutor, create_tool_calling_agent
+    except ImportError as e:
+        raise LangChainNotInstalled(str(e)) from e
+    return (ChatOllama, ChatPromptTemplate, MessagesPlaceholder, AIMessage,
+            HumanMessage, tool, AgentExecutor, create_tool_calling_agent)
+
+
+def _lc_tools(tool):
+    """LangChain tools wrapping the same PC-control actions the HTTP endpoints expose."""
+
+    @tool
+    def run_command(command: str) -> str:
+        """Run ANY Windows terminal command on this PC (cmd/PowerShell, start programs) and return its output."""
+        return execute_tool_tag("RUN_CMD", command)
+
+    @tool
+    def list_directory(path: str) -> str:
+        """List the files and folders inside a directory on this PC."""
+        return execute_tool_tag("LIST_DIR", path)
+
+    @tool
+    def read_file(path: str) -> str:
+        """Read the contents of a file on this PC."""
+        return execute_tool_tag("READ_FILE", path)
+
+    @tool
+    def write_file(path: str, content: str) -> str:
+        """Create or overwrite a file on this PC with the given content."""
+        return execute_tool_tag("WRITE_FILE", f"{path}|{content}")
+
+    @tool
+    def fetch_webpage(url: str) -> str:
+        """Fetch a web page and return its visible text (scripts and styling removed)."""
+        import requests as _rq
+        resp = _rq.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+        text = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", resp.text)
+        text = re.sub(r"<[^>]+>", " ", text)
+        return re.sub(r"\s+", " ", text).strip()[:4000]
+
+    @tool
+    def system_status() -> str:
+        """Get this PC's current CPU and memory usage."""
+        mem = psutil.virtual_memory()
+        return f"CPU: {psutil.cpu_percent(interval=0.2)}% · Memory: {mem.percent}% of {round(mem.total / 1e9)} GB used"
+
+    return [run_command, list_directory, read_file, write_file, fetch_webpage, system_status]
+
+
+def lc_run_agent(task: str, model: str, history: Optional[list] = None, max_iterations: int = 8) -> dict[str, Any]:
+    """Run one agent task through LangChain: the model picks tools, LangChain runs the loop."""
+    (ChatOllama, ChatPromptTemplate, MessagesPlaceholder, AIMessage,
+     HumanMessage, tool, AgentExecutor, create_tool_calling_agent) = _lc_imports()
+
+    tools = _lc_tools(tool)
+    llm = ChatOllama(base_url=OLLAMA_URL, model=model, temperature=0.2)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", LANGCHAIN_SYSTEM_PROMPT),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+        MessagesPlaceholder("agent_scratchpad"),
+    ])
+    agent = create_tool_calling_agent(llm, tools, prompt)
+    executor = AgentExecutor(
+        agent=agent,
+        tools=tools,
+        max_iterations=max_iterations,
+        return_intermediate_steps=True,
+        handle_parsing_errors=True,
+    )
+    chat_history = []
+    for msg in (history or [])[-20:]:
+        content = str(msg.get("content", ""))
+        if msg.get("role") == "user":
+            chat_history.append(HumanMessage(content=content))
+        elif msg.get("role") == "assistant":
+            chat_history.append(AIMessage(content=content))
+    result = executor.invoke({"input": task, "chat_history": chat_history})
+    steps = [
+        {"tool": action.tool, "input": action.tool_input, "output": str(observation)[:1000]}
+        for action, observation in result.get("intermediate_steps", [])
+    ]
+    return {"output": str(result.get("output", "")), "steps": steps, "model": model}
+
+
+class LangChainAgentRequest(BaseModel):
+    task: str
+    model: Optional[str] = None
+    history: list = []
+
+
+@app.get("/langchain/status")
+async def langchain_status():
+    try:
+        import langchain
+        import langchain_ollama  # noqa: F401
+        return {"installed": True, "version": getattr(langchain, "__version__", "unknown")}
+    except ImportError as e:
+        return {"installed": False, "error": str(e)}
+
+
+@app.post("/langchain/agent")
+async def langchain_agent(req: LangChainAgentRequest):
+    task = req.task.strip()
+    if not task:
+        raise HTTPException(status_code=400, detail="Task is required")
+    model = (req.model or "gemma3:4b").strip()
+    try:
+        return lc_run_agent(task, model, req.history)
+    except LangChainNotInstalled as e:
+        raise HTTPException(status_code=503, detail="LangChain not installed — install it from the LangChain page in the app") from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def execute_tool_tag(tag: str, arg: str) -> str:
@@ -319,22 +431,8 @@ def execute_tool_tag(tag: str, arg: str) -> str:
 
 
 def process_tool_tags(text: str) -> tuple[str, bool]:
-    """Find and execute tool tags in AI response. Returns (processed_text, had_tags)."""
-    pattern = r"\[(LIST_DIR|READ_FILE|WRITE_FILE|RUN_CMD):(.+?)\]"
-    matches = list(re.finditer(pattern, text))
-
-    if not matches:
-        return text, False
-
-    result = text
-    for match in reversed(matches):
-        tag = match.group(1)
-        arg = match.group(2)
-        tool_result = execute_tool_tag(tag, arg)
-        replacement = f"`{match.group(0)}`\n```\n{tool_result}\n```"
-        result = result[:match.start()] + replacement + result[match.end():]
-
-    return result, True
+    """Kept for backwards compatibility: the LangChain core replaced tag-based tool calling."""
+    return text, False
 
 
 
@@ -348,7 +446,6 @@ def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event
     offset = 0
     conversations: dict[int, list[dict[str, str]]] = {}
     max_history = 20
-    max_tool_rounds = 5
     final_error: Optional[str] = None
 
     print(f"🤖 Telegram bot starting... (model: {ollama_model})")
@@ -456,48 +553,17 @@ def telegram_bot_loop(token: str, ollama_model: str, stop_event: threading.Event
                         timeout=10,
                     )
 
-                    current_messages = [
-                        {"role": "system", "content": TELEGRAM_SYSTEM_PROMPT},
-                        *history,
-                    ]
-
-                    final_response = ""
-                    for round_num in range(max_tool_rounds):
-                        try:
-                            ollama_resp = requests.post(
-                                f"{OLLAMA_URL}/api/chat",
-                                json={"model": ollama_model, "messages": current_messages, "stream": False},
-                                timeout=120,
-                            )
-                            ollama_data = ollama_resp.json()
-                            if not ollama_resp.ok:
-                                raise RuntimeError(str(ollama_data))
-                            ai_text = ollama_data.get("message", {}).get("content", "")
-                        except Exception as e:
-                            ai_text = f"⚠️ Ollama error: {e}"
-                            final_response = ai_text
-                            break
-
-                        processed, had_tags = process_tool_tags(ai_text)
-
-                        if had_tags and round_num < max_tool_rounds - 1:
-                            current_messages.append({"role": "assistant", "content": processed})
-                            current_messages.append({
-                                "role": "user",
-                                "content": "[TOOL_RESULTS]\nCommands executed. Results are above. Analyze and continue — use more tags if needed, or summarize what happened.\n[/TOOL_RESULTS]",
-                            })
-                            requests.post(
-                                f"{base}/sendChatAction",
-                                json={"chat_id": chat_id, "action": "typing"},
-                                timeout=10,
-                            )
-                            continue
-
-                        final_response = processed
-                        break
-
-                    if not final_response:
-                        final_response = "🤔 No response generated."
+                    try:
+                        agent_result = lc_run_agent(user_text, ollama_model, history[:-1])
+                        final_response = agent_result.get("output") or "🤔 No response generated."
+                        steps = agent_result.get("steps") or []
+                        if steps:
+                            tools_used = ", ".join(s["tool"] for s in steps)
+                            final_response += f"\n\n🛠 Tools used: {tools_used}"
+                    except LangChainNotInstalled:
+                        final_response = "⚠️ LangChain is not installed on this PC — install it from the LangChain page in the app."
+                    except Exception as e:
+                        final_response = f"⚠️ Agent error: {e}"
 
                     history.append({"role": "assistant", "content": final_response})
                     conversations[chat_id] = history

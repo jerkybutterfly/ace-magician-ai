@@ -50,6 +50,7 @@ const navItems = [
   { title: 'Knowledge Graph', url: '/knowledge-graph', icon: Brain },
   { title: 'Kronos', url: '/kronos', icon: CandlestickChart },
   { title: 'Lab Mode', url: '/labmode', icon: FlaskConical },
+  { title: 'LangChain', url: '/langchain', icon: Workflow },
   { title: 'LightRAG', url: '/lightrag', icon: Database },
   { title: 'Local Models', url: '/local-models', icon: Cpu },
   { title: 'Local Voice', url: '/local-voice', icon: AudioLines },
