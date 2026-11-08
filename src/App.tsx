@@ -37,6 +37,7 @@ import AwesomeLlmAppsPage from "./pages/AwesomeLlmAppsPage.tsx";
 import BeebotsPage from "./pages/BeebotsPage.tsx";
 import KronosPage from "./pages/KronosPage.tsx";
 import LangChainPage from "./pages/LangChainPage.tsx";
+import HackingToolPage from "./pages/HackingToolPage.tsx";
 import Wan2gpPage from "./pages/Wan2gpPage.tsx";
 import RufloPage from "./pages/RufloPage.tsx";
 import ClmPage from "./pages/ClmPage.tsx";
@@ -159,6 +160,7 @@ const App = () => {
               <Route path="/beebots" element={<BeebotsPage />} />
               <Route path="/kronos" element={<KronosPage />} />
               <Route path="/langchain" element={<LangChainPage />} />
+              <Route path="/hackingtool" element={<HackingToolPage />} />
               <Route path="/wan2gp" element={<Wan2gpPage />} />
               <Route path="/ruflo" element={<RufloPage />} />
               <Route path="/clm" element={<ClmPage />} />

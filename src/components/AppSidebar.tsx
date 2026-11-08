@@ -44,6 +44,7 @@ const navItems = [
   { title: 'Forensics', url: '/forensics', icon: Microscope },
   { title: 'Frida', url: '/frida', icon: Bug },
   { title: 'Glasswing', url: '/glasswing', icon: Sparkles },
+  { title: 'HackingTool', url: '/hackingtool', icon: ShieldCheck },
   { title: 'Hermes Agent', url: '/hermes', icon: GraduationCap },
   { title: 'HoloHand 3D', url: '/holohand', icon: Hand },
   { title: 'Install on Phone', url: '/install', icon: Download },

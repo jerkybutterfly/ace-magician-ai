@@ -310,7 +310,44 @@ def _lc_tools(tool):
         mem = psutil.virtual_memory()
         return f"CPU: {psutil.cpu_percent(interval=0.2)}% · Memory: {mem.percent}% of {round(mem.total / 1e9)} GB used"
 
-    return [run_command, list_directory, read_file, write_file, fetch_webpage, system_status]
+    @tool
+    def search_security_catalog(query: str) -> str:
+        """Search read-only HackingTool catalogue metadata. Returns descriptions, not runnable commands. Does not install or execute security tools."""
+        import json
+        try:
+            from hackingtool_catalog import search_catalog
+            matches = search_catalog(query)[:12]
+            return json.dumps({'mode': 'read-only', 'tools': matches,
+                               'note': 'Catalogue only; tools are not installed. Execution is not supported by this integration.'})
+        except (ImportError, OSError, ValueError) as e:
+            return f'Security catalogue unavailable: {e}'
+
+    return [run_command, list_directory, read_file, write_file, fetch_webpage, system_status,
+            search_security_catalog]
+
+
+@app.get('/hackingtool/catalog')
+def hackingtool_catalog_get():
+    try:
+        from hackingtool_catalog import COMMIT, load_catalog
+        tools = load_catalog()
+        return {'loaded': bool(tools), 'count': len(tools), 'tools': tools,
+                'commit': COMMIT, 'mode': 'read-only'}
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail='Place hackingtool_catalog.py beside agent.py and restart the helper.') from e
+    except (OSError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@app.post('/hackingtool/catalog')
+def hackingtool_catalog_download():
+    try:
+        from hackingtool_catalog import download_catalog
+        return download_catalog()
+    except ImportError as e:
+        raise HTTPException(status_code=503, detail='Place hackingtool_catalog.py beside agent.py and restart the helper.') from e
+    except (OSError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
 
 def lc_run_agent(task: str, model: str, history: Optional[list] = None, max_iterations: int = 8) -> dict[str, Any]:
