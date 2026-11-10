@@ -87,6 +87,7 @@ const navItems = [
   { title: 'scrcpy', url: '/scrcpy', icon: Smartphone },
   { title: 'Search', url: '/search', icon: Search },
   { title: 'Settings', url: '/settings', icon: Settings },
+  { title: 'Shannon', url: '/shannon', icon: ShieldCheck },
   { title: 'SkillOpt', url: '/skillopt', icon: GraduationCap },
   { title: 'Skills', url: '/skills', icon: Zap },
   { title: 'Spec Kit', url: '/speckit', icon: FileCode2 },

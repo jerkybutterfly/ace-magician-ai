@@ -7,3 +7,8 @@
 - [x] Review the requested repository and choose a safe local integration.
 - [x] Add read-only catalogue, assistant search tool and alphabetical menu page, assistant tools and an alphabetical menu page.
 - [x] Test the integration and verify the page; report hardware-dependent checks separately.
+
+# Shannon
+- [x] Add local Windows setup and authorised-test controls using upstream-supported commands.
+- [x] Add the Shannon page and alphabetical menu entry.
+- [x] Run seven focused tests and verify desktop/mobile permission controls; installation and scans remain unverified because the Windows mini PC is unreachable.
