@@ -12,3 +12,7 @@
 - [x] Add local Windows setup and authorised-test controls using upstream-supported commands.
 - [x] Add the Shannon page and alphabetical menu entry.
 - [x] Run seven focused tests and verify desktop/mobile permission controls; installation and scans remain unverified because the Windows mini PC is unreachable.
+
+# Sellbird
+- [x] Add Sellbird page (install, train, dashboard start/stop, pause sending) and alphabetical menu entry.
+- [ ] Install and dashboard unverified: the Windows mini PC is unreachable from here.

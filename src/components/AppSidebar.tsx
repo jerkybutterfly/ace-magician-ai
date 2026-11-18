@@ -1,4 +1,4 @@
-import { Binary, MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Briefcase, Coins, Image as ImageIcon, Tv, Ship, Map as MapIcon, Hexagon, Library, CandlestickChart, Film, Waves, Scale, Hand, History, MousePointerClick, Globe2, SearchCode, CopyCheck } from 'lucide-react';
+import { Binary, MessageSquare, FolderOpen, Settings, Plus, Trash2, Brain, Zap, Clock, ShieldCheck, FileCode2, Cpu, Search, Radio, Network, BookOpen, BookMarked, Smartphone, Sun, Radar, Microscope, FlaskConical, Monitor, Infinity as InfinityIcon, Sparkles, Mic, ScrollText, TrendingUp, Workflow, Download, Bird, Clapperboard, Database, Globe, AudioLines, Skull, Plug, LineChart, Layers, Eye, Boxes, Shield, Bug, GraduationCap, Atom, Orbit, Youtube, Briefcase, Coins, Image as ImageIcon, Tv, Ship, Map as MapIcon, Hexagon, Library, CandlestickChart, Film, Waves, Scale, Hand, History, MousePointerClick, Globe2, SearchCode, CopyCheck, Mail } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -86,6 +86,7 @@ const navItems = [
   { title: 'Ruflo Swarms', url: '/ruflo', icon: Waves },
   { title: 'scrcpy', url: '/scrcpy', icon: Smartphone },
   { title: 'Search', url: '/search', icon: Search },
+  { title: 'Sellbird', url: '/sellbird', icon: Mail },
   { title: 'Settings', url: '/settings', icon: Settings },
   { title: 'Shannon', url: '/shannon', icon: ShieldCheck },
   { title: 'SkillOpt', url: '/skillopt', icon: GraduationCap },
